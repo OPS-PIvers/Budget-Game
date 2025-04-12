@@ -1,0 +1,343 @@
+/**
+ * Comprehensive content library for Budget Game v3
+ * Contains varied text content for morning emails, organized by category
+ */
+
+/**
+ * Returns the complete content library with all message variations.
+ * @return {object} The comprehensive content library object
+ */
+function createComprehensiveContentLibrary() {
+  return {
+    // Morning greetings (30+ variations)
+    greetings: [
+      // Day-specific
+      "Happy Monday! A fresh week of opportunities ahead.",
+      "Tuesday is for building on yesterday's momentum.",
+      "Wednesday - you're halfway there! Keep it going.",
+      "Thursday - the weekend is in sight, finish strong!",
+      "Friday! Last push before the weekend.",
+      "Weekend mode: Still tracking habits, but with extra relaxation.",
+      "Sunday: Perfect for reflection and planning ahead.",
+      
+      // Weather-influenced (will be selected based on weather data)
+      "☀️ Rise and shine with the sun today!",
+      "☁️ Even on cloudy days, your habits bring brightness.",
+      "🌧️ Perfect day to focus on indoor habits!",
+      "❄️ Freezing outside but your motivation stays warm.",
+      "🌫️ See through the fog with clear habit goals.",
+      
+      // Progress-based
+      "Another day to build on your successes!",
+      "Each day is a chance to strengthen your habits.",
+      "Your consistency is creating real change!",
+      "Small steps add up - you're proving that daily.",
+      "Building better habits, one day at a time.",
+      
+      // Motivational
+      "Today's choices shape tomorrow's reality.",
+      "Begin today with intention and purpose.",
+      "Morning! Your habits are quietly changing your life.",
+      "The day is unwritten - make it count!",
+      "Ready to make today even better than yesterday?",
+      
+      // Question-based engagement
+      "What's your priority habit for today?",
+      "Which habit will have the biggest impact on your day?",
+      "Which habit streak are you most proud of right now?",
+      "How will today's choices reflect your long-term goals?",
+      "What habit would your future self thank you for focusing on today?",
+      
+      // Seasonal
+      "Fresh spring morning - perfect for renewed habits!",
+      "Summer day ahead - stay cool while smashing goals!",
+      "Fall vibes - perfect time for creating cozy, healthy habits.",
+      "Winter morning - warm up with positive habits today."
+    ],
+    
+    // Main message variants (40+ variations categorized by focus area)
+    mainMessages: {
+      // Financial focus messages (10+)
+      financial: [
+        "Today's small financial choices compound into tomorrow's freedom. Each mindful spending decision builds your future security.",
+        "Think of your money like water - it should flow toward things that help you grow, not drain away without purpose.",
+        "Financial freedom isn't about wealth - it's about aligning your spending with your deepest values. Today's choices matter.",
+        "Your budget is a concrete expression of your priorities. When you track spending, you're really tracking what matters most to you.",
+        "The gap between your income and expenses is your opportunity space. Protecting that gap gives you options others don't have.",
+        "Saving money is really about buying your future freedom. Every dollar saved is a vote for your future self.",
+        "Small leaks sink great ships. Look for the small, repeated expenses that might be draining your budget without adding real value.",
+        "Financial health isn't about deprivation - it's about intentionality. Spend generously on what truly matters, cut ruthlessly on what doesn't.",
+        "Your spending habits are just that - habits. They can be examined, adjusted, and improved just like any other routine.",
+        "Today's spending is tomorrow's lifestyle. Each choice moves you either toward or away from the future you envision."
+      ],
+      
+      // Health habits messages (10+)
+      health: [
+        "Your body is your most important asset - investing in its health pays dividends every single day.",
+        "Health habits are the foundation everything else builds upon. Prioritizing them makes all other goals more achievable.",
+        "Notice how your physical habits affect your mental clarity and emotional balance. Everything is connected.",
+        "Small daily movements add up. A 10-minute walk is infinitely better than no movement at all.",
+        "Consider nutrition as information for your body, not just fuel. Quality matters as much as quantity.",
+        "Sleep isn't a luxury - it's essential maintenance. Protecting your sleep means protecting your whole system.",
+        "Your future self will thank you for prioritizing health today. These habits have the longest compounding time horizon.",
+        "Consistency in health trumps intensity. The habit you maintain easily is better than the perfect one you abandon.",
+        "The body keeps score - both of what you do and what you don't do. Today's habits become tomorrow's reality.",
+        "Health isn't just about longevity - it's about the quality of your daily experience right now. Feel the difference today."
+      ],
+      
+      // Household management messages (8+)
+      household: [
+        "Your environment shapes your actions. A clear space allows for clear thinking and better decisions.",
+        "Small daily maintenance prevents big cleanup projects. Which small task would make the biggest difference today?",
+        "Your home should support your priorities, not drain your energy. What one improvement would help most?",
+        "Decluttering isn't just about things - it's about making space for what truly matters in your life.",
+        "Systems beat intentions. What household routine could you automate or simplify today?",
+        "A well-maintained home provides a foundation for everything else. It's not superficial - it's strategic.",
+        "Your physical space reflects and affects your mental space. Notice how they interact today.",
+        "Batch similar household tasks together to gain efficiency and momentum. Small wins build on each other."
+      ],
+      
+      // Self-discipline messages (8+)
+      discipline: [
+        "Discipline isn't about perfection - it's about returning to the path when you stray. Today is always a fresh start.",
+        "Willpower is limited, but systems are not. What guardrail can you build to make good choices easier today?",
+        "The ability to do what needs doing, regardless of how you feel, is a superpower. It's built one day at a time.",
+        "Discomfort is the price of growth. The capacity to sit with it calmly is worth developing.",
+        "Your habits are making deposits in your future self's account. Consistency compounds over time.",
+        "The difference between who you are and who you want to be is what you do daily. Today matters.",
+        "Resistance before action is normal. Notice it, acknowledge it, and act anyway. It gets easier with practice.",
+        "Motivation is fleeting, but identity is durable. Act like the person you want to become, especially when you don't feel like it."
+      ],
+      
+      // Achievement celebration messages (8+)
+      achievement: [
+        "Your consistency is paying off! Seeing progress is both rewarding now and motivating for tomorrow.",
+        "Small wins matter enormously. They prove your system works and build confidence for bigger challenges.",
+        "Celebrate progress, not just perfection. Every step forward is meaningful.",
+        "The improvements you're making might seem small day-to-day, but they're transformative over time.",
+        "Success builds on success. Your achievements create momentum that makes the next goal easier.",
+        "Behind every significant change is a series of small, consistent actions - exactly what you're doing.",
+        "Your track record is becoming a source of strength. Look back occasionally to see how far you've come.",
+        "The data doesn't lie - your efforts are creating real results. Let that fuel your continued progress."
+      ]
+    },
+    
+    // Daily challenge suggestions (40+ variations across categories)
+    challenges: {
+      // Financial challenges (10+)
+      financial: [
+        "Today's Challenge: Zero unnecessary spending. Distinguish wants from needs for every purchase opportunity.",
+        "Today's Challenge: Review your last 7 days of spending. Identify one pattern you'd like to change.",
+        "Today's Challenge: Find one subscription you can reduce or eliminate. Take action today.",
+        "Today's Challenge: Pack food/drinks for any outings to avoid convenience purchases.",
+        "Today's Challenge: Research one financial optimization (better interest rate, lower fee, etc.) and implement it.",
+        "Today's Challenge: Identify your most common impulse purchase trigger and create a specific plan to manage it.",
+        "Today's Challenge: Calculate the annual cost of a regular small expense. Is it aligned with your priorities?",
+        "Today's Challenge: Schedule 15 minutes for financial review. Check progress on monthly goals.",
+        "Today's Challenge: Find one item you were planning to buy and identify a way to get it for less.",
+        "Today's Challenge: Try a completely cash-only day to increase spending awareness."
+      ],
+      
+      // Health challenges (10+)
+      health: [
+        "Today's Challenge: Drink water before every meal and snack.",
+        "Today's Challenge: Take three 5-minute movement breaks during your workday.",
+        "Today's Challenge: Try a new vegetable or preparation method with dinner.",
+        "Today's Challenge: Set a specific bedtime and create a 30-minute wind-down routine before it.",
+        "Today's Challenge: Take a 15-minute walk outside, regardless of weather (safely).",
+        "Today's Challenge: Practice deep breathing for 2 minutes whenever you feel stressed today.",
+        "Today's Challenge: Eat without screens for all meals today. Notice your fullness cues.",
+        "Today's Challenge: Do a quick body-weight exercise set (10 squats, 10 push-ups, 10 lunges) once today.",
+        "Today's Challenge: Identify one processed food you could replace with a whole food alternative.",
+        "Today's Challenge: Set a timer to stand up and stretch every hour of your workday."
+      ],
+      
+      // Household challenges (8+)
+      household: [
+        "Today's Challenge: Choose one small area (drawer, shelf, counter) and fully declutter it.",
+        "Today's Challenge: Identify one household task you've been postponing and do it for just 10 minutes.",
+        "Today's Challenge: Create a 15-minute end-of-day reset routine for your main living space.",
+        "Today's Challenge: Select 3 items you no longer need or love and remove them from your home.",
+        "Today's Challenge: Clean one appliance thoroughly that often gets overlooked.",
+        "Today's Challenge: Audit one category of household supplies to see what you actually have before purchasing more.",
+        "Today's Challenge: Create a simple system for something that's currently disorganized.",
+        "Today's Challenge: Fix one small broken item or address one maintenance task you've been putting off."
+      ],
+      
+      // Self-development challenges (8+)
+      development: [
+        "Today's Challenge: Read or listen to educational content for 15 minutes.",
+        "Today's Challenge: Practice focused work with no distractions for 25 minutes straight.",
+        "Today's Challenge: Write down three things you're grateful for before bed.",
+        "Today's Challenge: Learn one new useful skill, however small, and practice it.",
+        "Today's Challenge: Identify one digital distraction and put specific boundaries around it today.",
+        "Today's Challenge: Have a conversation with someone who thinks differently than you do. Listen more than you speak.",
+        "Today's Challenge: Set a timer for 10 minutes of complete stillness and mental rest.",
+        "Today's Challenge: Write down your top three priorities before starting your workday, and align your actions with them."
+      ],
+      
+      // Relationship challenges (4+)
+      relationship: [
+        "Today's Challenge: Express specific appreciation to at least two people in your life.",
+        "Today's Challenge: Reach out to someone you haven't connected with recently.",
+        "Today's Challenge: Practice giving your full attention during conversations - no phones or distractions.",
+        "Today's Challenge: Do one small act of service for someone without expectation of recognition."
+      ]
+    },
+    
+    // Streak motivation messages (15+ variations for different streak lengths)
+    streakMessages: {
+      building: [
+        "You're on day {count} for {activity}! One more day builds a proper streak with bonus points!",
+        "Building momentum with {activity} - {count} days and counting! Tomorrow brings streak rewards!",
+        "Day {count} of your {activity} habit! Keep going for streak bonuses tomorrow!",
+        "You're laying the foundation for a powerful {activity} streak! Day {count} complete!"
+      ],
+      
+      milestone3: [
+        "3-day streak achieved with {activity}! You've earned bonus points and proven this habit is sticking!",
+        "Triple success with {activity}! That's 3 consecutive days and your first streak bonus!",
+        "Your {activity} streak has hit the 3-day mark! First bonus level unlocked!",
+        "Three days strong with {activity}! You've earned your first streak bonus!"
+      ],
+      
+      milestone7: [
+        "Incredible! Your {activity} streak is at {count} days - you've reached the second bonus tier!",
+        "A full week of consistency with {activity}! That's {count} days and higher bonus points!",
+        "Seven days of {activity} success! Your dedication has unlocked the next level of streak rewards!",
+        "Week-long streak with {activity} achieved! Higher bonus points activated!"
+      ],
+      
+      milestone14: [
+        "Two full weeks of {activity}! At {count} days, you've activated the maximum streak multiplier!",
+        "Your {activity} streak has reached {count} days! You're now earning DOUBLE points with this activity!",
+        "Remarkable consistency! {count} days of {activity} has activated your 2x point multiplier!",
+        "Maximum streak bonus unlocked! {count} days of {activity} now earns you double points!"
+      ],
+      
+      ongoing: [
+        "Your {activity} streak continues at {count} days! The consistency is becoming part of your identity.",
+        "Day {count} of your {activity} streak! This sustained effort is creating real change.",
+        "{count} days of {activity} and counting! Your commitment is inspiring.",
+        "Your {activity} streak ({count} days) shows remarkable dedication. Keep the momentum going!"
+      ]
+    },
+    
+    // Recovery messages (for missed streaks or negative days)
+    recoveryMessages: [
+      "Yesterday had some challenges, but today is a completely fresh start.",
+      "Progress isn't linear - occasional setbacks are just information to learn from, not failures.",
+      "Every journey has peaks and valleys. Yesterday was a valley; today you can start climbing again.",
+      "Yesterday's choices don't define today's opportunities. What matters is what you do next.",
+      "The ability to reset and begin again is a powerful skill you're practicing right now.",
+      "Everyone falls sometimes. Success comes from how quickly you get back up.",
+      "Consistency doesn't mean perfection. It means returning to the path when you stray.",
+      "Today is a new opportunity to align your actions with your intentions.",
+      "The best response to a challenging day is simple: begin again without judgment.",
+      "Resilience means using setbacks as setup for comebacks. Today's a great comeback opportunity."
+    ],
+    
+    // Weekly theme messages (one per week of the year)
+    weeklyThemes: [
+      // Sample themes for first 12 weeks (expand to 52)
+      {
+        theme: "Foundations",
+        message: "This week is about establishing your core habits. Focus on consistency over perfection."
+      },
+      {
+        theme: "Mindful Spending",
+        message: "Pay special attention to daily purchasing decisions this week. Notice patterns and triggers."
+      },
+      {
+        theme: "Health Basics",
+        message: "Simple health habits form the foundation for everything else. Prioritize sleep, movement, and whole foods."
+      },
+      {
+        theme: "Decluttering",
+        message: "Creating physical space creates mental space. What small areas can you simplify this week?"
+      },
+      {
+        theme: "Financial Awareness",
+        message: "Knowledge precedes change. This week, focus on tracking and understanding your financial patterns."
+      },
+      {
+        theme: "Habit Stacking",
+        message: "Try connecting new habits to established ones for easier integration this week."
+      },
+      {
+        theme: "Energy Management",
+        message: "Pay attention to when your energy is highest and align important tasks accordingly."
+      },
+      {
+        theme: "Meal Planning",
+        message: "A little preparation prevents impulse food decisions. Focus on planning meals this week."
+      },
+      {
+        theme: "Digital Boundaries",
+        message: "Notice how technology affects your habits. Create intentional boundaries where needed."
+      },
+      {
+        theme: "Mindful Consumption",
+        message: "Quality over quantity applies to both purchases and experiences. Choose carefully this week."
+      },
+      {
+        theme: "Routine Refinement",
+        message: "Examine your daily routines. Which small adjustments would create the biggest positive impact?"
+      },
+      {
+        theme: "Celebration",
+        message: "Acknowledge your progress. Noticing positive changes reinforces continued effort."
+      }
+    ],
+    
+    // Special occasion messages (birthdays, milestones, holidays)
+    specialOccasions: {
+      // The key would be the date in MM-DD format
+      "01-01": {
+        title: "New Year",
+        message: "As the year begins, remember that consistent small actions create remarkable changes over time."
+      },
+      "07-04": {
+        title: "Independence Day",
+        message: "Financial independence comes from the daily choices that align with your long-term vision."
+      },
+      "11-25": {
+        title: "Thanksgiving",
+        message: "Gratitude enhances the experience of what you already have - a powerful antidote to unnecessary spending."
+      },
+      "12-25": {
+        title: "Christmas",
+        message: "The best gifts don't always come wrapped. Your healthy habits are a gift to yourself and loved ones."
+      },
+      // More holidays can be added
+      
+      // Milestone messages (would be triggered by achievements, not dates)
+      "milestone-50-activities": {
+        title: "50 Activities Milestone!",
+        message: "You've logged 50 positive activities! Your consistency is creating real change in your life."
+      },
+      "milestone-100-points": {
+        title: "100 Points Milestone!",
+        message: "Triple digits! You've earned 100 points through your dedicated habit tracking."
+      },
+      "milestone-10-day-streak": {
+        title: "10-Day Streak Achievement!",
+        message: "Maintaining any habit for 10 consecutive days demonstrates remarkable commitment."
+      }
+    },
+    
+    // Visualization prompts (for mental imagery exercises)
+    visualizations: [
+      "Take a moment to imagine yourself one year from now, after consistently maintaining your positive habits. What's different?",
+      "Visualize opening your bank account and seeing a steadily growing balance. How does that stability feel?",
+      "Picture yourself moving through your day with abundant energy from your health habits. Notice how it affects everything else.",
+      "Imagine your living space perfectly organized, with systems that make maintaining it simple. How does that environment support your goals?",
+      "See yourself easily saying 'no' to purchases that don't align with your values, without feeling deprived.",
+      "Visualize the compound effect of your habits over time - small daily choices creating meaningful life changes.",
+      "Picture yourself handling a stressful situation with calm and clarity because your foundation of good habits supports you.",
+      "Imagine the satisfaction of reaching a major financial goal through consistent small actions.",
+      "See yourself enjoying activities that cost little but add richness to your life.",
+      "Visualize your future self thanking you for the habits you're building today."
+    ]
+  };
+}
