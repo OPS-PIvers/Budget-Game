@@ -1,0 +1,601 @@
+<!-- Admin.html -->
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <style>
+      /* Common styles shared with main app */
+      :root {
+        --positive-color: #34A853;
+        --negative-color: #EA4335;
+        --primary-color: #4285F4;
+        --section-bg: #f8f9fa;
+        --border-color: #dadce0;
+        --header-bg: #4285F4;
+        --header-fg: white;
+      }
+      
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        font-family: 'Roboto', Arial, sans-serif;
+      }
+      
+      body {
+        background-color: #f1f3f4;
+        color: #202124;
+        line-height: 1.5;
+      }
+      
+      .container {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 16px;
+      }
+      
+      header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+      }
+      
+      header h1 {
+        color: var(--primary-color);
+      }
+      
+      .back-btn {
+        padding: 8px 16px;
+        background-color: #f1f3f4;
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        cursor: pointer;
+        color: #5f6368;
+        text-decoration: none;
+        display: inline-block;
+      }
+      
+      .admin-section {
+        background-color: white;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 24px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+      }
+      
+      .section-title {
+        font-size: 18px;
+        margin-bottom: 16px;
+        color: #202124;
+        border-bottom: 1px solid var(--border-color);
+        padding-bottom: 8px;
+      }
+      
+      /* Activity Table */
+      .activities-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 16px;
+      }
+      
+      .activities-table th {
+        text-align: left;
+        background-color: var(--section-bg);
+        padding: 10px;
+        border-bottom: 2px solid var(--border-color);
+      }
+      
+      .activities-table td {
+        padding: 10px;
+        border-bottom: 1px solid var(--border-color);
+      }
+      
+      .activities-table input, .activities-table select {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+      }
+      
+      .activities-table input[type="number"] {
+        text-align: right;
+      }
+      
+      /* Form Actions */
+      .form-actions {
+        margin-top: 16px;
+        display: flex;
+        gap: 12px;
+        justify-content: flex-end;
+      }
+      
+      .btn {
+        padding: 10px 20px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-weight: bold;
+      }
+      
+      .btn-primary {
+        background-color: var(--primary-color);
+        color: white;
+        border: none;
+      }
+      
+      .btn-secondary {
+        background-color: #f1f3f4;
+        color: #5f6368;
+        border: 1px solid var(--border-color);
+      }
+      
+      .btn-danger {
+        background-color: var(--negative-color);
+        color: white;
+        border: none;
+      }
+      
+      /* Settings Form */
+      .settings-form {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+      }
+      
+      .form-group {
+        margin-bottom: 16px;
+      }
+      
+      .form-group label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: bold;
+        color: #5f6368;
+      }
+      
+      .form-group input {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+      }
+      
+      .notification {
+        position: fixed;
+        bottom: 24px;
+        left: 50%;
+        transform: translateX(-50%);
+        padding: 12px 24px;
+        background-color: #323232;
+        color: white;
+        border-radius: 4px;
+        box-shadow: 0 3px 5px rgba(0,0,0,0.2);
+        transition: opacity 0.3s, visibility 0.3s;
+        z-index: 1000;
+      }
+      
+      .notification.hidden {
+        opacity: 0;
+        visibility: hidden;
+      }
+      
+      /* Activity Controls */
+      .activity-controls {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
+      }
+      
+      /* Responsive adjustments */
+      @media (max-width: 600px) {
+        .settings-form {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1>Budget Game Admin</h1>
+        <a href="#" class="back-btn" id="back-button">Return to App</a>
+      </header>
+      
+      <div class="admin-section">
+        <h2 class="section-title">Activity Configuration</h2>
+        
+        <div class="activity-controls">
+          <input type="text" id="search-activities" placeholder="Search activities...">
+          <button class="btn btn-secondary" id="add-activity-btn">Add New Activity</button>
+        </div>
+        
+        <div style="max-height: 400px; overflow-y: auto;">
+          <table class="activities-table" id="activities-table">
+            <thead>
+              <tr>
+                <th style="width: 50%;">Activity</th>
+                <th style="width: 15%;">Points</th>
+                <th style="width: 25%;">Category</th>
+                <th style="width: 10%;">Action</th>
+              </tr>
+            </thead>
+            <tbody id="activities-body">
+              <!-- Will be populated with JavaScript -->
+              <tr>
+                <td colspan="4">Loading activities...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        
+        <div class="form-actions">
+          <button class="btn btn-secondary" id="reset-activities-btn">Reset Changes</button>
+          <button class="btn btn-primary" id="save-activities-btn">Save Activities</button>
+        </div>
+      </div>
+      
+      <div class="admin-section">
+        <h2 class="section-title">Streak Settings</h2>
+        
+        <div class="settings-form">
+          <div class="form-group">
+            <label for="threshold-bonus1">Days for Bonus 1:</label>
+            <input type="number" id="threshold-bonus1" min="2" max="30">
+          </div>
+          
+          <div class="form-group">
+            <label for="bonus-points1">Bonus 1 Points:</label>
+            <input type="number" id="bonus-points1" min="1" max="10">
+          </div>
+          
+          <div class="form-group">
+            <label for="threshold-bonus2">Days for Bonus 2:</label>
+            <input type="number" id="threshold-bonus2" min="3" max="30">
+          </div>
+          
+          <div class="form-group">
+            <label for="bonus-points2">Bonus 2 Points:</label>
+            <input type="number" id="bonus-points2" min="1" max="10">
+          </div>
+          
+          <div class="form-group">
+            <label for="threshold-multiplier">Days for Multiplier:</label>
+            <input type="number" id="threshold-multiplier" min="5" max="60">
+          </div>
+        </div>
+        
+        <div class="form-actions">
+          <button class="btn btn-secondary" id="reset-streak-btn">Reset Changes</button>
+          <button class="btn btn-primary" id="save-streak-btn">Save Streak Settings</button>
+        </div>
+      </div>
+    </div>
+    
+    <div id="notification" class="notification hidden"></div>
+    
+    <script>
+      // Global state
+      let activitiesData = [];
+      let originalActivitiesData = [];
+      let categoriesList = [];
+      let streakSettings = {};
+      let originalStreakSettings = {};
+      
+      // Initialize on page load
+      document.addEventListener('DOMContentLoaded', initializeAdmin);
+      
+      function initializeAdmin() {
+        // Set up event listeners
+        document.getElementById('back-button').addEventListener('click', navigateToApp);
+        document.getElementById('add-activity-btn').addEventListener('click', addNewActivity);
+        document.getElementById('reset-activities-btn').addEventListener('click', resetActivities);
+        document.getElementById('save-activities-btn').addEventListener('click', saveActivities);
+        document.getElementById('reset-streak-btn').addEventListener('click', resetStreakSettings);
+        document.getElementById('save-streak-btn').addEventListener('click', saveStreakSettings);
+        document.getElementById('search-activities').addEventListener('input', filterActivities);
+        
+        // Load configuration data
+        google.script.run
+          .withSuccessHandler(handleConfigData)
+          .withFailureHandler(handleError)
+          .getAdminConfigData();
+      }
+      
+      function handleConfigData(data) {
+        categoriesList = data.categories || [];
+        activitiesData = data.pointsReference || [];
+        originalActivitiesData = JSON.parse(JSON.stringify(activitiesData)); // Deep copy
+        
+        streakSettings = data.streakSettings || {};
+        originalStreakSettings = JSON.parse(JSON.stringify(streakSettings)); // Deep copy
+        
+        // Render UI
+        renderActivitiesTable();
+        populateStreakSettings();
+      }
+      
+      function renderActivitiesTable() {
+        const tbody = document.getElementById('activities-body');
+        tbody.innerHTML = '';
+        
+        if (activitiesData.length === 0) {
+          const emptyRow = document.createElement('tr');
+          emptyRow.innerHTML = '<td colspan="4">No activities found. Add your first activity!</td>';
+          tbody.appendChild(emptyRow);
+          return;
+        }
+        
+        activitiesData.forEach((activity, index) => {
+          const tr = document.createElement('tr');
+          
+          // Activity name cell
+          const nameCell = document.createElement('td');
+          const nameInput = document.createElement('input');
+          nameInput.type = 'text';
+          nameInput.value = activity.activity || '';
+          nameInput.dataset.index = index;
+          nameInput.addEventListener('change', updateActivity);
+          nameCell.appendChild(nameInput);
+          
+          // Points cell
+          const pointsCell = document.createElement('td');
+          const pointsInput = document.createElement('input');
+          pointsInput.type = 'number';
+          pointsInput.value = activity.points || 0;
+          pointsInput.dataset.index = index;
+          pointsInput.dataset.field = 'points';
+          pointsInput.addEventListener('change', updateActivity);
+          pointsCell.appendChild(pointsInput);
+          
+          // Category cell
+          const categoryCell = document.createElement('td');
+          const categorySelect = document.createElement('select');
+          categorySelect.dataset.index = index;
+          categorySelect.dataset.field = 'category';
+          categorySelect.addEventListener('change', updateActivity);
+          
+          // Add options for all categories
+          categoriesList.forEach(category => {
+            const option = document.createElement('option');
+            option.value = category;
+            option.textContent = category;
+            option.selected = category === activity.category;
+            categorySelect.appendChild(option);
+          });
+          
+          categoryCell.appendChild(categorySelect);
+          
+          // Action cell
+          const actionCell = document.createElement('td');
+          const deleteBtn = document.createElement('button');
+          deleteBtn.className = 'btn btn-danger';
+          deleteBtn.textContent = 'X';
+          deleteBtn.dataset.index = index;
+          deleteBtn.addEventListener('click', deleteActivity);
+          actionCell.appendChild(deleteBtn);
+          
+          // Add cells to row
+          tr.appendChild(nameCell);
+          tr.appendChild(pointsCell);
+          tr.appendChild(categoryCell);
+          tr.appendChild(actionCell);
+          
+          // Style row based on points
+          const points = parseFloat(activity.points || 0);
+          if (points > 0) {
+            tr.style.backgroundColor = 'rgba(52, 168, 83, 0.1)';
+          } else if (points < 0) {
+            tr.style.backgroundColor = 'rgba(234, 67, 53, 0.1)';
+          }
+          
+          tbody.appendChild(tr);
+        });
+      }
+      
+      function populateStreakSettings() {
+        document.getElementById('threshold-bonus1').value = streakSettings.thresholds?.bonus1 || 3;
+        document.getElementById('threshold-bonus2').value = streakSettings.thresholds?.bonus2 || 7;
+        document.getElementById('threshold-multiplier').value = streakSettings.thresholds?.multiplier || 14;
+        document.getElementById('bonus-points1').value = streakSettings.bonusPoints?.bonus1 || 1;
+        document.getElementById('bonus-points2').value = streakSettings.bonusPoints?.bonus2 || 2;
+      }
+      
+      function updateActivity(event) {
+        const index = parseInt(event.target.dataset.index);
+        const field = event.target.dataset.field || 'activity';
+        let value = event.target.value;
+        
+        // Convert points to number
+        if (field === 'points') {
+          value = parseFloat(value) || 0;
+        }
+        
+        // Update the activity
+        activitiesData[index][field] = value;
+        
+        // If changing points, update row styling
+        if (field === 'points') {
+          const tr = event.target.closest('tr');
+          if (value > 0) {
+            tr.style.backgroundColor = 'rgba(52, 168, 83, 0.1)';
+          } else if (value < 0) {
+            tr.style.backgroundColor = 'rgba(234, 67, 53, 0.1)';
+          } else {
+            tr.style.backgroundColor = '';
+          }
+        }
+      }
+      
+      function addNewActivity() {
+        const newActivity = {
+          activity: 'New Activity',
+          points: 1,
+          category: categoriesList[0] || 'Uncategorized'
+        };
+        
+        activitiesData.push(newActivity);
+        renderActivitiesTable();
+        
+        // Scroll to bottom to show the new activity
+        const tbody = document.getElementById('activities-body');
+        tbody.parentElement.scrollTop = tbody.parentElement.scrollHeight;
+      }
+      
+      function deleteActivity(event) {
+        const index = parseInt(event.target.dataset.index);
+        
+        if (confirm('Are you sure you want to delete this activity?')) {
+          activitiesData.splice(index, 1);
+          renderActivitiesTable();
+        }
+      }
+      
+      function resetActivities() {
+        activitiesData = JSON.parse(JSON.stringify(originalActivitiesData));
+        renderActivitiesTable();
+        showNotification('Activities reset to original values');
+      }
+      
+      function saveActivities() {
+        // Validate activities
+        const invalidActivities = activitiesData.filter(activity => 
+          !activity.activity || activity.activity.trim() === ''
+        );
+        
+        if (invalidActivities.length > 0) {
+          showNotification('Error: All activities must have a name');
+          return;
+        }
+        
+        // Disable buttons during save
+        toggleSaveButtons(true);
+        
+        google.script.run
+          .withSuccessHandler(handleActivitiesSaved)
+          .withFailureHandler(handleError)
+          .saveActivitiesData(activitiesData);
+      }
+      
+      function handleActivitiesSaved(result) {
+        toggleSaveButtons(false);
+        
+        if (result.success) {
+          showNotification(result.message);
+          // Update original data
+          originalActivitiesData = JSON.parse(JSON.stringify(activitiesData));
+        } else {
+          showNotification('Error: ' + result.message);
+        }
+      }
+      
+      function resetStreakSettings() {
+        streakSettings = JSON.parse(JSON.stringify(originalStreakSettings));
+        populateStreakSettings();
+        showNotification('Streak settings reset to original values');
+      }
+      
+      function saveStreakSettings() {
+        // Get values from form
+        const newSettings = {
+          thresholds: {
+            bonus1: parseInt(document.getElementById('threshold-bonus1').value) || 3,
+            bonus2: parseInt(document.getElementById('threshold-bonus2').value) || 7,
+            multiplier: parseInt(document.getElementById('threshold-multiplier').value) || 14
+          },
+          bonusPoints: {
+            bonus1: parseInt(document.getElementById('bonus-points1').value) || 1,
+            bonus2: parseInt(document.getElementById('bonus-points2').value) || 2
+          }
+        };
+        
+        // Validate thresholds are in ascending order
+        if (newSettings.thresholds.bonus1 >= newSettings.thresholds.bonus2) {
+          showNotification('Error: Bonus 1 threshold must be less than Bonus 2 threshold');
+          return;
+        }
+        
+        if (newSettings.thresholds.bonus2 >= newSettings.thresholds.multiplier) {
+          showNotification('Error: Bonus 2 threshold must be less than Multiplier threshold');
+          return;
+        }
+        
+        // Disable buttons during save
+        toggleSaveButtons(true);
+        
+        google.script.run
+          .withSuccessHandler(handleStreakSettingsSaved)
+          .withFailureHandler(handleError)
+          .saveStreakSettings(newSettings);
+      }
+      
+      function handleStreakSettingsSaved(result) {
+        toggleSaveButtons(false);
+        
+        if (result.success) {
+          showNotification(result.message);
+          // Update original settings
+          streakSettings = {
+            thresholds: {
+              bonus1: parseInt(document.getElementById('threshold-bonus1').value) || 3,
+              bonus2: parseInt(document.getElementById('threshold-bonus2').value) || 7,
+              multiplier: parseInt(document.getElementById('threshold-multiplier').value) || 14
+            },
+            bonusPoints: {
+              bonus1: parseInt(document.getElementById('bonus-points1').value) || 1,
+              bonus2: parseInt(document.getElementById('bonus-points2').value) || 2
+            }
+          };
+          originalStreakSettings = JSON.parse(JSON.stringify(streakSettings));
+        } else {
+          showNotification('Error: ' + result.message);
+        }
+      }
+      
+      function filterActivities() {
+        const searchTerm = document.getElementById('search-activities').value.toLowerCase();
+        const rows = document.querySelectorAll('#activities-body tr');
+        
+        rows.forEach(row => {
+          const nameInput = row.querySelector('input[type="text"]');
+          if (!nameInput) return;
+          
+          const activityName = nameInput.value.toLowerCase();
+          if (activityName.includes(searchTerm)) {
+            row.style.display = '';
+          } else {
+            row.style.display = 'none';
+          }
+        });
+      }
+      
+      function toggleSaveButtons(disabled) {
+        document.getElementById('save-activities-btn').disabled = disabled;
+        document.getElementById('reset-activities-btn').disabled = disabled;
+        document.getElementById('save-streak-btn').disabled = disabled;
+        document.getElementById('reset-streak-btn').disabled = disabled;
+      }
+      
+      function navigateToApp() {
+        window.location.href = '<?= getScriptUrl() ?>';
+      }
+      
+      function showNotification(message) {
+        const notification = document.getElementById('notification');
+        notification.textContent = message;
+        notification.classList.remove('hidden');
+        
+        // Hide after 3 seconds
+        setTimeout(() => {
+          notification.classList.add('hidden');
+        }, 3000);
+      }
+      
+      function handleError(error) {
+        console.error('Error:', error);
+        showNotification('Error: ' + (error.message || 'Unknown error'));
+        toggleSaveButtons(false);
+      }
+    </script>
+  </body>
+</html>
