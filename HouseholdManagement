@@ -1,0 +1,498 @@
+/**
+ * HouseholdManagement.gs
+ * 
+ * Handles household data management and related functionality for Budget Game.
+ * Houses functions for creating, managing, and querying household information.
+ */
+
+/**
+ * Sets up the Households sheet with correct headers and formatting.
+ * Creates the sheet if it doesn't exist.
+ * @return {Sheet} The Households sheet object
+ */
+function setupHouseholdsSheet() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheetName = "Households";
+  let sheet = ss.getSheetByName(sheetName);
+  
+  // Create sheet if it doesn't exist
+  if (!sheet) {
+    sheet = ss.insertSheet(sheetName);
+    
+    // Add headers
+    const headers = [["HouseholdID", "HouseholdName", "UserEmail", "DateAdded"]];
+    sheet.getRange("A1:D1").setValues(headers)
+      .setFontWeight("bold")
+      .setBackground(CONFIG.COLORS.HEADER_BG)
+      .setFontColor(CONFIG.COLORS.HEADER_FG);
+    
+    // Set column widths
+    sheet.setColumnWidth(1, 200); // HouseholdID
+    sheet.setColumnWidth(2, 180); // HouseholdName
+    sheet.setColumnWidth(3, 250); // UserEmail
+    sheet.setColumnWidth(4, 150); // DateAdded
+    
+    // Format date column
+    sheet.getRange("D:D").setNumberFormat(CONFIG.DATE_FORMAT_SHORT);
+    
+    // Add data validation for user emails (optional)
+    // const emailRule = SpreadsheetApp.newDataValidation()
+    //   .requireTextIsEmail()
+    //   .build();
+    // sheet.getRange("C2:C").setDataValidation(emailRule);
+    
+    Logger.log("Created new Households sheet");
+  }
+  
+  return sheet;
+}
+
+/**
+ * Gets a user's household ID from the Households sheet.
+ * Uses caching for performance.
+ * @param {string} email - The user's email address
+ * @return {string|null} The household ID or null if not found
+ */
+function getUserHouseholdId(email) {
+  if (!email) return null;
+  
+  // Check cache first
+  const cache = CacheService.getScriptCache();
+  const cacheKey = `household_${email}`;
+  const cachedId = cache.get(cacheKey);
+  
+  if (cachedId) {
+    return cachedId === "null" ? null : cachedId; // Handle null stored as string
+  }
+  
+  // Not in cache, look up in sheet
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName("Households");
+  
+  if (!sheet) {
+    Logger.log("Households sheet not found");
+    return null;
+  }
+  
+  const lastRow = sheet.getLastRow();
+  if (lastRow <= 1) {
+    // Only header row exists
+    cache.put(cacheKey, "null", CONFIG.CACHE_EXPIRATION_SECONDS);
+    return null;
+  }
+  
+  // Get all email rows
+  const data = sheet.getRange(2, 1, lastRow - 1, 3).getValues(); // HouseholdID, HouseholdName, UserEmail
+  let householdId = null;
+  
+  // Find the household for this email
+  for (let i = 0; i < data.length; i++) {
+    if (data[i][2].toString().trim().toLowerCase() === email.toString().trim().toLowerCase()) {
+      householdId = data[i][0];
+      break;
+    }
+  }
+  
+  // Store in cache (even if null, to avoid repeated lookups)
+  cache.put(cacheKey, householdId || "null", CONFIG.CACHE_EXPIRATION_SECONDS);
+  
+  return householdId;
+}
+
+/**
+ * Gets all email addresses in a household.
+ * Uses caching for performance.
+ * @param {string} householdId - The household ID
+ * @return {Array<string>} Array of email addresses, or empty array if not found
+ */
+function getHouseholdEmails(householdId) {
+  if (!householdId) return [];
+  
+  // Check cache first
+  const cache = CacheService.getScriptCache();
+  const cacheKey = `household_members_${householdId}`;
+  const cachedData = cache.get(cacheKey);
+  
+  if (cachedData) {
+    return JSON.parse(cachedData);
+  }
+  
+  // Not in cache, look up in sheet
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName("Households");
+  
+  if (!sheet) {
+    Logger.log("Households sheet not found");
+    return [];
+  }
+  
+  const lastRow = sheet.getLastRow();
+  if (lastRow <= 1) {
+    // Only header row exists
+    return [];
+  }
+  
+  // Get all household data
+  const data = sheet.getRange(2, 1, lastRow - 1, 3).getValues(); // HouseholdID, HouseholdName, UserEmail
+  const emails = [];
+  
+  // Find all emails for this household
+  for (let i = 0; i < data.length; i++) {
+    if (data[i][0] === householdId && data[i][2]) {
+      emails.push(data[i][2].toString().trim());
+    }
+  }
+  
+  // Store in cache
+  cache.put(cacheKey, JSON.stringify(emails), CONFIG.CACHE_EXPIRATION_SECONDS);
+  
+  return emails;
+}
+
+/**
+ * Gets all households data for admin display.
+ * @return {Array} Array of household data objects
+ */
+function getHouseholdAdminData() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName("Households");
+  
+  if (!sheet) {
+    return [];
+  }
+  
+  const lastRow = sheet.getLastRow();
+  if (lastRow <= 1) {
+    return []; // Only header row exists
+  }
+  
+  const data = sheet.getRange(2, 1, lastRow - 1, 4).getValues();
+  const households = {};
+  
+  // Process and organize data
+  for (let i = 0; i < data.length; i++) {
+    const id = data[i][0];
+    const name = data[i][1];
+    const email = data[i][2];
+    const dateAdded = data[i][3];
+    
+    if (!id || !name || !email) continue; // Skip incomplete rows
+    
+    if (!households[id]) {
+      households[id] = {
+        id: id,
+        name: name,
+        members: []
+      };
+    }
+    
+    households[id].members.push({
+      email: email,
+      dateAdded: dateAdded instanceof Date ? 
+        Utilities.formatDate(dateAdded, Session.getScriptTimeZone(), CONFIG.DATE_FORMAT_SHORT) : 
+        "Unknown"
+    });
+  }
+  
+  return Object.values(households);
+}
+
+/**
+ * Adds a new household with an initial member.
+ * @param {string} name - The name of the household
+ * @param {string} userEmail - The initial user's email
+ * @return {Object} Result object with success status and message
+ */
+function addHousehold(name, userEmail) {
+  if (!name || !userEmail) {
+    return { success: false, message: "Household name and user email are required" };
+  }
+  
+  try {
+    // Make sure the sheet exists
+    const sheet = setupHouseholdsSheet();
+    
+    // Check if user already belongs to a household
+    const existingHousehold = getUserHouseholdId(userEmail);
+    if (existingHousehold) {
+      return { 
+        success: false, 
+        message: `User ${userEmail} already belongs to a household. Please remove them first.` 
+      };
+    }
+    
+    // Generate a new UUID for the household
+    const householdId = Utilities.getUuid();
+    
+    // Add the new household with the initial user
+    const newRow = [
+      householdId,
+      name,
+      userEmail,
+      new Date()
+    ];
+    
+    const lastRow = Math.max(sheet.getLastRow(), 1);
+    sheet.getRange(lastRow + 1, 1, 1, 4).setValues([newRow]);
+    
+    // Clear cache for this user
+    const cache = CacheService.getScriptCache();
+    cache.remove(`household_${userEmail}`);
+    
+    return {
+      success: true,
+      message: `Created household "${name}" with user ${userEmail}`,
+      householdId: householdId
+    };
+  } catch (error) {
+    Logger.log(`Error adding household: ${error}\nStack: ${error.stack}`);
+    return { success: false, message: `Error: ${error.message}` };
+  }
+}
+
+/**
+ * Adds a user to an existing household.
+ * @param {string} householdId - The household ID
+ * @param {string} userEmail - The user's email to add
+ * @return {Object} Result object with success status and message
+ */
+function addUserToHousehold(householdId, userEmail) {
+  if (!householdId || !userEmail) {
+    return { success: false, message: "Household ID and user email are required" };
+  }
+  
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName("Households");
+    
+    if (!sheet) {
+      return { success: false, message: "Households sheet not found" };
+    }
+    
+    // Check if user already belongs to a household
+    const existingHousehold = getUserHouseholdId(userEmail);
+    if (existingHousehold) {
+      return { 
+        success: false, 
+        message: `User ${userEmail} already belongs to household ID ${existingHousehold}. Please remove them first.` 
+      };
+    }
+    
+    // Find the household to get its name
+    const lastRow = sheet.getLastRow();
+    let householdName = null;
+    
+    if (lastRow > 1) {
+      const data = sheet.getRange(2, 1, lastRow - 1, 2).getValues(); // HouseholdID, HouseholdName
+      
+      for (let i = 0; i < data.length; i++) {
+        if (data[i][0] === householdId) {
+          householdName = data[i][1];
+          break;
+        }
+      }
+    }
+    
+    if (!householdName) {
+      return { success: false, message: `Household ID ${householdId} not found` };
+    }
+    
+    // Add the user to the household
+    const newRow = [
+      householdId,
+      householdName,
+      userEmail,
+      new Date()
+    ];
+    
+    sheet.getRange(lastRow + 1, 1, 1, 4).setValues([newRow]);
+    
+    // Clear household caches
+    const cache = CacheService.getScriptCache();
+    cache.remove(`household_${userEmail}`);
+    cache.remove(`household_members_${householdId}`);
+    
+    return {
+      success: true,
+      message: `Added user ${userEmail} to household "${householdName}"`
+    };
+  } catch (error) {
+    Logger.log(`Error adding user to household: ${error}\nStack: ${error.stack}`);
+    return { success: false, message: `Error: ${error.message}` };
+  }
+}
+
+/**
+ * Removes a user from a household.
+ * @param {string} householdId - The household ID
+ * @param {string} userEmail - The user's email to remove
+ * @return {Object} Result object with success status and message
+ */
+function removeUserFromHousehold(householdId, userEmail) {
+  if (!householdId || !userEmail) {
+    return { success: false, message: "Household ID and user email are required" };
+  }
+  
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName("Households");
+    
+    if (!sheet) {
+      return { success: false, message: "Households sheet not found" };
+    }
+    
+    const lastRow = sheet.getLastRow();
+    if (lastRow <= 1) {
+      return { success: false, message: "No household data found" };
+    }
+    
+    // Find the user in the household
+    const data = sheet.getRange(2, 1, lastRow - 1, 3).getValues();
+    let rowToDelete = -1;
+    
+    for (let i = 0; i < data.length; i++) {
+      if (data[i][0] === householdId && 
+          data[i][2].toString().trim().toLowerCase() === userEmail.toString().trim().toLowerCase()) {
+        rowToDelete = i + 2; // +2 because data starts at row 2 and i is 0-based
+        break;
+      }
+    }
+    
+    if (rowToDelete === -1) {
+      return { 
+        success: false, 
+        message: `User ${userEmail} not found in household ${householdId}` 
+      };
+    }
+    
+    // Delete the row
+    sheet.deleteRow(rowToDelete);
+    
+    // Clear caches
+    const cache = CacheService.getScriptCache();
+    cache.remove(`household_${userEmail}`);
+    cache.remove(`household_members_${householdId}`);
+    
+    // Check if there are any members left in the household
+    const remainingMembers = getHouseholdEmails(householdId);
+    let message = `Removed ${userEmail} from household`;
+    
+    if (remainingMembers.length === 0) {
+      message += ". This was the last member, so the household is now empty.";
+    }
+    
+    return {
+      success: true,
+      message: message,
+      remainingMembers: remainingMembers.length
+    };
+  } catch (error) {
+    Logger.log(`Error removing user from household: ${error}\nStack: ${error.stack}`);
+    return { success: false, message: `Error: ${error.message}` };
+  }
+}
+
+/**
+ * Deletes a household and all its user assignments.
+ * @param {string} householdId - The household ID to delete
+ * @return {Object} Result object with success status and message
+ */
+function deleteHousehold(householdId) {
+  if (!householdId) {
+    return { success: false, message: "Household ID is required" };
+  }
+  
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName("Households");
+    
+    if (!sheet) {
+      return { success: false, message: "Households sheet not found" };
+    }
+    
+    const lastRow = sheet.getLastRow();
+    if (lastRow <= 1) {
+      return { success: false, message: "No household data found" };
+    }
+    
+    // Get all household members first (for cache clearing)
+    const members = getHouseholdEmails(householdId);
+    
+    // Find all rows for this household (in reverse order to avoid index issues when deleting)
+    const data = sheet.getRange(2, 1, lastRow - 1, 2).getValues();
+    const rowsToDelete = [];
+    let householdName = null;
+    
+    for (let i = 0; i < data.length; i++) {
+      if (data[i][0] === householdId) {
+        rowsToDelete.push(i + 2); // +2 because data starts at row 2 and i is 0-based
+        if (!householdName && data[i][1]) {
+          householdName = data[i][1];
+        }
+      }
+    }
+    
+    if (rowsToDelete.length === 0) {
+      return { success: false, message: `Household ${householdId} not found` };
+    }
+    
+    // Delete rows in reverse order to avoid shifting issues
+    rowsToDelete.sort((a, b) => b - a); // Sort in descending order
+    rowsToDelete.forEach(row => {
+      sheet.deleteRow(row);
+    });
+    
+    // Clear caches
+    const cache = CacheService.getScriptCache();
+    cache.remove(`household_members_${householdId}`);
+    
+    // Clear each member's cache
+    members.forEach(email => {
+      cache.remove(`household_${email}`);
+    });
+    
+    return {
+      success: true,
+      message: `Deleted household "${householdName || householdId}" with ${rowsToDelete.length} members`
+    };
+  } catch (error) {
+    Logger.log(`Error deleting household: ${error}\nStack: ${error.stack}`);
+    return { success: false, message: `Error: ${error.message}` };
+  }
+}
+
+/**
+ * Gets the name of a household based on its ID.
+ * @param {string} householdId - The household ID
+ * @return {string|null} The household name or null if not found
+ */
+function getHouseholdName(householdId) {
+  if (!householdId) return null;
+  
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName("Households");
+  
+  if (!sheet) return null;
+  
+  const lastRow = sheet.getLastRow();
+  if (lastRow <= 1) return null;
+  
+  const data = sheet.getRange(2, 1, lastRow - 1, 2).getValues();
+  
+  for (let i = 0; i < data.length; i++) {
+    if (data[i][0] === householdId) {
+      return data[i][1];
+    }
+  }
+  
+  return null;
+}
+
+/**
+ * Determines if the current user is an admin.
+ * @return {boolean} True if the current user is an admin
+ */
+function isCurrentUserAdmin() {
+  const email = Session.getEffectiveUser().getEmail();
+  return CONFIG.ADMIN_EMAILS.includes(email);
+}
