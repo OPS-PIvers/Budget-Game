@@ -1,0 +1,502 @@
+<!-- ActivityTracker.html (Fixed) -->
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <?!= include('Stylesheet'); ?>
+  </head>
+  <body>
+    <header class="app-header">
+      <div class="header-content">
+        <a href="<?= getScriptUrl() ?>" class="app-title">Budget Game Tracker</a>
+        <div class="action-buttons">
+          <button id="email-button" class="btn btn-outline">Send Daily Digest</button>
+          <a href="<?= getScriptUrl() ?>?page=admin" class="btn btn-outline">Admin</a>
+        </div>
+      </div>
+    </header>
+    
+    <nav class="nav-container">
+      <div class="main-nav">
+        <a href="<?= getScriptUrl() ?>" class="nav-link active">
+          <svg class="nav-icon" viewBox="0 0 24 24">
+            <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/>
+            <path d="M18 9l-1.4-1.4-5.6 5.6-2.6-2.6L7 12l4 4z"/>
+          </svg>
+          Activity Tracker
+        </a>
+        <a href="<?= getScriptUrl() ?>?page=dashboard" class="nav-link">
+          <svg class="nav-icon" viewBox="0 0 24 24">
+            <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/>
+            <path d="M9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/>
+          </svg>
+          Dashboard
+        </a>
+      </div>
+    </nav>
+    
+    <div class="container main-content">
+      <div class="scoreboard">
+        <div class="score-box" id="daily-box">
+          <h2>Today's Points</h2>
+          <div class="score" id="daily-score">0</div>
+          <div class="average">Daily Avg: <span id="daily-average">0</span></div>
+        </div>
+        
+        <div class="score-box" id="weekly-box">
+          <h2>Weekly Points</h2>
+          <div class="score" id="weekly-score">0</div>
+          <div class="average">Weekly Avg: <span id="weekly-average">0</span></div>
+        </div>
+      </div>
+      
+      <div class="selected-activities">
+        <h3>Selected Activities</h3>
+        <div id="selected-activities-list"></div>
+      </div>
+      
+      <div class="activity-sections" id="activity-container">
+        <!-- Will be populated via JavaScript -->
+        <div class="loading">Loading activities...</div>
+      </div>
+      
+      <div class="actions">
+        <button id="submit-button" class="submit-btn">Submit Activities</button>
+        <button id="reset-button" class="reset-btn">Reset Selections</button>
+      </div>
+      
+      <div class="mobile-actions">
+        <button id="mobile-email-button" class="btn btn-primary">Send Daily Digest</button>
+        <a href="<?= getScriptUrl() ?>?page=admin" class="btn btn-outline">Admin</a>
+      </div>
+    </div>
+    
+    <div id="notification" class="notification hidden"></div>
+    
+    <script>
+      // Global state
+      let activityData = {};
+      let selectedActivities = new Set();
+      let currentDayPoints = 0;
+      let weeklyPoints = 0;
+      
+      // --- Define all functions first ---
+      
+      function handleActivityData(data) {
+        activityData = data;
+        renderActivitySections();
+      }
+      
+      function handleTodayData(data) {
+        currentDayPoints = data.points;
+        updateScoreDisplay('daily-score', currentDayPoints);
+        
+        // Pre-select activities that were already submitted today
+        if (data.activities && data.activities.length > 0) {
+          data.activities.forEach(activity => {
+            selectedActivities.add(activity.name);
+          });
+          updateSelectedActivitiesList();
+        }
+      }
+      
+      function handleWeekData(data) {
+        console.log("Weekly data received:", data);
+        
+        // First, check if data exists at all
+        if (!data) {
+          console.error('Received null or undefined weekly data');
+          // Set defaults
+          weeklyPoints = 0;
+          document.getElementById('daily-average').textContent = '0';
+          document.getElementById('weekly-average').textContent = '0';
+          updateScoreDisplay('weekly-score', 0);
+          return;
+        }
+        
+        // Set weekly points with defensive fallback
+        if (typeof data === 'object' && 'weeklyTotal' in data) {
+          weeklyPoints = Number(data.weeklyTotal) || 0;
+        } else {
+          console.warn('weeklyTotal property missing in data, defaulting to 0');
+          weeklyPoints = 0;
+        }
+        
+        // Update the score display
+        updateScoreDisplay('weekly-score', weeklyPoints);
+        
+        // Update averages with defensive checks
+        document.getElementById('daily-average').textContent = 
+          (data.dailyAverage !== undefined) ? data.dailyAverage : '0';
+        document.getElementById('weekly-average').textContent = 
+          (data.weeklyAverage !== undefined) ? data.weeklyAverage : '0';
+        
+        console.log("Weekly data processed successfully. Total points:", weeklyPoints);
+      }
+      
+      function renderActivitySections() {
+        const container = document.getElementById('activity-container');
+        container.innerHTML = ''; // Clear loading message
+        
+        // Group activities by category
+        const categories = {};
+        
+        for (const activity in activityData.pointValues) {
+          const category = activityData.categories[activity] || 'Uncategorized';
+          if (!categories[category]) {
+            categories[category] = [];
+          }
+          
+          categories[category].push({
+            name: activity,
+            points: activityData.pointValues[activity]
+          });
+        }
+        
+        // Create a section for each category
+        for (const category in categories) {
+          // Skip empty categories or Negative category (will be added last)
+          if (categories[category].length === 0) continue;
+          if (category === 'Negative') continue;
+          
+          const section = document.createElement('div');
+          section.className = 'section';
+          
+          // Create header
+          const header = document.createElement('div');
+          header.className = 'section-header';
+          header.innerHTML = `
+            <span>${category}</span>
+            <span class="chevron">▼</span>
+          `;
+          header.addEventListener('click', toggleSection);
+          
+          // Create content
+          const content = document.createElement('div');
+          content.className = 'section-content';
+          
+          // Create activity buttons
+          categories[category].forEach(activity => {
+            const button = document.createElement('button');
+            button.className = `activity-btn ${activity.points >= 0 ? 'positive' : 'negative'}`;
+            if (selectedActivities.has(activity.name)) {
+              button.classList.add('selected');
+            }
+            
+            const pointsText = activity.points >= 0 ? `+${activity.points}` : activity.points;
+            button.textContent = `${activity.name} (${pointsText})`;
+            button.dataset.activity = activity.name;
+            button.addEventListener('click', toggleActivity);
+            
+            content.appendChild(button);
+          });
+          
+          section.appendChild(header);
+          section.appendChild(content);
+          container.appendChild(section);
+        }
+        
+        // Add Negative category last if it exists
+        if (categories['Negative'] && categories['Negative'].length > 0) {
+          const section = document.createElement('div');
+          section.className = 'section';
+          
+          // Create header
+          const header = document.createElement('div');
+          header.className = 'section-header';
+          header.innerHTML = `
+            <span>Negative</span>
+            <span class="chevron">▼</span>
+          `;
+          header.addEventListener('click', toggleSection);
+          
+          // Create content
+          const content = document.createElement('div');
+          content.className = 'section-content';
+          
+          // Create activity buttons
+          categories['Negative'].forEach(activity => {
+            const button = document.createElement('button');
+            button.className = `activity-btn negative`;
+            if (selectedActivities.has(activity.name)) {
+              button.classList.add('selected');
+            }
+            
+            button.textContent = `${activity.name} (${activity.points})`;
+            button.dataset.activity = activity.name;
+            button.addEventListener('click', toggleActivity);
+            
+            content.appendChild(button);
+          });
+          
+          section.appendChild(header);
+          section.appendChild(content);
+          container.appendChild(section);
+        }
+        
+        // Update the selected activities list
+        updateSelectedActivitiesList();
+      }
+      
+      function toggleSection(event) {
+        const section = event.currentTarget.parentElement;
+        const content = section.querySelector('.section-content');
+        content.classList.toggle('collapsed');
+        event.currentTarget.querySelector('.chevron').textContent = 
+          content.classList.contains('collapsed') ? '▶' : '▼';
+      }
+      
+      function toggleActivity(event) {
+        const button = event.currentTarget;
+        const activityName = button.dataset.activity;
+        
+        if (selectedActivities.has(activityName)) {
+          selectedActivities.delete(activityName);
+          button.classList.remove('selected');
+        } else {
+          selectedActivities.add(activityName);
+          button.classList.add('selected');
+        }
+        
+        updateSelectedActivitiesList();
+        updatePointTotals();
+      }
+      
+      function updateSelectedActivitiesList() {
+        const container = document.getElementById('selected-activities-list');
+        container.innerHTML = '';
+        
+        if (selectedActivities.size === 0) {
+          container.innerHTML = '<p>No activities selected</p>';
+          return;
+        }
+        
+        // Create an entry for each selected activity
+        selectedActivities.forEach(activityName => {
+          const points = activityData.pointValues[activityName] || 0;
+          const isPositive = points >= 0;
+          
+          const div = document.createElement('div');
+          div.className = `selected-activity ${isPositive ? 'positive' : 'negative'}`;
+          
+          const pointsText = isPositive ? `+${points}` : points;
+          div.innerHTML = `
+            <span>${activityName}</span>
+            <span>${pointsText}</span>
+          `;
+          
+          container.appendChild(div);
+        });
+      }
+      
+      function updatePointTotals() {
+        let dailyTotal = currentDayPoints;
+        let weeklyTotal = weeklyPoints;
+        
+        // Calculate points from newly selected activities
+        selectedActivities.forEach(activityName => {
+          const points = activityData.pointValues[activityName] || 0;
+          dailyTotal += points;
+          weeklyTotal += points;
+        });
+        
+        updateScoreDisplay('daily-score', dailyTotal);
+        updateScoreDisplay('weekly-score', weeklyTotal);
+      }
+      
+      function updateScoreDisplay(elementId, points) {
+        const element = document.getElementById(elementId);
+        element.textContent = points >= 0 ? `+${points}` : points;
+        element.className = 'score ' + (points >= 0 ? 'positive' : 'negative');
+      }
+      
+      function submitActivities() {
+        if (selectedActivities.size === 0) {
+          showNotification('Please select at least one activity');
+          return;
+        }
+        
+        // Disable buttons during submission
+        toggleSubmitButtons(true);
+        
+        // Convert Set to Array for sending
+        const activitiesToSubmit = Array.from(selectedActivities);
+        
+        google.script.run
+          .withSuccessHandler(handleSubmitSuccess)
+          .withFailureHandler(handleSubmitError)
+          .processWebAppSubmission(activitiesToSubmit);
+      }
+      
+      function handleSubmitSuccess(result) {
+        toggleSubmitButtons(false);
+        
+        if (result.success) {
+          // Update UI with new totals
+          currentDayPoints += result.points;
+          updateScoreDisplay('daily-score', currentDayPoints);
+          
+          // Use the weekly total from the response (directly from the sheet)
+          if (result.weeklyTotal !== undefined) {
+            // Use the sheet's weekly total as the source of truth
+            weeklyPoints = result.weeklyTotal;
+            updateScoreDisplay('weekly-score', weeklyPoints);
+          } else {
+            // Fallback if weekly total not provided
+            weeklyPoints += result.points;
+            updateScoreDisplay('weekly-score', weeklyPoints);
+          }
+          
+          // Clear selections
+          selectedActivities.clear();
+          
+          // Re-render the UI
+          renderActivitySections();
+          
+          // Show success message
+          showNotification('Activities submitted successfully!');
+          
+          // Refresh weekly data (optional, since we've handled the update already)
+          google.script.run
+            .withSuccessHandler(handleWeekData)
+            .withFailureHandler(handleError)
+            .getWeekData();
+        } else {
+          showNotification('Error: ' + result.message);
+        }
+      }
+      
+      function handleSubmitError(error) {
+        toggleSubmitButtons(false);
+        showNotification('Error: ' + error.message);
+        console.error('Submission error:', error);
+      }
+      
+      function handleError(error) {
+        console.error('Error:', error);
+        showNotification('Error: ' + (error.message || 'Unknown error'));
+      }
+      
+      function resetSelections() {
+        selectedActivities.clear();
+        renderActivitySections();
+        updatePointTotals();
+      }
+      
+      function toggleSubmitButtons(disabled) {
+        document.getElementById('submit-button').disabled = disabled;
+        document.getElementById('reset-button').disabled = disabled;
+      }
+      
+      function showNotification(message) {
+        const notification = document.getElementById('notification');
+        notification.textContent = message;
+        notification.classList.remove('hidden');
+        
+        // Hide after 3 seconds
+        setTimeout(() => {
+          notification.classList.add('hidden');
+        }, 3000);
+      }
+      
+      function sendDailyDigest() {
+        const emailBtn = document.getElementById('email-button');
+        const mobileEmailBtn = document.getElementById('mobile-email-button');
+        
+        emailBtn.disabled = true;
+        if (mobileEmailBtn) mobileEmailBtn.disabled = true;
+        
+        emailBtn.textContent = 'Sending...';
+        if (mobileEmailBtn) mobileEmailBtn.textContent = 'Sending...';
+        
+        google.script.run
+          .withSuccessHandler(function(result) {
+            emailBtn.disabled = false;
+            if (mobileEmailBtn) mobileEmailBtn.disabled = false;
+            
+            emailBtn.textContent = 'Send Daily Digest';
+            if (mobileEmailBtn) mobileEmailBtn.textContent = 'Send Daily Digest';
+            
+            if (result.success) {
+              showNotification(result.message);
+            } else {
+              showNotification('Error: ' + result.message);
+            }
+          })
+          .withFailureHandler(function(error) {
+            emailBtn.disabled = false;
+            if (mobileEmailBtn) mobileEmailBtn.disabled = false;
+            
+            emailBtn.textContent = 'Send Daily Digest';
+            if (mobileEmailBtn) mobileEmailBtn.textContent = 'Send Daily Digest';
+            
+            showNotification('Error: ' + (error.message || 'Failed to send email'));
+          })
+          .forceSendDailyDigest();
+      }
+      
+      function initializeApp() {
+        console.log("Initializing app...");
+        
+        // Load weekly data first with a direct approach
+        function loadWeeklyData() {
+          // Directly fetch current week's total from sheet
+          google.script.run
+            .withSuccessHandler(function(result) {
+              console.log("Weekly data received directly:", result);
+              
+              if (result && typeof result.weeklyTotal === 'number') {
+                // Set the weekly points from the sheet
+                weeklyPoints = result.weeklyTotal;
+                // Update display
+                updateScoreDisplay('weekly-score', weeklyPoints);
+                
+                // Update averages if available
+                if (result.dailyAverage) {
+                  document.getElementById('daily-average').textContent = result.dailyAverage;
+                }
+                if (result.weeklyAverage) {
+                  document.getElementById('weekly-average').textContent = result.weeklyAverage;
+                }
+                
+                console.log("Weekly points set to:", weeklyPoints);
+              } else {
+                console.error("Invalid weekly data format:", result);
+              }
+            })
+            .withFailureHandler(function(error) {
+              console.error("Error loading weekly data:", error);
+            })
+            .getWeekData();
+        }
+        
+        loadWeeklyData();
+        
+        // Continue with other data loading...
+        google.script.run
+          .withSuccessHandler(handleActivityData)
+          .withFailureHandler(handleError)
+          .getWebAppActivityData();
+          
+        google.script.run
+          .withSuccessHandler(handleTodayData)
+          .withFailureHandler(handleError)
+          .getTodayData();
+          
+        // Set up event listeners
+        document.getElementById('submit-button').addEventListener('click', submitActivities);
+        document.getElementById('reset-button').addEventListener('click', resetSelections);
+        document.getElementById('email-button').addEventListener('click', sendDailyDigest);
+        
+        // Mobile email button
+        const mobileEmailBtn = document.getElementById('mobile-email-button');
+        if (mobileEmailBtn) {
+          mobileEmailBtn.addEventListener('click', sendDailyDigest);
+        }
+      }
+      
+      // Initialize the app when the page loads
+      document.addEventListener('DOMContentLoaded', initializeApp);
+    </script>
+  </body>
+</html>
