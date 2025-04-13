@@ -186,7 +186,98 @@
         align-items: center;
         margin-bottom: 16px;
       }
-      
+      /* Household Management Styles */
+      .household-controls {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
+      }
+
+      .household-controls input {
+        width: 250px;
+        padding: 8px 12px;
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+      }
+
+      .household-list {
+        margin-top: 20px;
+      }
+
+      .household-card {
+        background-color: white;
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        margin-bottom: 16px;
+        overflow: hidden;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+      }
+
+      .household-header {
+        padding: 16px;
+        background-color: var(--section-bg);
+        border-bottom: 1px solid var(--border-color);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .household-name {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 500;
+        color: var(--primary-color);
+      }
+
+      .household-actions {
+        display: flex;
+        gap: 8px;
+      }
+
+      .household-members {
+        padding: 16px;
+      }
+
+      .household-members h4 {
+        margin-top: 0;
+        margin-bottom: 12px;
+        font-size: 14px;
+        color: var(--text-secondary);
+        border-bottom: 1px solid #f0f0f0;
+        padding-bottom: 8px;
+      }
+
+      .household-member {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 0;
+        border-bottom: 1px solid #f8f8f8;
+      }
+
+      .member-email {
+        font-weight: 500;
+      }
+
+      .member-date {
+        color: var(--text-secondary);
+        font-size: 12px;
+      }
+
+      .btn-sm {
+        padding: 4px 8px;
+        font-size: 12px;
+        height: auto;
+      }
+
+      .empty-state {
+        text-align: center;
+        padding: 30px;
+        color: var(--text-secondary);
+        background-color: #f9f9f9;
+        border-radius: 8px;
+      }
       /* Responsive adjustments */
       @media (max-width: 600px) {
         .settings-form {
@@ -268,6 +359,18 @@
         <div class="form-actions">
           <button class="btn btn-secondary" id="reset-streak-btn">Reset Changes</button>
           <button class="btn btn-primary" id="save-streak-btn">Save Streak Settings</button>
+        </div>
+      </div>
+      <div class="admin-section">
+        <h2 class="section-title">Household Management</h2>
+        
+        <div class="household-controls">
+          <button class="btn btn-primary" id="add-household-btn">Add New Household</button>
+          <input type="text" id="search-households" placeholder="Search households...">
+        </div>
+        
+        <div id="household-list" class="household-list">
+          <p class="loading">Loading households...</p>
         </div>
       </div>
     </div>
@@ -596,6 +699,232 @@
         showNotification('Error: ' + (error.message || 'Unknown error'));
         toggleSaveButtons(false);
       }
+
+      // Household Management Functions
+      function loadHouseholds() {
+        const householdList = document.getElementById('household-list');
+        householdList.innerHTML = '<p class="loading">Loading households...</p>';
+        
+        google.script.run
+          .withSuccessHandler(renderHouseholds)
+          .withFailureHandler(function(error) {
+            handleError(error);
+            householdList.innerHTML = `<div class="error-message">Failed to load households: ${error.message || 'Unknown error'}</div>`;
+          })
+          .getHouseholdAdminData();
+      }
+
+      function renderHouseholds(households) {
+        const householdList = document.getElementById('household-list');
+        
+        if (!households || households.length === 0) {
+          householdList.innerHTML = `
+            <div class="empty-state">
+              <p>No households found. Create your first household!</p>
+            </div>
+          `;
+          return;
+        }
+        
+        householdList.innerHTML = '';
+        
+        households.forEach(household => {
+          const householdCard = document.createElement('div');
+          householdCard.className = 'household-card';
+          householdCard.dataset.id = household.id;
+          
+          const membersList = household.members.map(member => `
+            <div class="household-member">
+              <span class="member-email">${member.email}</span>
+              <span class="member-date">Added: ${member.dateAdded}</span>
+              <button class="btn btn-danger btn-sm remove-member-btn" data-email="${member.email}" data-household="${household.id}">Remove</button>
+            </div>
+          `).join('');
+          
+          householdCard.innerHTML = `
+            <div class="household-header">
+              <h3 class="household-name">${household.name}</h3>
+              <div class="household-actions">
+                <button class="btn btn-secondary btn-sm add-user-btn" data-household="${household.id}" data-name="${household.name}">Add User</button>
+                <button class="btn btn-danger btn-sm delete-household-btn" data-household="${household.id}" data-name="${household.name}">Delete</button>
+              </div>
+            </div>
+            <div class="household-members">
+              <h4>Members (${household.members.length})</h4>
+              ${membersList}
+            </div>
+          `;
+          
+          householdList.appendChild(householdCard);
+        });
+        
+        // Attach event listeners
+        document.querySelectorAll('.add-user-btn').forEach(btn => {
+          btn.addEventListener('click', function() {
+            const householdId = this.dataset.household;
+            const householdName = this.dataset.name;
+            showAddUserDialog(householdId, householdName);
+          });
+        });
+        
+        document.querySelectorAll('.remove-member-btn').forEach(btn => {
+          btn.addEventListener('click', function() {
+            const email = this.dataset.email;
+            const householdId = this.dataset.household;
+            removeUserFromHouseholdHandler(householdId, email);
+          });
+        });
+        
+        document.querySelectorAll('.delete-household-btn').forEach(btn => {
+          btn.addEventListener('click', function() {
+            const householdId = this.dataset.household;
+            const householdName = this.dataset.name;
+            deleteHouseholdHandler(householdId, householdName);
+          });
+        });
+      }
+
+      function addHouseholdHandler() {
+        const name = prompt("Enter name for the new household:");
+        if (!name) return; // User cancelled
+        
+        const email = prompt("Enter email address for the first household member:");
+        if (!email) return; // User cancelled
+        
+        // Validate email format
+        if (!email.includes('@') || !email.includes('.')) {
+          showNotification('Please enter a valid email address');
+          return;
+        }
+        
+        // Disable add button during operation
+        const addBtn = document.getElementById('add-household-btn');
+        if (addBtn) addBtn.disabled = true;
+        
+        google.script.run
+          .withSuccessHandler(function(result) {
+            if (addBtn) addBtn.disabled = false;
+            
+            if (result.success) {
+              showNotification(result.message);
+              loadHouseholds(); // Refresh the list
+            } else {
+              showNotification('Error: ' + result.message);
+            }
+          })
+          .withFailureHandler(function(error) {
+            if (addBtn) addBtn.disabled = false;
+            handleError(error);
+          })
+          .addHousehold(name, email);
+      }
+
+      function showAddUserDialog(householdId, householdName) {
+        const email = prompt(`Enter email address to add to "${householdName}":`);
+        if (!email) return; // User cancelled
+        
+        // Validate email format
+        if (!email.includes('@') || !email.includes('.')) {
+          showNotification('Please enter a valid email address');
+          return;
+        }
+        
+        google.script.run
+          .withSuccessHandler(function(result) {
+            if (result.success) {
+              showNotification(result.message);
+              loadHouseholds(); // Refresh the list
+            } else {
+              showNotification('Error: ' + result.message);
+            }
+          })
+          .withFailureHandler(handleError)
+          .addUserToHousehold(householdId, email);
+      }
+
+      function removeUserFromHouseholdHandler(householdId, email) {
+        if (!confirm(`Are you sure you want to remove ${email} from this household?`)) {
+          return; // User cancelled
+        }
+        
+        google.script.run
+          .withSuccessHandler(function(result) {
+            if (result.success) {
+              showNotification(result.message);
+              
+              // If this was the last member, refresh the whole list
+              if (result.remainingMembers === 0) {
+                loadHouseholds();
+              } else {
+                // Otherwise just refresh the household card
+                const householdCard = document.querySelector(`.household-card[data-id="${householdId}"]`);
+                if (householdCard) {
+                  const memberElement = householdCard.querySelector(`.household-member[data-email="${email}"]`);
+                  if (memberElement) {
+                    memberElement.remove();
+                  }
+                  
+                  // Update the member count
+                  const countElement = householdCard.querySelector('.household-members h4');
+                  if (countElement) {
+                    const newCount = result.remainingMembers;
+                    countElement.textContent = `Members (${newCount})`;
+                  }
+                }
+              }
+            } else {
+              showNotification('Error: ' + result.message);
+            }
+          })
+          .withFailureHandler(handleError)
+          .removeUserFromHousehold(householdId, email);
+      }
+
+      function deleteHouseholdHandler(householdId, householdName) {
+        if (!confirm(`Are you sure you want to delete the household "${householdName}"?\n\nThis will remove all users from this household.`)) {
+          return; // User cancelled
+        }
+        
+        google.script.run
+          .withSuccessHandler(function(result) {
+            if (result.success) {
+              showNotification(result.message);
+              loadHouseholds(); // Refresh the list
+            } else {
+              showNotification('Error: ' + result.message);
+            }
+          })
+          .withFailureHandler(handleError)
+          .deleteHousehold(householdId);
+      }
+
+      function filterHouseholds() {
+        const searchTerm = document.getElementById('search-households').value.toLowerCase();
+        const households = document.querySelectorAll('.household-card');
+        
+        households.forEach(household => {
+          const name = household.querySelector('.household-name').textContent.toLowerCase();
+          const members = Array.from(household.querySelectorAll('.member-email'))
+            .map(el => el.textContent.toLowerCase());
+          
+          const nameMatch = name.includes(searchTerm);
+          const memberMatch = members.some(member => member.includes(searchTerm));
+          
+          if (nameMatch || memberMatch) {
+            household.style.display = '';
+          } else {
+            household.style.display = 'none';
+          }
+        });
+      }
+
+      // Add event listeners for household management
+      document.getElementById('add-household-btn').addEventListener('click', addHouseholdHandler);
+      document.getElementById('search-households').addEventListener('input', filterHouseholds);
+
+      // Load households when the admin page is initialized
+      loadHouseholds();
+
     </script>
   </body>
 </html>
