@@ -130,5 +130,44 @@ function displayWeeklyBonuses() {
   }
 }
 
+// HelperFunctions.gs or Bonuses.gs
+
+/**
+ * DEBUG FUNCTION: Manually runs trackActivityStreaks or trackActivityStreaksForHousehold
+ * and logs the result.
+ */
+function debugStreakCalculation() {
+  // --- Configuration ---
+  const TEST_HOUSEHOLD_ID = null; // SET TO a valid household ID string to test household, or null/"" to test global
+  // -------------------
+
+  Logger.log(`--- DEBUG: Running streak calculation manually (${TEST_HOUSEHOLD_ID ? `Household: ${TEST_HOUSEHOLD_ID}` : 'Global'}) ---`);
+  try {
+    // Clear cache before running to ensure fresh data
+    CacheService.getScriptCache().remove('activityData');
+    activityDataCache = null;
+    Logger.log("Cleared activity cache for debug run.");
+
+    let streaks;
+    if (TEST_HOUSEHOLD_ID && typeof trackActivityStreaksForHousehold === "function") {
+        streaks = trackActivityStreaksForHousehold(TEST_HOUSEHOLD_ID);
+    } else {
+        streaks = trackActivityStreaks(); // Use the global one
+    }
+
+    Logger.log("--- DEBUG RESULT ---");
+    Logger.log("Building Streaks: " + JSON.stringify(streaks.buildingStreaks || {}));
+    Logger.log("Full Streaks: " + JSON.stringify(streaks.streaks || {}));
+    Logger.log("--- DEBUG END ---");
+  } catch (e) {
+    Logger.log("--- DEBUG ERROR ---");
+    Logger.log("Error: " + e);
+    Logger.log("Stack: " + e.stack);
+    Logger.log("--- DEBUG END ---");
+  }
+}
+
+// --- End of updated debug function ---
+
 // Add other simple helper/wrapper functions here if needed for menu items.
 // For example, wrappers for manual email sends already exist in Code.gs via CONFIG.TRIGGERS
