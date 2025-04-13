@@ -881,43 +881,52 @@
       }
 
       function renderStreaks(streakData) {
+        // ADD THIS LINE:
+        console.log("renderStreaks received data:", JSON.stringify(streakData)); // Log received data
+
         const container = document.getElementById('streaks-container');
-        container.innerHTML = '';
-        
+        container.innerHTML = ''; // Clear previous content
+
         const buildingStreaks = streakData.buildingStreaks || {};
         const fullStreaks = streakData.streaks || {};
-        
+
         // Check if any streaks exist
         if (Object.keys(buildingStreaks).length === 0 && Object.keys(fullStreaks).length === 0) {
           container.innerHTML = '<p>No active streaks found. Start logging activities consistently to build streaks!</p>';
           return;
         }
-        
+
         // Sort streaks by length (descending)
         const sortedFullStreaks = Object.entries(fullStreaks)
           .sort(([, a], [, b]) => b - a);
-        
+
         // Add full streaks (3+ days)
         sortedFullStreaks.forEach(([activity, days]) => {
           const card = document.createElement('div');
           let streakClass = 'streak-card';
           let emoji = '🔥';
           let bonusText = '';
-          
-          // Determine streak level
-          if (days >= 14) { // Assuming 14 days for multiplier
+
+          // Determine streak level (Use CONFIG values if possible, otherwise hardcode like below)
+          const multiplierThreshold = 14; // Example: Get from CONFIG if available client-side
+          const bonus2Threshold = 7;     // Example
+          const bonus1Threshold = 3;     // Example
+          const bonus2Points = 2;        // Example
+          const bonus1Points = 1;        // Example
+
+          if (days >= multiplierThreshold) {
             streakClass += ' multiplier';
             emoji = '🔥🔥🔥';
             bonusText = '2x Points Multiplier Active!';
-          } else if (days >= 7) { // Assuming 7 days for bonus 2
+          } else if (days >= bonus2Threshold) {
             streakClass += ' bonus2';
             emoji = '🔥🔥';
-            bonusText = '+2 Bonus Points Active!';
-          } else if (days >= 3) { // Assuming 3 days for bonus 1
+            bonusText = `+${bonus2Points} Bonus Points Active!`;
+          } else if (days >= bonus1Threshold) {
             streakClass += ' bonus1';
-            bonusText = '+1 Bonus Point Active!';
+            bonusText = `+${bonus1Points} Bonus Point Active!`;
           }
-          
+
           card.className = streakClass;
           card.innerHTML = `
             <div style="display: flex; align-items: center;">
@@ -927,14 +936,14 @@
             <div class="streak-activity">${activity}</div>
             <div class="streak-bonus">${bonusText}</div>
           `;
-          
+
           container.appendChild(card);
         });
-        
+
         // Add building streaks (2 days)
         Object.keys(buildingStreaks).forEach(activity => {
           const card = document.createElement('div');
-          card.className = 'streak-card';
+          card.className = 'streak-card'; // Basic card style
           card.innerHTML = `
             <div style="display: flex; align-items: center;">
               <span class="streak-days">2</span>
@@ -943,7 +952,7 @@
             <div class="streak-activity">${activity}</div>
             <div class="streak-bonus">Keep it up for a bonus!</div>
           `;
-          
+
           container.appendChild(card);
         });
       }
