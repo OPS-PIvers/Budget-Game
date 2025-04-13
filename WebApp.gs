@@ -280,6 +280,8 @@ function processWebAppSubmission(activities) {
     return {
       success: true,
       points: totalPoints,
+      weeklyTotal: updatedWeeklyTotal,
+      goalsUpdated: true,
       activities: processedActivities,
       message: `Successfully logged ${activities.length} activities`
     };
@@ -746,5 +748,281 @@ function diagnoseWeeklyData() {
   } catch (error) {
     Logger.log("Error in diagnoseWeeklyData: " + error);
     return { error: error.toString() };
+  }
+}
+
+/**
+ * Gets data for weekly goal tracking
+ * @return {Object} Weekly goals data including current and previous week totals and status
+ */
+function getWeeklyGoalsData() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    
+    // Get current and previous week information
+    const today = new Date();
+    const currentWeekStart = getWeekStartDate(today);
+    
+    // Calculate previous week start (7 days before current week start)
+    const previousWeekStart = new Date(currentWeekStart);
+    previousWeekStart.setDate(previousWeekStart.getDate() - 7);
+    
+    // Get sheet names
+    const currentWeekSheetName = getWeekSheetName(currentWeekStart);
+    const previousWeekSheetName = getWeekSheetName(previousWeekStart);
+    
+    Logger.log(`Current week sheet: ${currentWeekSheetName}, Previous week sheet: ${previousWeekSheetName}`);
+    
+    // Initialize result with default values
+    const result = {
+      currentWeek: {
+        sheetName: currentWeekSheetName,
+        total: 0,
+        exists: false
+      },
+      previousWeek: {
+        sheetName: previousWeekSheetName,
+        total: 0,
+        exists: false
+      },
+      goals: {
+        higherThanPrevious: {
+          achieved: false,
+          description: "Higher point total than previous week",
+          target: 0, // Will be set to previous week's total
+          current: 0, // Will be set to current week's total
+          percentComplete: 0
+        },
+        doublePoints: {
+          achieved: false,
+          description: "Double the point total from previous week",
+          target: 0, // Will be set to double previous week's total
+          current: 0, // Will be set to current week's total
+          percentComplete: 0
+        }
+      }
+    };
+    
+    // Get previous week data
+    const previousWeekSheet = ss.getSheetByName(previousWeekSheetName);
+    if (previousWeekSheet) {
+      result.previousWeek.exists = true;
+      try {
+        const previousTotal = previousWeekSheet.getRange("B3").getValue();
+        if (typeof previousTotal === 'number') {
+          result.previousWeek.total = previousTotal;
+        }
+      } catch (e) {
+        Logger.log(`Error reading previous week total: ${e}`);
+      }
+    } else {
+      Logger.log(`Previous week sheet not found: ${previousWeekSheetName}`);
+    }
+    
+    // Get current week data
+    const currentWeekSheet = ss.getSheetByName(currentWeekSheetName);
+    if (currentWeekSheet) {
+      result.currentWeek.exists = true;
+      try {
+        const currentTotal = currentWeekSheet.getRange("B3").getValue();
+        if (typeof currentTotal === 'number') {
+          result.currentWeek.total = currentTotal;
+        }
+      } catch (e) {
+        Logger.log(`Error reading current week total: ${e}`);
+      }
+    } else {
+      Logger.log(`Current week sheet not found: ${currentWeekSheetName}`);
+    }
+    
+    // Calculate goal status
+    if (result.previousWeek.exists) {
+      // Set targets
+      result.goals.higherThanPrevious.target = result.previousWeek.total;
+      result.goals.doublePoints.target = result.previousWeek.total * 2;
+      
+      // Set current values
+      result.goals.higherThanPrevious.current = result.currentWeek.total;
+      result.goals.doublePoints.current = result.currentWeek.total;
+      
+      // Check if goals achieved
+      result.goals.higherThanPrevious.achieved = result.currentWeek.total > result.previousWeek.total;
+      result.goals.doublePoints.achieved = result.currentWeek.total >= (result.previousWeek.total * 2);
+      
+      // Calculate percentage complete (cap at 100%)
+      if (result.previousWeek.total > 0) {
+        // For goal 1 (higher than previous)
+        const goal1Percent = (result.currentWeek.total / result.previousWeek.total) * 100;
+        result.goals.higherThanPrevious.percentComplete = Math.min(100, goal1Percent);
+        
+        // For goal 2 (double points)
+        const goal2Percent = (result.currentWeek.total / (result.previousWeek.total * 2)) * 100;
+        result.goals.doublePoints.percentComplete = Math.min(100, goal2Percent);
+      } else if (result.previousWeek.total === 0) {
+        // If previous week was 0, any positive number is an achievement
+        if (result.currentWeek.total > 0) {
+          result.goals.higherThanPrevious.percentComplete = 100;
+          result.goals.higherThanPrevious.achieved = true;
+          
+          // For doubling, any positive is technically infinite improvement
+          result.goals.doublePoints.percentComplete = 100;
+          result.goals.doublePoints.achieved = true;
+        } else {
+          // Both are still at 0
+          result.goals.higherThanPrevious.percentComplete = 0;
+          result.goals.doublePoints.percentComplete = 0;
+        }
+      }
+      
+      // Round percentages to whole numbers
+      result.goals.higherThanPrevious.percentComplete = Math.round(result.goals.higherThanPrevious.percentComplete);
+      result.goals.doublePoints.percentComplete = Math.round(result.goals.doublePoints.percentComplete);
+    } else {
+      // No previous week data available
+      Logger.log("No previous week data available for goal comparison");
+    }
+    
+    Logger.log(`Weekly goals data: ${JSON.stringify(result)}`);
+    return result;
+    
+  } catch (error) {
+    Logger.log(`Error in getWeeklyGoalsData: ${error}`);
+    Logger.log(`Stack: ${error.stack}`);
+    
+    // Return a minimal valid object on error
+    return {
+      currentWeek: { total: 0, exists: false },
+      previousWeek: { total: 0, exists: false },
+      goals: {
+        higherThanPrevious: { achieved: false, description: "Higher point total than previous week", percentComplete: 0 },
+        doublePoints: { achieved: false, description: "Double the point total from previous week", percentComplete: 0 }
+      }
+    };
+  }
+}
+
+/**
+ * Gets historical goal achievement data across all weeks
+ * @return {Object} Data about goal achievements over time
+ */
+function getGoalAchievementHistory() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheets = ss.getSheets();
+    const weekPrefix = CONFIG.SHEET_NAMES.WEEK_PREFIX;
+    
+    // Collect all weekly sheets and their totals
+    const weeklyData = [];
+    
+    sheets.forEach(sheet => {
+      const sheetName = sheet.getName();
+      if (sheetName.startsWith(weekPrefix)) {
+        try {
+          // Extract date from sheet name format "Week of MM-DD-YYYY"
+          const dateStr = sheetName.substring(weekPrefix.length).trim();
+          const parts = dateStr.split('-');
+          
+          if (parts.length === 3) {
+            const month = parseInt(parts[0]) - 1; // JavaScript months are 0-based
+            const day = parseInt(parts[1]);
+            const year = parseInt(parts[2]);
+            
+            // Create proper Date object
+            const weekStartDate = new Date(year, month, day);
+            
+            // Skip if invalid date
+            if (!(weekStartDate instanceof Date) || isNaN(weekStartDate.getTime())) {
+              return; // 'return' skips current iteration in forEach, not 'continue'
+            }
+            
+            // Get weekly total from B3
+            const total = sheet.getRange("B3").getValue();
+            if (typeof total === 'number') {
+              weeklyData.push({
+                startDate: weekStartDate,
+                sheetName: sheetName,
+                total: total
+              });
+            }
+          }
+        } catch (e) {
+          Logger.log(`Error processing week sheet ${sheetName}: ${e}`);
+        }
+      }
+    });
+    
+    // Sort weekly data by date (oldest first)
+    weeklyData.sort((a, b) => a.startDate - b.startDate);
+    
+    // Initialize result object
+    const result = {
+      weeklyTotals: [],
+      goalAchievements: {
+        higherThanPrevious: {
+          totalAchieved: 0,
+          achievedWeeks: []
+        },
+        doublePoints: {
+          totalAchieved: 0,
+          achievedWeeks: []
+        }
+      }
+    };
+    
+    // Process weekly data to find goal achievements
+    for (let i = 1; i < weeklyData.length; i++) { // Start from index 1 to compare with previous
+      const currentWeek = weeklyData[i];
+      const previousWeek = weeklyData[i-1];
+      
+      // Format for display
+      const weekDateStr = Utilities.formatDate(currentWeek.startDate, Session.getScriptTimeZone(), "MMM d, yyyy");
+      
+      // Add to weekly totals array
+      result.weeklyTotals.push({
+        week: weekDateStr,
+        total: currentWeek.total,
+        previousTotal: previousWeek.total
+      });
+      
+      // Check goal 1: Higher than previous week
+      if (currentWeek.total > previousWeek.total) {
+        result.goalAchievements.higherThanPrevious.totalAchieved++;
+        result.goalAchievements.higherThanPrevious.achievedWeeks.push({
+          week: weekDateStr,
+          current: currentWeek.total,
+          previous: previousWeek.total,
+          improvement: currentWeek.total - previousWeek.total
+        });
+      }
+      
+      // Check goal 2: Double points from previous week
+      if (currentWeek.total >= (previousWeek.total * 2)) {
+        result.goalAchievements.doublePoints.totalAchieved++;
+        result.goalAchievements.doublePoints.achievedWeeks.push({
+          week: weekDateStr,
+          current: currentWeek.total,
+          previous: previousWeek.total,
+          multiplier: previousWeek.total > 0 ? 
+            Math.round((currentWeek.total / previousWeek.total) * 10) / 10 : 
+            "∞" // Handle division by zero
+        });
+      }
+    }
+    
+    Logger.log(`Goal achievement history: ${JSON.stringify(result)}`);
+    return result;
+    
+  } catch (error) {
+    Logger.log(`Error in getGoalAchievementHistory: ${error}`);
+    Logger.log(`Stack: ${error.stack}`);
+    
+    // Return minimal valid object on error
+    return {
+      weeklyTotals: [],
+      goalAchievements: {
+        higherThanPrevious: { totalAchieved: 0, achievedWeeks: [] },
+        doublePoints: { totalAchieved: 0, achievedWeeks: [] }
+      }
+    };
   }
 }
