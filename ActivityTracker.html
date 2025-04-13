@@ -451,6 +451,87 @@
           .forceSendDailyDigest();
       }
       
+      // Add this to the script section in ActivityTracker.html, just before the initializeApp() function
+
+      /**
+       * Handles household data received from the server
+       * @param {Object} data The household data returned from getTodayData
+       */
+      function displayHouseholdInfo(data) {
+        if (data.householdId && data.householdName) {
+          // Create or update household info element
+          let householdInfo = document.getElementById('household-info');
+          
+          if (!householdInfo) {
+            householdInfo = document.createElement('div');
+            householdInfo.id = 'household-info';
+            householdInfo.className = 'household-info';
+            
+            // Insert before or after scoreboard
+            const scoreboard = document.querySelector('.scoreboard');
+            if (scoreboard) {
+              scoreboard.parentNode.insertBefore(householdInfo, scoreboard);
+            }
+          }
+          
+          let membersText = '';
+          if (data.members && data.members.length > 0) {
+            membersText = `<div class="household-members">Household members: ${data.members.join(', ')}</div>`;
+          }
+          
+          householdInfo.innerHTML = `
+            <div class="household-name">
+              <span class="household-icon">🏠</span> ${data.householdName}
+            </div>
+            ${membersText}
+          `;
+        }
+      }
+
+      /**
+       * Renders an error message when the user has no household
+       */
+      function displayNoHouseholdError() {
+        const container = document.querySelector('.main-content');
+        if (!container) return;
+        
+        // Create the error element
+        const errorEl = document.createElement('div');
+        errorEl.className = 'no-household-error';
+        errorEl.innerHTML = `
+          <div class="error-icon">⚠️</div>
+          <h3>No Household Found</h3>
+          <p>You are not assigned to a household. Please contact the administrator to be added to a household.</p>
+        `;
+        
+        // Clear container and show error
+        container.innerHTML = '';
+        container.appendChild(errorEl);
+      }
+
+      // Modify handleTodayData to show household info
+      function handleTodayData(data) {
+        // Check if user has a household
+        if (data.householdId) {
+          displayHouseholdInfo(data);
+        } else {
+          // Optional: Show error or fallback to individual mode
+          // displayNoHouseholdError();
+          // return;
+        }
+        
+        currentDayPoints = data.points;
+        updateScoreDisplay('daily-score', currentDayPoints);
+        
+        // Pre-select activities that were already submitted today
+        if (data.activities && data.activities.length > 0) {
+          data.activities.forEach(activity => {
+            selectedActivities.add(activity.name);
+          });
+          updateSelectedActivitiesList();
+        }
+      }
+
       function initializeApp() {
         console.log("Initializing app...");
         
