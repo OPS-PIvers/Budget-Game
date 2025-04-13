@@ -19,6 +19,20 @@ const CONFIG = {
     // Add ARCHIVE sheets here if implemented later
   },
 
+  // Add ADMIN_EMAILS to the CONFIG object near the top
+  ADMIN_EMAILS: [
+    "paulwivers@gmail.com",
+    "jenniferannking@gmail.com"
+    // Add other admin emails here
+  ],
+
+  // Add HOUSEHOLD_SETTINGS to the CONFIG object
+  HOUSEHOLD_SETTINGS: {
+    ENABLED: true,  // Set to false to disable household features
+    DEFAULT_HOUSEHOLD_NAME: "Default Household",
+    CACHE_TIME: 600  // 10 minutes
+  },
+
   // --- Email Configuration ---
   DIGEST_EMAIL_ADDRESSES: [
     "paulwivers@gmail.com", // MODIFY THESE
