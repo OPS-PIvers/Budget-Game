@@ -1,0 +1,671 @@
+<!-- Dashboard.html (Fixed) -->
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <?!= include('Stylesheet'); ?>
+  </head>
+  <body>
+    <header class="app-header">
+      <div class="header-content">
+        <a href="<?= getScriptUrl() ?>" class="app-title">Budget Game Tracker</a>
+        <div class="action-buttons">
+          <button id="email-button" class="btn btn-outline">Send Daily Digest</button>
+          <a href="<?= getScriptUrl() ?>?page=admin" class="btn btn-outline">Admin</a>
+        </div>
+      </div>
+    </header>
+    
+    <nav class="nav-container">
+      <div class="main-nav">
+        <a href="<?= getScriptUrl() ?>" class="nav-link">
+          <svg class="nav-icon" viewBox="0 0 24 24">
+            <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/>
+            <path d="M18 9l-1.4-1.4-5.6 5.6-2.6-2.6L7 12l4 4z"/>
+          </svg>
+          Activity Tracker
+        </a>
+        <a href="<?= getScriptUrl() ?>?page=dashboard" class="nav-link active">
+          <svg class="nav-icon" viewBox="0 0 24 24">
+            <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/>
+            <path d="M9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/>
+          </svg>
+          Dashboard
+        </a>
+      </div>
+    </nav>
+    
+    <div class="container main-content">
+      <div class="dashboard-section">
+        <h3>Points Trend</h3>
+        <div class="chart-container">
+          <canvas id="points-chart"></canvas>
+        </div>
+      </div>
+      
+      <div class="dashboard-section">
+        <h3>Weekly Performance</h3>
+        <div class="chart-container">
+          <canvas id="weekly-chart"></canvas>
+        </div>
+      </div>
+      
+      <div class="dashboard-row">
+        <div class="dashboard-section half">
+          <h3>Daily Distribution</h3>
+          <div class="chart-container">
+            <canvas id="daily-distribution-chart"></canvas>
+          </div>
+        </div>
+        
+        <div class="dashboard-section half">
+          <h3>Positive vs Negative</h3>
+          <div class="chart-container">
+            <canvas id="activity-ratio-chart"></canvas>
+          </div>
+        </div>
+      </div>
+      
+      <div class="dashboard-section">
+        <h3>Activity Streaks</h3>
+        <div class="streaks-container" id="streaks-container">
+          <p>Loading streak data...</p>
+        </div>
+      </div>
+      
+      <div class="mobile-actions">
+        <button id="mobile-email-button" class="btn btn-primary">Send Daily Digest</button>
+        <a href="<?= getScriptUrl() ?>?page=admin" class="btn btn-outline">Admin</a>
+      </div>
+    </div>
+    
+    <div id="notification" class="notification hidden"></div>
+    
+    <!-- Load Chart.js from CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js"></script>
+    
+    <script>
+      // Global variables
+      let charts = {}; // Store chart instances
+      
+      // Wait for DOM and Chart.js to be fully loaded
+      document.addEventListener('DOMContentLoaded', function() {
+        // Wait a moment to ensure Chart.js is loaded
+        setTimeout(initializeDashboard, 100);
+      });
+      
+      function initializeDashboard() {
+        // Check if Chart.js is available
+        if (typeof Chart === 'undefined') {
+          console.error('Chart.js is not loaded!');
+          document.querySelectorAll('.chart-container').forEach(container => {
+            container.innerHTML = '<div class="error-message">Failed to load Chart.js library</div>';
+          });
+          return;
+        }
+        
+        // Load dashboard data
+        loadDashboardData();
+        
+        // Set up email button
+        document.getElementById('email-button').addEventListener('click', sendDailyDigest);
+        
+        // Mobile email button
+        const mobileEmailBtn = document.getElementById('mobile-email-button');
+        if (mobileEmailBtn) {
+          mobileEmailBtn.addEventListener('click', sendDailyDigest);
+        }
+      }
+      
+      function loadDashboardData() {
+        // Show loading state in each chart container
+        document.querySelectorAll('.chart-container').forEach(container => {
+          // Make sure canvas exists and has proper dimensions
+          const canvas = container.querySelector('canvas');
+          if (canvas) {
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+          } else {
+            console.warn('Canvas element missing in chart container');
+          }
+          
+          // Add loading indicator
+          const loading = document.createElement('div');
+          loading.className = 'loading';
+          loading.textContent = 'Loading chart data...';
+          container.appendChild(loading);
+        });
+        
+        // Load historical data
+        google.script.run
+          .withSuccessHandler(renderDashboard)
+          .withFailureHandler(handleDashboardError)
+          .getHistoricalData();
+      }
+      
+      function renderDashboard(data) {
+        if (!data.success) {
+          showNotification('Error loading dashboard data');
+          return;
+        }
+        
+        // Clear loading indicators
+        document.querySelectorAll('.chart-container .loading').forEach(loading => {
+          loading.remove();
+        });
+        
+        try {
+          // Render charts
+          renderPointsChart(data.dailyData, data.movingAverages);
+          renderWeeklyChart(data.weeklyData);
+          renderDailyDistributionChart(data.weeklyData);
+          renderActivityRatioChart(data.weeklyData);
+          
+          // Render streaks
+          renderStreaks(data.streakData);
+        } catch (error) {
+          console.error('Error rendering charts:', error);
+          showNotification('Error rendering charts: ' + error.message);
+        }
+      }
+      
+      function renderPointsChart(dailyData, movingAverages) {
+        if (!dailyData || dailyData.length === 0) {
+          showChartError('points-chart', 'No daily data available');
+          return;
+        }
+        
+        const canvas = document.getElementById('points-chart');
+        if (!canvas) {
+          console.error('Canvas element "points-chart" not found!');
+          return;
+        }
+        
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          console.error('Could not get 2D context for "points-chart"');
+          return;
+        }
+        
+        // Prepare data
+        const dates = dailyData.map(day => day.displayDate);
+        const points = dailyData.map(day => day.points);
+        const averages = movingAverages.map(avg => avg.average);
+        
+        // Create chart
+        if (charts.pointsChart) {
+          charts.pointsChart.destroy(); // Destroy existing chart
+        }
+        
+        charts.pointsChart = new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: dates,
+            datasets: [
+              {
+                label: 'Daily Points',
+                data: points,
+                backgroundColor: 'rgba(66, 133, 244, 0.2)',
+                borderColor: 'rgba(66, 133, 244, 1)',
+                borderWidth: 2,
+                pointRadius: 3,
+                tension: 0.1
+              },
+              {
+                label: '7-Day Moving Average',
+                data: averages,
+                borderColor: 'rgba(234, 67, 53, 1)',
+                borderWidth: 2,
+                borderDash: [5, 5],
+                pointRadius: 0,
+                fill: false
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              y: {
+                grid: {
+                  color: 'rgba(0, 0, 0, 0.05)'
+                }
+              },
+              x: {
+                grid: {
+                  display: false
+                }
+              }
+            },
+            plugins: {
+              title: {
+                display: true,
+                text: 'Daily Points Trend'
+              },
+              tooltip: {
+                mode: 'index',
+                intersect: false
+              }
+            }
+          }
+        });
+      }
+      
+      function renderWeeklyChart(weeklyData) {
+        if (!weeklyData || weeklyData.length === 0) {
+          showChartError('weekly-chart', 'No weekly data available');
+          return;
+        }
+        
+        const canvas = document.getElementById('weekly-chart');
+        if (!canvas) {
+          console.error('Canvas element "weekly-chart" not found!');
+          return;
+        }
+        
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          console.error('Could not get 2D context for "weekly-chart"');
+          return;
+        }
+        
+        // Prepare data
+        const weeks = weeklyData.map(week => week.displayDate);
+        const points = weeklyData.map(week => week.totalPoints);
+        
+        // Calculate trend line (simple moving average)
+        const trendPoints = [];
+        const window = Math.min(2, Math.floor(points.length / 2)); // 2-week moving average, or less if not enough data
+        
+        for (let i = 0; i < points.length; i++) {
+          if (i < window - 1) {
+            trendPoints.push(null); // Not enough data for trend
+          } else {
+            // Calculate average of current window
+            let sum = 0;
+            for (let j = 0; j < window; j++) {
+              sum += points[i - j];
+            }
+            trendPoints.push(sum / window);
+          }
+        }
+        
+        // Create chart
+        if (charts.weeklyChart) {
+          charts.weeklyChart.destroy(); // Destroy existing chart
+        }
+        
+        charts.weeklyChart = new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels: weeks,
+            datasets: [
+              {
+                label: 'Weekly Points',
+                data: points,
+                backgroundColor: function(context) {
+                  const value = context.dataset.data[context.dataIndex];
+                  return value >= 0 ? 'rgba(52, 168, 83, 0.7)' : 'rgba(234, 67, 53, 0.7)';
+                },
+                borderColor: function(context) {
+                  const value = context.dataset.data[context.dataIndex];
+                  return value >= 0 ? 'rgba(52, 168, 83, 1)' : 'rgba(234, 67, 53, 1)';
+                },
+                borderWidth: 1
+              },
+              {
+                label: 'Trend',
+                data: trendPoints,
+                type: 'line',
+                borderColor: 'rgba(251, 188, 5, 1)',
+                backgroundColor: 'rgba(0, 0, 0, 0)',
+                borderWidth: 2,
+                pointRadius: 0,
+                tension: 0.1
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              y: {
+                grid: {
+                  color: 'rgba(0, 0, 0, 0.05)'
+                }
+              },
+              x: {
+                grid: {
+                  display: false
+                }
+              }
+            },
+            plugins: {
+              title: {
+                display: true,
+                text: 'Weekly Performance'
+              }
+            }
+          }
+        });
+      }
+      
+      function renderDailyDistributionChart(weeklyData) {
+        if (!weeklyData || weeklyData.length === 0) {
+          showChartError('daily-distribution-chart', 'No weekly data available');
+          return;
+        }
+        
+        const canvas = document.getElementById('daily-distribution-chart');
+        if (!canvas) {
+          console.error('Canvas element "daily-distribution-chart" not found!');
+          return;
+        }
+        
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          console.error('Could not get 2D context for "daily-distribution-chart"');
+          return;
+        }
+        
+        // Calculate average points per day of week
+        const dayTotals = {
+          sunday: 0, monday: 0, tuesday: 0, wednesday: 0,
+          thursday: 0, friday: 0, saturday: 0
+        };
+        
+        const dayCounts = {
+          sunday: 0, monday: 0, tuesday: 0, wednesday: 0,
+          thursday: 0, friday: 0, saturday: 0
+        };
+        
+        weeklyData.forEach(week => {
+          const breakdown = week.dailyBreakdown;
+          for (const day in breakdown) {
+            if (breakdown[day] !== 0) {
+              dayTotals[day] += breakdown[day];
+              dayCounts[day]++;
+            }
+          }
+        });
+        
+        const dayAverages = {};
+        for (const day in dayTotals) {
+          dayAverages[day] = dayCounts[day] > 0 ? dayTotals[day] / dayCounts[day] : 0;
+        }
+        
+        // Prepare data
+        const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        const dayKeys = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+        const averages = dayKeys.map(day => dayAverages[day]);
+        
+        // Create chart
+        if (charts.dailyDistributionChart) {
+          charts.dailyDistributionChart.destroy(); // Destroy existing chart
+        }
+        
+        charts.dailyDistributionChart = new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels: days,
+            datasets: [{
+              label: 'Average Points',
+              data: averages,
+              backgroundColor: averages.map(value => 
+                value >= 0 ? 'rgba(52, 168, 83, 0.7)' : 'rgba(234, 67, 53, 0.7)'
+              ),
+              borderColor: averages.map(value => 
+                value >= 0 ? 'rgba(52, 168, 83, 1)' : 'rgba(234, 67, 53, 1)'
+              ),
+              borderWidth: 1
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              y: {
+                beginAtZero: true,
+                grid: {
+                  color: 'rgba(0, 0, 0, 0.05)'
+                }
+              },
+              x: {
+                grid: {
+                  display: false
+                }
+              }
+            },
+            plugins: {
+              title: {
+                display: true,
+                text: 'Points by Day of Week'
+              }
+            }
+          }
+        });
+      }
+      
+      function renderActivityRatioChart(weeklyData) {
+        if (!weeklyData || weeklyData.length === 0) {
+          showChartError('activity-ratio-chart', 'No weekly data available');
+          return;
+        }
+        
+        const canvas = document.getElementById('activity-ratio-chart');
+        if (!canvas) {
+          console.error('Canvas element "activity-ratio-chart" not found!');
+          return;
+        }
+        
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          console.error('Could not get 2D context for "activity-ratio-chart"');
+          return;
+        }
+        
+        // Calculate total positive and negative activities
+        let totalPositive = 0;
+        let totalNegative = 0;
+        
+        weeklyData.forEach(week => {
+          totalPositive += week.positiveCount || 0;
+          totalNegative += week.negativeCount || 0;
+        });
+        
+        // Check if we have any data
+        if (totalPositive === 0 && totalNegative === 0) {
+          showChartError('activity-ratio-chart', 'No activity data available');
+          return;
+        }
+        
+        // Create chart
+        if (charts.activityRatioChart) {
+          charts.activityRatioChart.destroy(); // Destroy existing chart
+        }
+        
+        charts.activityRatioChart = new Chart(ctx, {
+          type: 'pie',
+          data: {
+            labels: ['Positive', 'Negative'],
+            datasets: [{
+              data: [totalPositive, totalNegative],
+              backgroundColor: [
+                'rgba(52, 168, 83, 0.7)',
+                'rgba(234, 67, 53, 0.7)'
+              ],
+              borderColor: [
+                'rgba(52, 168, 83, 1)',
+                'rgba(234, 67, 53, 1)'
+              ],
+              borderWidth: 1
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              title: {
+                display: true,
+                text: 'Positive vs Negative Activities'
+              },
+              legend: {
+                position: 'bottom'
+              }
+            }
+          }
+        });
+      }
+      
+      function renderStreaks(streakData) {
+        const container = document.getElementById('streaks-container');
+        container.innerHTML = '';
+        
+        const buildingStreaks = streakData.buildingStreaks || {};
+        const fullStreaks = streakData.streaks || {};
+        
+        // Check if any streaks exist
+        if (Object.keys(buildingStreaks).length === 0 && Object.keys(fullStreaks).length === 0) {
+          container.innerHTML = '<p>No active streaks found. Start logging activities consistently to build streaks!</p>';
+          return;
+        }
+        
+        // Sort streaks by length (descending)
+        const sortedFullStreaks = Object.entries(fullStreaks)
+          .sort(([, a], [, b]) => b - a);
+        
+        // Add full streaks (3+ days)
+        sortedFullStreaks.forEach(([activity, days]) => {
+          const card = document.createElement('div');
+          let streakClass = 'streak-card';
+          let emoji = '🔥';
+          let bonusText = '';
+          
+          // Determine streak level
+          if (days >= 14) { // Assuming 14 days for multiplier
+            streakClass += ' multiplier';
+            emoji = '🔥🔥🔥';
+            bonusText = '2x Points Multiplier Active!';
+          } else if (days >= 7) { // Assuming 7 days for bonus 2
+            streakClass += ' bonus2';
+            emoji = '🔥🔥';
+            bonusText = '+2 Bonus Points Active!';
+          } else if (days >= 3) { // Assuming 3 days for bonus 1
+            streakClass += ' bonus1';
+            bonusText = '+1 Bonus Point Active!';
+          }
+          
+          card.className = streakClass;
+          card.innerHTML = `
+            <div style="display: flex; align-items: center;">
+              <span class="streak-days">${days}</span>
+              <span class="streak-emoji">${emoji}</span>
+            </div>
+            <div class="streak-activity">${activity}</div>
+            <div class="streak-bonus">${bonusText}</div>
+          `;
+          
+          container.appendChild(card);
+        });
+        
+        // Add building streaks (2 days)
+        Object.keys(buildingStreaks).forEach(activity => {
+          const card = document.createElement('div');
+          card.className = 'streak-card';
+          card.innerHTML = `
+            <div style="display: flex; align-items: center;">
+              <span class="streak-days">2</span>
+              <span class="streak-emoji">💪</span>
+            </div>
+            <div class="streak-activity">${activity}</div>
+            <div class="streak-bonus">Keep it up for a bonus!</div>
+          `;
+          
+          container.appendChild(card);
+        });
+      }
+      
+      function showChartError(chartId, message) {
+        const canvas = document.getElementById(chartId);
+        if (!canvas) {
+          console.error(`Canvas element "${chartId}" not found!`);
+          return;
+        }
+        
+        const container = canvas.parentElement;
+        
+        // Remove canvas
+        canvas.remove();
+        
+        // Add error message
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'error-message';
+        errorDiv.textContent = message;
+        container.appendChild(errorDiv);
+      }
+      
+      function handleDashboardError(error) {
+        console.error('Dashboard error:', error);
+        showNotification('Error loading dashboard data: ' + (error.message || 'Unknown error'));
+        
+        // Clear loading indicators and show error in each chart container
+        document.querySelectorAll('.chart-container .loading').forEach(loading => {
+          const container = loading.parentElement;
+          loading.remove();
+          
+          const errorDiv = document.createElement('div');
+          errorDiv.className = 'error-message';
+          errorDiv.textContent = 'Failed to load chart data: ' + (error.message || 'Unknown error');
+          container.appendChild(errorDiv);
+        });
+      }
+      
+      function showNotification(message) {
+        const notification = document.getElementById('notification');
+        notification.textContent = message;
+        notification.classList.remove('hidden');
+        
+        // Hide after 3 seconds
+        setTimeout(() => {
+          notification.classList.add('hidden');
+        }, 3000);
+      }
+      
+      function sendDailyDigest() {
+        const emailBtn = document.getElementById('email-button');
+        const mobileEmailBtn = document.getElementById('mobile-email-button');
+        
+        emailBtn.disabled = true;
+        if (mobileEmailBtn) mobileEmailBtn.disabled = true;
+        
+        emailBtn.textContent = 'Sending...';
+        if (mobileEmailBtn) mobileEmailBtn.textContent = 'Sending...';
+        
+        google.script.run
+          .withSuccessHandler(function(result) {
+            emailBtn.disabled = false;
+            if (mobileEmailBtn) mobileEmailBtn.disabled = false;
+            
+            emailBtn.textContent = 'Send Daily Digest';
+            if (mobileEmailBtn) mobileEmailBtn.textContent = 'Send Daily Digest';
+            
+            if (result.success) {
+              showNotification(result.message);
+            } else {
+              showNotification('Error: ' + result.message);
+            }
+          })
+          .withFailureHandler(function(error) {
+            emailBtn.disabled = false;
+            if (mobileEmailBtn) mobileEmailBtn.disabled = false;
+            
+            emailBtn.textContent = 'Send Daily Digest';
+            if (mobileEmailBtn) mobileEmailBtn.textContent = 'Send Daily Digest';
+            
+            showNotification('Error: ' + (error.message || 'Failed to send email'));
+          })
+          .forceSendDailyDigest();
+      }
+    </script>
+  </body>
+</html>
