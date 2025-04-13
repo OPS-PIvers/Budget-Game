@@ -25,7 +25,7 @@ function calculateStreakMultiplier(activityName, activityPoints) {
        streakLength = 0;
     }
   } catch (e) {
-  //   Logger.log(`Error getting streak data for ${activityName} in calculateStreakMultiplier: ${e}. Assuming 0 streak.`);
+     Logger.log(`Error getting streak data for ${activityName} in calculateStreakMultiplier: ${e}. Assuming 0 streak.`);
      streakLength = 0;
   }
 
@@ -54,10 +54,248 @@ function calculateStreakMultiplier(activityName, activityPoints) {
   };
 }
 
+/**
+ * Tracks activity streaks for a specific household with improved streak detection and logging.
+ * @param {string} householdId - The household ID
+ * @return {Object} Object containing streaks and buildingStreaks objects
+ */
+function trackActivityStreaksForHousehold(householdId) {
+  const buildingStreaks = {}; // 2 days ending yesterday
+  const fullStreaks = {};     // 3+ days, potentially including today
+  const DEBUG_ACTIVITY = "Get 7+ hours of sleep"; // Activity to focus logging on
+
+  // Diagnostic Log: Start
+  Logger.log(`trackActivityStreaksForHousehold: Started for ID ${householdId}.`);
+
+  try {
+    if (!householdId) {
+      Logger.log("trackActivityStreaksForHousehold: No household ID provided. Falling back to global streaks.");
+      return trackActivityStreaks(); // Fall back to regular function
+    }
+
+    // Get household emails
+    const householdEmails = getHouseholdEmails(householdId);
+
+    // If no emails found for the ID (e.g., invalid ID), fall back
+    if (!householdEmails || householdEmails.length === 0) {
+      Logger.log(`trackActivityStreaksForHousehold: No emails found for household ID ${householdId}. Falling back to global streaks.`);
+      return trackActivityStreaks();
+    }
+    Logger.log(`trackActivityStreaksForHousehold: Found ${householdEmails.length} emails for household ID ${householdId}.`);
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const dashboardSheet = ss.getSheetByName(CONFIG.SHEET_NAMES.DASHBOARD);
+
+    if (!dashboardSheet) {
+      Logger.log("trackActivityStreaksForHousehold: Dashboard sheet not found. Returning empty streaks.");
+      return { buildingStreaks, streaks: fullStreaks };
+    }
+
+    const lastRow = dashboardSheet.getLastRow();
+    if (lastRow <= 1) {
+      Logger.log("trackActivityStreaksForHousehold: No data on Dashboard to track streaks.");
+      return { buildingStreaks, streaks: fullStreaks };
+    }
+
+    // Fetch history (Columns A, B, C and potentially Email Column)
+    // We need to find the email column reliably first.
+    const headerRow = dashboardSheet.getRange(1, 1, 1, dashboardSheet.getLastColumn()).getValues()[0];
+    let emailColumnIndex = -1;
+    for (let i = 0; i < headerRow.length; i++) {
+        // Assuming the header is exactly "Email" (case-insensitive check)
+        if (headerRow[i] && headerRow[i].toString().trim().toLowerCase() === 'email') {
+            emailColumnIndex = i;
+            break;
+        }
+    }
+    Logger.log(`trackActivityStreaksForHousehold: Email column index identified as ${emailColumnIndex} (0-based).`);
+
+    // Fetch necessary columns: A (Date), C (Activities), and Email Column (if found)
+    const colsToFetch = [1, 3]; // Date, Activities
+    if (emailColumnIndex !== -1) {
+      colsToFetch.push(emailColumnIndex + 1); // Add email column number (1-based for range)
+    }
+
+    // Use getRecentDashboardData helper but modify it slightly or redo logic here
+    // Let's redo logic here for clarity with email filtering
+    const daysToFetch = 30;
+    const endRow = dashboardSheet.getLastRow();
+    const startRow = Math.max(2, endRow - (daysToFetch * 2) + 1); // Fetch ample data
+    const numRows = endRow - startRow + 1;
+    const rawData = dashboardSheet.getRange(startRow, 1, numRows, dashboardSheet.getLastColumn()).getValues();
+
+    // Filter history by date and household email
+    const history = [];
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - daysToFetch + 1);
+    cutoffDate.setHours(0, 0, 0, 0);
+
+    rawData.forEach(row => {
+        const date = row[0];
+        if (!(date instanceof Date) || date < cutoffDate) return; // Skip invalid/old dates
+
+        let includeRow = false;
+        if (emailColumnIndex === -1) {
+            // If no email column detected, include all rows (historical data assumption)
+            includeRow = true;
+        } else {
+            const rowEmail = row[emailColumnIndex] || "";
+            if (householdEmails.some(e => e.toLowerCase() === rowEmail.toString().toLowerCase())) {
+                includeRow = true;
+            }
+        }
+
+        if (includeRow) {
+            // Push only the necessary columns [Date, Activities]
+            history.push([row[0], row[2]]);
+        }
+    });
+
+
+    if (history.length === 0) {
+       Logger.log(`trackActivityStreaksForHousehold: No recent history found for household ID ${householdId}.`);
+       return { buildingStreaks, streaks: fullStreaks };
+    }
+    Logger.log(`trackActivityStreaksForHousehold: Filtered history count for household: ${history.length}.`);
+
+
+    const activityData = getActivityDataCached(); // For checking if activity exists
+    const activityDates = {}; // { activityName: Set{'YYYY-MM-DD', ... } }
+
+    // Populate activityDates map (using filtered history)
+    history.forEach((row, index) => {
+      const date = row[0];
+      const activitiesStr = row[1] || ""; // Activities string is now index 1
+      const formattedDate = formatDateYMD(date);
+
+      if (activitiesStr) {
+        const activitiesList = activitiesStr.split(", ");
+        activitiesList.forEach(activityEntry => {
+          // Use the same robust regex as in trackActivityStreaks
+          const match = activityEntry.match(/^[➕➖]\s(.*?)\s*(?:\(🔥\d+\))?\s*\(([+-]\d+)\)/);
+
+          if (match && match[1]) {
+            const activityName = match[1].trim();
+
+            // Specific Log for Debug Activity
+            if (activityName === DEBUG_ACTIVITY) {
+              Logger.log(`trackActivityStreaksForHousehold: Found '${DEBUG_ACTIVITY}' on ${formattedDate} in history row ${index}. Checking eligibility...`);
+            }
+
+            // Only track POSITIVE base activities
+            if (activityData.pointValues[activityName] !== undefined && activityData.pointValues[activityName] > 0) {
+              if (!activityDates[activityName]) {
+                activityDates[activityName] = new Set();
+              }
+              activityDates[activityName].add(formattedDate);
+              if (activityName === DEBUG_ACTIVITY) {
+                Logger.log(`  -> Added date ${formattedDate} for '${DEBUG_ACTIVITY}'.`);
+              }
+            } else {
+              if (activityName === DEBUG_ACTIVITY) {
+                Logger.log(`  -> Skipped '${DEBUG_ACTIVITY}' found on ${formattedDate} (points: ${activityData.pointValues[activityName]})`);
+              }
+            }
+          }
+        });
+      }
+    });
+
+    // Log collected dates for the debug activity
+    const debugDates = activityDates[DEBUG_ACTIVITY] ? Array.from(activityDates[DEBUG_ACTIVITY]).sort() : [];
+    Logger.log(`trackActivityStreaksForHousehold: Collected dates for '${DEBUG_ACTIVITY}': ${JSON.stringify(debugDates)}`);
+
+    // Calculate streaks (same logic as trackActivityStreaks)
+    const today = new Date();
+    const formattedToday = formatDateYMD(today);
+
+    for (const activityName in activityDates) {
+      const dateSet = activityDates[activityName];
+      const sortedDates = Array.from(dateSet).sort();
+
+      if (activityName === DEBUG_ACTIVITY) {
+        Logger.log(`trackActivityStreaksForHousehold: Calculating streak for '${DEBUG_ACTIVITY}'. Sorted Dates: ${JSON.stringify(sortedDates)}`);
+      }
+
+      if (sortedDates.length < 2) continue;
+
+      let currentStreak = 0;
+      let latestStreakLength = 0;
+      let latestStreakEndDateStr = null;
+
+      for(let i = sortedDates.length - 1; i >= 0; i--) {
+        const currentDateStr = sortedDates[i];
+        let prevDateStrInLoop = null;
+        let diffDays = null;
+
+        if (i === sortedDates.length - 1) {
+           currentStreak = 1;
+           latestStreakEndDateStr = currentDateStr;
+        } else {
+           prevDateStrInLoop = sortedDates[i+1];
+           const currentDateUTC = new Date(Date.UTC(parseInt(currentDateStr.substring(0,4)), parseInt(currentDateStr.substring(5,7))-1, parseInt(currentDateStr.substring(8,10))));
+           const prevDateUTC = new Date(Date.UTC(parseInt(prevDateStrInLoop.substring(0,4)), parseInt(prevDateStrInLoop.substring(5,7))-1, parseInt(prevDateStrInLoop.substring(8,10))));
+           diffDays = (prevDateUTC - currentDateUTC) / (1000 * 60 * 60 * 24);
+
+           if (diffDays === 1) {
+              currentStreak++;
+           } else {
+              break;
+           }
+        }
+        if (activityName === DEBUG_ACTIVITY) {
+           Logger.log(`  -> Loop i=${i}: Date=${currentDateStr}, PrevDate=${prevDateStrInLoop}, Diff=${diffDays}, currentStreak=${currentStreak}`);
+        }
+      }
+      latestStreakLength = currentStreak;
+
+      if (activityName === DEBUG_ACTIVITY) {
+        Logger.log(`trackActivityStreaksForHousehold: Final calc for '${DEBUG_ACTIVITY}': Length=${latestStreakLength}, EndDate=${latestStreakEndDateStr}`);
+      }
+
+      if (latestStreakEndDateStr) {
+        const yesterday = new Date(today);
+        yesterday.setDate(today.getDate() - 1);
+        const formattedYesterday = formatDateYMD(yesterday);
+
+        if (activityName === DEBUG_ACTIVITY) {
+           Logger.log(`  -> Checking if streak is active: EndDate=${latestStreakEndDateStr}, Today=${formattedToday}, Yesterday=${formattedYesterday}`);
+        }
+
+        if (latestStreakEndDateStr === formattedToday || latestStreakEndDateStr === formattedYesterday) {
+           if (latestStreakLength >= 3) {
+              fullStreaks[activityName] = latestStreakLength;
+              if (activityName === DEBUG_ACTIVITY) Logger.log(`  -> Added to fullStreaks.`);
+           } else if (latestStreakLength === 2 && latestStreakEndDateStr === formattedYesterday) {
+               buildingStreaks[activityName] = 2;
+               if (activityName === DEBUG_ACTIVITY) Logger.log(`  -> Added to buildingStreaks.`);
+           }
+        } else {
+           if (activityName === DEBUG_ACTIVITY) Logger.log(`  -> Streak ending ${latestStreakEndDateStr} is not active today/yesterday.`);
+        }
+      }
+    }
+
+    // Final Result Log
+    Logger.log(`trackActivityStreaksForHousehold FINAL result (Household ${householdId}): building=${Object.keys(buildingStreaks).length}, full=${Object.keys(fullStreaks).length}`);
+    Logger.log("Full Result: " + JSON.stringify({ buildingStreaks, streaks: fullStreaks }));
+
+    return { buildingStreaks, streaks: fullStreaks };
+
+  } catch (error) {
+    Logger.log(`CRITICAL ERROR in trackActivityStreaksForHousehold (Household ${householdId}): ${error}`);
+    Logger.log(`Stack: ${error.stack}`);
+    return { buildingStreaks: {}, streaks: {} }; // Return empty on error
+  }
+}
+
+// ActivityProcessing.gs
+// Place this function within the ActivityProcessing.gs file, replacing the existing trackActivityStreaks
 
 /**
  * Tracks activity streaks by analyzing past activity data from the Dashboard.
  * Returns objects detailing current building (2-day) and full (3+ day) streaks.
+ * Uses a more robust regex and includes targeted logging.
  * @return {object} { buildingStreaks: { activityName: 2 }, streaks: { activityName: days } }
  */
 function trackActivityStreaks() {
@@ -65,72 +303,96 @@ function trackActivityStreaks() {
   const dashboardSheet = ss.getSheetByName(CONFIG.SHEET_NAMES.DASHBOARD);
   const buildingStreaks = {}; // 2 days ending yesterday
   const fullStreaks = {};     // 3+ days, potentially including today
+  const DEBUG_ACTIVITY = "Get 7+ hours of sleep"; // Activity to focus logging on
+
+  // Diagnostic Log: Start
+  Logger.log("trackActivityStreaks: Function started.");
 
   if (!dashboardSheet) {
-    Logger.log("Dashboard sheet not found in trackActivityStreaks.");
+    Logger.log("trackActivityStreaks: Dashboard sheet not found. Returning empty streaks.");
     return { buildingStreaks, streaks: fullStreaks };
   }
 
   const lastRow = dashboardSheet.getLastRow();
   if (lastRow <= 1) {
-     // Logger.log("No data on Dashboard to track streaks."); // Reduce log noise
+     Logger.log("trackActivityStreaks: No data on Dashboard to track streaks.");
      return { buildingStreaks, streaks: fullStreaks };
   }
 
-  const daysToFetch = 30;
-  const history = typeof getRecentDashboardData === "function" ? getRecentDashboardData(dashboardSheet, daysToFetch) : []; // Use helper [Date, Points, ActivitiesString]
+  // Use helper function to get recent data (Date, Points, Activities String)
+  // Ensure getRecentDashboardData fetches columns A, B, C correctly.
+  const daysToFetch = 30; // Fetch enough history for longest streaks
+  const history = typeof getRecentDashboardData === "function" ? getRecentDashboardData(dashboardSheet, daysToFetch) : [];
 
   if (history.length === 0) {
-     Logger.log("trackActivityStreaks: No recent history found from Dashboard.");
+     Logger.log("trackActivityStreaks: No recent history found from Dashboard helper function.");
      return { buildingStreaks, streaks: fullStreaks };
   }
-  // Logger.log(`trackActivityStreaks: Fetched ${history.length} rows of history.`);
-  // Logger.log(`trackActivityStreaks: Last history row: ${history.length > 0 ? history[history.length-1].join(', ') : 'N/A'}`);
+  Logger.log(`trackActivityStreaks: Fetched ${history.length} rows of history.`);
+  // Log the most recent row's activity string for inspection
+  if(history.length > 0) Logger.log(`trackActivityStreaks: Most recent history entry activities: ${history[history.length-1][2]}`);
 
 
   const activityData = getActivityDataCached(); // For checking if activity exists
   const activityDates = {}; // { activityName: Set{'YYYY-MM-DD', ... } }
 
   // Populate activityDates map
-  history.forEach(row => {
+  history.forEach((row, index) => {
     const date = row[0];
-    const activitiesStr = row[2] || "";
+    const activitiesStr = row[2] || ""; // Column C
     if (!(date instanceof Date)) return; // Skip if date is invalid
-    const formattedDate = formatDateYMD(date);
+
+    const formattedDate = formatDateYMD(date); // Use helper for consistent YYYY-MM-DD
 
     if (activitiesStr) {
       const activitiesList = activitiesStr.split(", ");
       activitiesList.forEach(activityEntry => {
-        // Only consider positive activities for streaks
-        if (activityEntry.startsWith("➕") || /\(\+\d+\)/.test(activityEntry)) {
-          // --- MODIFIED REGEX ---
-          // More flexible regex: Allows optional space before points, captures name and points value
-          const match = activityEntry.match(/[➕]\s(.*?)\s*(?:\(🔥\d+\))?\s*\(([+-]\d+)\)/);
-          // --- END MODIFIED REGEX ---
+        // --- ROBUST REGEX ---
+        // Matches symbol (➕ or ➖), captures activity name (non-greedy),
+        // optionally matches streak text (non-capturing), matches points.
+        const match = activityEntry.match(/^[➕➖]\s(.*?)\s*(?:\(🔥\d+\))?\s*\(([+-]\d+)\)/);
+        // --- END ROBUST REGEX ---
 
-          if (match && match[1]) {
-            const activityName = match[1].trim();
-            // Ensure it's a known activity before tracking
-            if (activityData.pointValues[activityName] !== undefined) {
-              if (!activityDates[activityName]) {
-                activityDates[activityName] = new Set(); // Use Set for unique dates per activity
-              }
-              activityDates[activityName].add(formattedDate);
-            } else {
-               // Logger.log(`trackActivityStreaks: Activity "${activityName}" (from regex) not in pointValues.`); // Uncomment for deep debug
+        if (match && match[1]) {
+          const activityName = match[1].trim();
+          const points = parseInt(match[2]); // Get points associated with this specific entry
+
+          // *** Specific Log for Debug Activity ***
+          if (activityName === DEBUG_ACTIVITY) {
+            Logger.log(`trackActivityStreaks: Found '${DEBUG_ACTIVITY}' on ${formattedDate} in history row ${index}. Checking eligibility... Entry: "${activityEntry}"`);
+          }
+
+          // Only track streaks for POSITIVE base activities
+          // Check if the activity name exists in our reference AND had positive base points
+          if (activityData.pointValues[activityName] !== undefined && activityData.pointValues[activityName] > 0) {
+            if (!activityDates[activityName]) {
+              activityDates[activityName] = new Set(); // Use Set for unique dates per activity
+            }
+            activityDates[activityName].add(formattedDate);
+
+            // *** Specific Log for Debug Activity ***
+            if (activityName === DEBUG_ACTIVITY) {
+              Logger.log(`trackActivityStreaks: -> Added date ${formattedDate} for '${DEBUG_ACTIVITY}'.`);
             }
           } else {
-              // Logger.log(`trackActivityStreaks: Regex failed for entry: "${activityEntry}"`); // Uncomment for deep debug
+             // *** Specific Log for Debug Activity ***
+             if (activityName === DEBUG_ACTIVITY) {
+               Logger.log(`trackActivityStreaks: -> Skipped '${DEBUG_ACTIVITY}' found on ${formattedDate} because point value is ${activityData.pointValues[activityName]} or undefined.`);
+             }
+             // Diagnostic Log: Skipped Other Activities (Uncomment if needed)
+             // else { Logger.log(`trackActivityStreaks: Skipped "${activityName}" (Points: ${activityData.pointValues[activityName]}) from entry: "${activityEntry}"`); }
           }
+        } else {
+            // Diagnostic Log: Regex Failures (Uncomment if needed)
+            // if (activityEntry.trim()) Logger.log(`trackActivityStreaks: Regex failed for entry: "${activityEntry}"`);
         }
       });
     }
   });
-   // --- Diagnostic Log: Check activityDates ---
-   // Convert Sets to Arrays for stringify
-   const activityDatesForLog = Object.fromEntries(Object.entries(activityDates).map(([k, v]) => [k, Array.from(v)]));
-  // Logger.log("trackActivityStreaks: activityDates map built: " + JSON.stringify(activityDatesForLog));
 
+   // Log the collected dates for the specific activity
+   const debugDates = activityDates[DEBUG_ACTIVITY] ? Array.from(activityDates[DEBUG_ACTIVITY]).sort() : [];
+   Logger.log(`trackActivityStreaks: Collected dates for '${DEBUG_ACTIVITY}': ${JSON.stringify(debugDates)}`);
 
   // Calculate streaks for each activity found
   const today = new Date();
@@ -139,6 +401,11 @@ function trackActivityStreaks() {
   for (const activityName in activityDates) {
     const dateSet = activityDates[activityName];
     const sortedDates = Array.from(dateSet).sort(); // Sort dates chronologically 'YYYY-MM-DD'
+
+    // *** Specific Log for Debug Activity ***
+    if (activityName === DEBUG_ACTIVITY) {
+       Logger.log(`trackActivityStreaks: Calculating streak for '${DEBUG_ACTIVITY}'. Sorted Dates: ${JSON.stringify(sortedDates)}`);
+    }
 
     if (sortedDates.length < 2) continue; // Need at least 2 days for any streak
 
@@ -149,52 +416,78 @@ function trackActivityStreaks() {
      // Iterate backward from the last logged date for this activity
      for(let i = sortedDates.length - 1; i >= 0; i--) {
         const currentDateStr = sortedDates[i];
-        // Logger.log(`Checking date: ${currentDateStr} for activity: ${activityName}`); // Diagnostic
+        let prevDateStrInLoop = null; // For logging
+        let diffDays = null;          // For logging
 
         if (i === sortedDates.length - 1) { // Start from the most recent date
            currentStreak = 1;
            latestStreakEndDateStr = currentDateStr;
         } else {
-           const prevDateStrInLoop = sortedDates[i+1]; // The date chronologically AFTER currentDateStr
-           // Calculate difference in days VERY carefully using UTC to avoid timezone issues with midnight
+           prevDateStrInLoop = sortedDates[i+1]; // The date chronologically AFTER currentDateStr
+
+           // Calculate difference in days using UTC to avoid timezone issues
            const currentDateUTC = new Date(Date.UTC(parseInt(currentDateStr.substring(0,4)), parseInt(currentDateStr.substring(5,7))-1, parseInt(currentDateStr.substring(8,10))));
            const prevDateUTC = new Date(Date.UTC(parseInt(prevDateStrInLoop.substring(0,4)), parseInt(prevDateStrInLoop.substring(5,7))-1, parseInt(prevDateStrInLoop.substring(8,10))));
-           const diffDays = (prevDateUTC - currentDateUTC) / (1000 * 60 * 60 * 24);
-
-           // Logger.log(`Comparing ${currentDateStr} and ${prevDateStrInLoop}. Diff days: ${diffDays}`); // Diagnostic
+           diffDays = (prevDateUTC - currentDateUTC) / (1000 * 60 * 60 * 24);
 
            if (diffDays === 1) {
               currentStreak++; // Dates are consecutive, continue streak backward
            } else {
-              // Logger.log(`Streak broken at ${currentDateStr}. Previous streak length was ${currentStreak}.`); // Diagnostic
-              break; // Stop checking further back for THIS latest streak
+              break; // Streak broken, stop checking further back for THIS latest streak
            }
         }
+        // *** Specific Log for Debug Activity ***
+         if (activityName === DEBUG_ACTIVITY) {
+            Logger.log(`  -> Loop i=${i}: Date=${currentDateStr}, PrevDate=${prevDateStrInLoop}, Diff=${diffDays}, currentStreak=${currentStreak}`);
+         }
      }
      latestStreakLength = currentStreak; // Length of the most recent consecutive block of days
 
-     // Logger.log(`Activity: ${activityName}, Latest Streak End Date: ${latestStreakEndDateStr}, Length: ${latestStreakLength}`);
+     // *** Specific Log for Debug Activity ***
+     if (activityName === DEBUG_ACTIVITY) {
+        Logger.log(`trackActivityStreaks: Final calculated streak for '${DEBUG_ACTIVITY}': Length=${latestStreakLength}, EndDate=${latestStreakEndDateStr}`);
+     }
 
 
      // Categorize the LATEST streak found for this activity
      if (latestStreakEndDateStr) { // Ensure we found at least one date
-        if (latestStreakLength >= 3) {
-           fullStreaks[activityName] = latestStreakLength;
-        } else if (latestStreakLength === 2) {
-            // Only count as "building" if the streak ended YESTERDAY (not today)
-            const yesterday = new Date(today);
-            yesterday.setDate(today.getDate() - 1);
-            if (latestStreakEndDateStr === formatDateYMD(yesterday)) {
-                buildingStreaks[activityName] = 2;
-            }
+        // Check if the latest streak includes today OR ended yesterday
+        const yesterday = new Date(today);
+        yesterday.setDate(today.getDate() - 1);
+        const formattedYesterday = formatDateYMD(yesterday);
+
+        // *** Specific Log for Debug Activity ***
+        if (activityName === DEBUG_ACTIVITY) {
+           Logger.log(`  -> Checking if streak is active: EndDate=${latestStreakEndDateStr}, Today=${formattedToday}, Yesterday=${formattedYesterday}`);
+        }
+
+        if (latestStreakEndDateStr === formattedToday || latestStreakEndDateStr === formattedYesterday) {
+           // Only consider streaks ending today or yesterday as potentially "active"
+           if (latestStreakLength >= 3) {
+              fullStreaks[activityName] = latestStreakLength;
+              // *** Specific Log for Debug Activity ***
+              if (activityName === DEBUG_ACTIVITY) Logger.log(`  -> Added to fullStreaks.`);
+           } else if (latestStreakLength === 2 && latestStreakEndDateStr === formattedYesterday) {
+               // Only count as "building" if it ended YESTERDAY
+               buildingStreaks[activityName] = 2;
+               // *** Specific Log for Debug Activity ***
+              if (activityName === DEBUG_ACTIVITY) Logger.log(`  -> Added to buildingStreaks.`);
+           }
+        } else {
+            // *** Specific Log for Debug Activity ***
+            if (activityName === DEBUG_ACTIVITY) Logger.log(`  -> Streak ending ${latestStreakEndDateStr} is not active today/yesterday.`);
         }
      }
   }
 
-   // --- Final Diagnostic Log ---
-  // Logger.log(`trackActivityStreaks result: ${JSON.stringify({ buildingStreaks, streaks: fullStreaks })}`);
+  // Final Diagnostic Log: Result
+  Logger.log(`trackActivityStreaks FINAL result: building=${Object.keys(buildingStreaks).length}, full=${Object.keys(fullStreaks).length}`);
+  Logger.log("Full Result: " + JSON.stringify({ buildingStreaks, streaks: fullStreaks }));
+
   return { buildingStreaks, streaks: fullStreaks };
 }
+
+// --- End of updated trackActivityStreaks ---
 
 
 /**
@@ -239,6 +532,7 @@ function checkGradSchoolAlarmBonus() {
       const activitiesStr = row[2] || "";
       // Use regex to count occurrences accurately, allowing for streak text
       const escapedName = targetActivity.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      // Adjusted regex to match the robust format used elsewhere
       const regex = new RegExp(`[➕➖]\\s${escapedName}\\s(\\(🔥\\d+\\))?\\s\\([+-]`, "g");
       const matches = activitiesStr.match(regex);
       if (matches) {
@@ -250,13 +544,14 @@ function checkGradSchoolAlarmBonus() {
   const qualifies = countThisWeek >= requiredCount;
   const bonusPoints = qualifies ? bonusPointsValue : 0;
 
-  Logger.log(`Grad School Bonus Check (Current Week): Count=${countThisWeek}, Qualifies=${qualifies}`);
+  // Logger.log(`Grad School Bonus Check (Current Week): Count=${countThisWeek}, Qualifies=${qualifies}`); // Keep commented unless debugging
   return {
     qualifies: qualifies,
     count: countThisWeek,
     bonusPoints: bonusPoints
   };
 }
+
 
 
 /**
@@ -344,7 +639,14 @@ function calculateWeeklyThresholdBonuses(referenceDate) {
   // Get detailed activity data for that specific week using getWeekActivities (from GoalSetting.gs)
   let weekActivities = [];
   if (typeof getWeekActivities === "function") {
-      weekActivities = getWeekActivities(startOfWeekToCheck, endOfWeekToCheck);
+      // Get activities for the specific household if enabled, otherwise all activities
+      const email = Session.getEffectiveUser().getEmail();
+      const householdId = CONFIG.HOUSEHOLD_SETTINGS.ENABLED ? getUserHouseholdId(email) : null;
+      const householdEmails = householdId ? getHouseholdEmails(householdId) : [];
+      
+      // Assuming getWeekActivities takes householdEmails as an optional third parameter
+      weekActivities = getWeekActivities(startOfWeekToCheck, endOfWeekToCheck, householdEmails);
+      Logger.log(`Fetched ${weekActivities.length} activities for bonus calculation (Household filtered: ${!!householdId})`);
   } else {
       Logger.log("ERROR: getWeekActivities function not found in calculateWeeklyThresholdBonuses.");
       return { earnedBonuses: [], totalBonusPoints: 0 };
@@ -353,7 +655,29 @@ function calculateWeeklyThresholdBonuses(referenceDate) {
   const activityData = getActivityDataCached();
 
   // Calculate a summary object needed for some count functions (or adapt count functions)
-  const weekSummary = calculateSummaryFromActivities(weekActivities, activityData);
+  // Ensure calculateSummaryFromActivities exists in ActivityProcessing.gs or wherever it should be
+  let weekSummary = {};
+  if (typeof calculateSummaryFromActivities === "function") {
+      weekSummary = calculateSummaryFromActivities(weekActivities, activityData);
+  } else {
+      Logger.log("Warning: calculateSummaryFromActivities function not found.");
+      // Create a minimal summary structure if the function is missing
+      weekSummary = {
+          total: 0, positive: 0, negative: 0, topActivity: "None", topActivityCount: 0,
+          categories: {
+            "Positive Activities": 0, "Negative Activities": 0,
+            "Health Activities": 0, "Household Activities": 0
+          }
+      };
+      // Populate basic counts if possible
+      weekSummary.positive = weekActivities.filter(a => a.points >= 0).length;
+      weekSummary.negative = weekActivities.filter(a => a.points < 0).length;
+      weekSummary.categories["Positive Activities"] = weekSummary.positive;
+      weekSummary.categories["Negative Activities"] = weekSummary.negative;
+      weekSummary.categories["Health Activities"] = weekActivities.filter(a => a.category === 'Health').length;
+      weekSummary.categories["Household Activities"] = weekActivities.filter(a => a.category === 'Household').length;
+
+  }
 
 
   if (!weekSummary || weekActivities.length === 0) { // Check if activities were found
@@ -380,6 +704,7 @@ function calculateWeeklyThresholdBonuses(referenceDate) {
 
      if(dataExists) {
         try { // Wrap countFunction call in try/catch
+           // Pass weekActivities directly, countFunction should use it
            const count = bonus.countFunction(weekSummary, weekActivities, activityData);
            let qualifies = false;
 
