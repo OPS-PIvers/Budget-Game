@@ -2049,12 +2049,392 @@ function getYesterdaysRecapData(dashboardSheet) {
 
 
 /**
- * Sends the daily summary digest email. Includes today's points/activities,
- * weekly progress, goals, and streaks. Corrected version.
- * Uses formatting from CONFIG.
- * Assumes supporting functions (trackActivityStreaks, checkWeeklyGoalProgressWithDetails etc.) exist.
+ * Modified version of sendDailyDigest to support households.
+ * Update this in Code.gs or wherever your original function is located.
  */
 function sendDailyDigest() {
+  try {
+    // Add diagnostic log at the beginning
+    Logger.log("--- Starting sendDailyDigest ---");
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const dashboardSheet = ss.getSheetByName(CONFIG.SHEET_NAMES.DASHBOARD);
+    if (!dashboardSheet) {
+      Logger.log("Daily Digest: Dashboard sheet not found.");
+      return false;
+    }
+
+    // Option A: Send individual digests to each user based on their household's data
+    if (CONFIG.HOUSEHOLD_SETTINGS.ENABLED) {
+      // Get all households
+      const householdsSheet = ss.getSheetByName("Households");
+      if (!householdsSheet) {
+        Logger.log("Households sheet not found, falling back to regular digest");
+        return sendRegularDailyDigest(); // Call original function or continue with non-household logic
+      }
+      
+      const lastRow = householdsSheet.getLastRow();
+      if (lastRow <= 1) {
+        Logger.log("No households found, falling back to regular digest");
+        return sendRegularDailyDigest();
+      }
+      
+      const householdData = householdsSheet.getRange(2, 1, lastRow - 1, 3).getValues();
+      const recipients = new Map(); // Map household IDs to arrays of email addresses
+      
+      // Organize recipients by household
+      householdData.forEach(row => {
+        const householdId = row[0];
+        const email = row[2];
+        
+        if (householdId && email) {
+          if (!recipients.has(householdId)) {
+            recipients.set(householdId, []);
+          }
+          recipients.get(householdId).push(email);
+        }
+      });
+      
+      // Process each household
+      for (const [householdId, emails] of recipients.entries()) {
+        const householdEmails = emails.filter(email => email && email.includes('@'));
+        if (householdEmails.length === 0) continue;
+        
+        const householdName = getHouseholdName(householdId) || "Your Household";
+        
+        // Generate digest email for this household
+        const emailContent = generateDailyDigestForHousehold(householdId, householdEmails, householdName);
+        
+        // Send email to each member of the household
+        const subject = `${CONFIG.EMAIL_SUBJECTS.DAILY_DIGEST} - ${householdName}`;
+        
+        householdEmails.forEach(email => {
+          try {
+            MailApp.sendEmail({
+              to: email,
+              subject: subject,
+              htmlBody: emailContent,
+              name: "Budget Game Bot"
+            });
+            Logger.log(`Sent household daily digest to ${email} (Household: ${householdName})`);
+          } catch (mailError) {
+            Logger.log(`Error sending daily digest to ${email}: ${mailError}`);
+          }
+        });
+      }
+      
+      // Also send to any configured digest recipients who aren't in a household
+      if (CONFIG.DIGEST_EMAIL_ADDRESSES && CONFIG.DIGEST_EMAIL_ADDRESSES.length > 0) {
+        const allHouseholdEmails = Array.from(recipients.values()).flat();
+        const nonHouseholdRecipients = CONFIG.DIGEST_EMAIL_ADDRESSES.filter(
+          email => !allHouseholdEmails.some(he => he.toLowerCase() === email.toLowerCase())
+        );
+        
+        if (nonHouseholdRecipients.length > 0) {
+          Logger.log(`Sending regular digest to ${nonHouseholdRecipients.length} non-household recipients`);
+          
+          const regularContent = generateDailyDigestForNonHousehold();
+          
+          nonHouseholdRecipients.forEach(email => {
+            try {
+              MailApp.sendEmail({
+                to: email,
+                subject: CONFIG.EMAIL_SUBJECTS.DAILY_DIGEST,
+                htmlBody: regularContent,
+                name: "Budget Game Bot"
+              });
+              Logger.log(`Sent regular daily digest to ${email} (non-household)`);
+            } catch (mailError) {
+              Logger.log(`Error sending daily digest to ${email}: ${mailError}`);
+            }
+          });
+        }
+      }
+      
+      Logger.log("--- Finished sending household daily digests ---");
+      return true;
+    } else {
+      // Households disabled, use regular digest
+      return sendRegularDailyDigest();
+    }
+  } catch (error) {
+    Logger.log(`CRITICAL ERROR in sendDailyDigest: ${error}`);
+    Logger.log(`Stack: ${error.stack}`);
+    return false;
+  }
+}
+
+/**
+ * Generates a daily digest email for a specific household
+ * @param {string} householdId - The household ID
+ * @param {Array<string>} householdEmails - Array of emails in the household
+ * @param {string} householdName - Name of the household
+ * @return {string} HTML email content
+ */
+function generateDailyDigestForHousehold(householdId, householdEmails, householdName) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  
+  // --- Get Yesterday's Data ---
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  
+  // Get yesterday's data for this household
+  let yesterdayData = { points: null, activityCount: 0, activities: [] };
+  
+  try {
+    // Get data from dashboard for yesterday
+    const dashboardSheet = ss.getSheetByName(CONFIG.SHEET_NAMES.DASHBOARD);
+    if (dashboardSheet) {
+      const formattedYesterday = formatDateYMD(yesterday);
+      const lastRow = dashboardSheet.getLastRow();
+      
+      if (lastRow > 1) {
+        // Assuming Email is column 7
+        const data = dashboardSheet.getRange(2, 1, lastRow - 1, 7).getValues();
+        
+        for (const row of data) {
+          const rowDate = row[0];
+          const rowEmail = row[6] || "";
+          
+          if (rowDate instanceof Date && 
+              formatDateYMD(rowDate) === formattedYesterday &&
+              householdEmails.some(email => email.toLowerCase() === rowEmail.toString().toLowerCase())) {
+            
+            // Add points
+            const rowPoints = row[1] || 0;
+            if (yesterdayData.points === null) {
+              yesterdayData.points = 0;
+            }
+            yesterdayData.points += rowPoints;
+            
+            // Count activities
+            const activitiesStr = row[2] || "";
+            if (activitiesStr) {
+              const activityCount = activitiesStr.split(",").filter(a => a.trim()).length;
+              yesterdayData.activityCount += activityCount;
+              
+              // Add activities to list for suggestions
+              activitiesStr.split(",").forEach(act => {
+                if (act.trim()) {
+                  const posMatch = act.trim().match(/➕\s(.+?)(\s\(🔥\d+\))?\s\(\+/);
+                  const negMatch = act.trim().match(/➖\s(.+?)\s\(/);
+                  
+                  if (posMatch) {
+                    yesterdayData.activities.push({
+                      name: posMatch[1].trim(),
+                      isPositive: true
+                    });
+                  } else if (negMatch) {
+                    yesterdayData.activities.push({
+                      name: negMatch[1].trim(),
+                      isPositive: false
+                    });
+                  }
+                }
+              });
+            }
+          }
+        }
+      }
+    }
+  } catch (e) {
+    Logger.log(`Error getting yesterday's data for household ${householdId}: ${e}`);
+  }
+  
+  const formattedYesterdayPoints = yesterdayData.points === null ? "N/A" :
+                                  (yesterdayData.points >= 0 ? "+" + yesterdayData.points : yesterdayData.points);
+  
+  // --- Get Weather Data (if applicable) ---
+  let weatherMessage = "Weather data not available";
+  try {
+    if (typeof fetchWeatherData === "function") {
+      const weatherData = fetchWeatherData();
+      if (typeof getWeatherMessage === "function" && weatherData) {
+        weatherMessage = getWeatherMessage(weatherData);
+      }
+    }
+  } catch (e) {
+    Logger.log(`Error getting weather data: ${e}`);
+  }
+  
+  // --- Get Streak Data ---
+  let streakData = { buildingStreaks: {}, streaks: {} };
+  try {
+    if (typeof trackActivityStreaksForHousehold === "function") {
+      streakData = trackActivityStreaksForHousehold(householdId) || { buildingStreaks: {}, streaks: {} };
+    } else if (typeof trackActivityStreaks === "function") {
+      streakData = trackActivityStreaks();
+      Logger.log("Using regular streak tracking for household email - household version not found");
+    }
+  } catch (e) {
+    Logger.log(`Error getting streak data for household digest: ${e}`);
+  }
+  
+  // --- Generate Smart Suggestions ---
+  let suggestions = [];
+  try {
+    if (typeof generateSmartSuggestionsForHousehold === "function") {
+      suggestions = generateSmartSuggestionsForHousehold(householdId, householdEmails);
+    } else if (typeof generateSmartSuggestions === "function") {
+      suggestions = generateSmartSuggestions();
+      Logger.log("Using regular suggestions for household email - household version not found");
+    }
+  } catch (e) {
+    Logger.log(`Error generating suggestions for household digest: ${e}`);
+  }
+  
+  // --- Generate Daily Goal Options ---
+  let goalOptions = [];
+  try {
+    if (typeof generateDailyGoalOptionsForHousehold === "function") {
+      goalOptions = generateDailyGoalOptionsForHousehold(householdId);
+    } else if (typeof generateDailyGoalOptions === "function") {
+      goalOptions = generateDailyGoalOptions();
+      Logger.log("Using regular goal options for household email - household version not found");
+    }
+  } catch (e) {
+    Logger.log(`Error generating goal options for household digest: ${e}`);
+  }
+  
+  // --- Get Greeting ---
+  let greeting = `Happy ${Utilities.formatDate(today, Session.getScriptTimeZone(), "EEEE")}!`;
+  try {
+    if (typeof selectGreeting === "function") {
+      greeting = selectGreeting();
+    }
+  } catch (e) {
+    Logger.log(`Error getting greeting: ${e}`);
+  }
+  
+  // --- Build Email Content ---
+  const todayFormatted = Utilities.formatDate(today, Session.getScriptTimeZone(), "EEEE, MMMM d");
+  
+  let emailBody = `
+  <div style="font-family: Arial, sans-serif; max-width: 550px; margin: 0 auto; background-color: #fcfcfc; padding: 15px; border: 1px solid #eee;">
+    <div style="background-color: ${CONFIG.COLORS.MORNING_HEADER_BG}; color: ${CONFIG.COLORS.MORNING_HEADER_FG}; padding: 15px; text-align: center; border-radius: 5px 5px 0 0;">
+      <h1 style="font-size: 22px; margin: 0;">${CONFIG.EMAIL_SUBJECTS.DAILY_DIGEST} - ${householdName}</h1>
+      <p style="margin: 5px 0 0 0;">${todayFormatted}</p>
+    </div>
+    
+    <!-- Household Information -->
+    <div style="background-color: #fff; padding: 15px; margin: 15px 0; border: 1px solid #eee; border-radius: 5px;">
+      <h2 style="font-size: 16px; color: #555; margin: 0 0 10px 0; border-bottom: 1px solid #eee; padding-bottom: 5px;">🏠 ${householdName} Summary</h2>
+      <p style="margin: 5px 0;">This is your household's shared activity summary.</p>
+      <p style="margin: 5px 0; font-size: 14px; color: #777;">Members: ${householdEmails.join(", ")}</p>
+    </div>
+
+    <!-- Weather Section -->
+    <div style="background-color: #fff; padding: 15px; margin: 15px 0; border: 1px solid #eee; border-radius: 5px;">
+      <h2 style="font-size: 16px; color: #555; margin: 0 0 10px 0; border-bottom: 1px solid #eee; padding-bottom: 5px;">🌤️ Today's Weather</h2>
+      <p style="margin: 10px 0;">${weatherMessage}</p>
+    </div>
+
+    <!-- Today's Greeting -->
+    <div style="background-color: #fff; padding: 15px; margin: 15px 0; border: 1px solid #eee; border-radius: 5px;">
+      <p style="margin: 5px 0; font-size: 16px; font-weight: bold;">${greeting}</p>
+    </div>
+
+    <!-- Yesterday's Recap -->
+    <div style="background-color: #fff; padding: 15px; margin: 15px 0; border: 1px solid #eee; border-radius: 5px;">
+      <h2 style="font-size: 16px; color: #555; margin: 0 0 10px 0; border-bottom: 1px solid #eee; padding-bottom: 5px;">📊 Yesterday's Household Recap</h2>
+      <p style="margin: 5px 0;"><strong>Points Earned:</strong> <span style="font-weight: bold; color: ${yesterdayData.points === null ? '#555' : (yesterdayData.points >= 0 ? CONFIG.COLORS.CHART_POSITIVE : CONFIG.COLORS.CHART_NEGATIVE)};">${formattedYesterdayPoints}</span></p>
+      ${yesterdayData.activityCount > 0 ? `<p style="margin: 5px 0;"><strong>Activities Logged:</strong> ${yesterdayData.activityCount}</p>` : '<p style="margin: 5px 0;">No activities logged yesterday.</p>'}
+    </div>`;
+
+  // --- Add Streaks Section ---
+  const buildingStreaks = streakData.buildingStreaks || {};
+  const fullStreaks = streakData.streaks || {};
+  const hasBuildingStreaks = Object.keys(buildingStreaks).length > 0;
+  const hasFullStreaks = Object.keys(fullStreaks).length > 0;
+
+  if (hasBuildingStreaks || hasFullStreaks) {
+    emailBody += `
+    <div style="background-color: #fff; padding: 15px; margin: 15px 0; border: 1px solid #eee; border-radius: 5px;">
+      <h2 style="font-size: 16px; color: #555; margin: 0 0 10px 0; border-bottom: 1px solid #eee; padding-bottom: 5px;">🔥 Household Activity Streaks</h2>`;
+    
+    if (hasFullStreaks) {
+      emailBody += `<h3 style="color: ${CONFIG.COLORS.STREAK_COLOR}; margin: 10px 0 5px 0; font-size: 14px;">Active Streaks (3+ days):</h3>
+                    <ul style="margin: 0; padding-left: 20px; list-style: '✨ ';">`;
+      
+      Object.entries(fullStreaks).sort(([,aDays],[,bDays]) => bDays - aDays).forEach(([activity, days]) => {
+        const streakEmoji = days >= CONFIG.STREAK_THRESHOLDS.MULTIPLIER ? "🔥🔥🔥" : 
+                           (days >= CONFIG.STREAK_THRESHOLDS.BONUS_2 ? "🔥🔥" : "🔥");
+        
+        let rewardText = "";
+        if (days >= CONFIG.STREAK_THRESHOLDS.MULTIPLIER) {
+          rewardText = `<span style="color: ${CONFIG.COLORS.CHART_POSITIVE}; font-size: 0.9em;">(2x Points Active!)</span>`;
+        } else if (days >= CONFIG.STREAK_THRESHOLDS.BONUS_2) {
+          rewardText = `<span style="color: ${CONFIG.COLORS.CHART_POSITIVE}; font-size: 0.9em;">(+${CONFIG.STREAK_BONUS_POINTS.BONUS_2} Bonus Pts!)</span>`;
+        } else if (days >= CONFIG.STREAK_THRESHOLDS.BONUS_1) {
+          rewardText = `<span style="color: ${CONFIG.COLORS.CHART_POSITIVE}; font-size: 0.9em;">(+${CONFIG.STREAK_BONUS_POINTS.BONUS_1} Bonus Pt!)</span>`;
+        }
+        
+        emailBody += `<li style="margin-bottom: 8px;">
+                       <strong>${activity}</strong>: ${days} days ${streakEmoji} ${rewardText}
+                    </li>`;
+      });
+      
+      emailBody += `</ul>`;
+    }
+    
+    if (hasBuildingStreaks) {
+      emailBody += `<h3 style="color: #E67E22; margin: 15px 0 5px 0; font-size: 14px;">Building Streaks (2 days):</h3>
+                    <ul style="margin: 0; padding-left: 20px; list-style: '💪 ';">`;
+      
+      Object.keys(buildingStreaks).forEach(activity => {
+        emailBody += `<li style="margin-bottom: 8px;">
+                        <strong>${activity}</strong>: 2 days - Log today for a bonus!
+                     </li>`;
+      });
+      
+      emailBody += `</ul>`;
+    }
+    
+    emailBody += `</div>`;
+  }
+
+  // --- Add Suggestions Section ---
+  if (suggestions && suggestions.length > 0) {
+    emailBody += `
+    <div style="background-color: ${CONFIG.COLORS.SUGGESTION_BG}; padding: 15px; margin: 15px 0; border: 1px solid ${CONFIG.COLORS.SUGGESTION_BORDER}; border-radius: 5px;">
+      <h2 style="font-size: 16px; color: #117A65; margin: 0 0 10px 0; border-bottom: 1px solid ${CONFIG.COLORS.SUGGESTION_BORDER}; padding-bottom: 5px;">💡 Today's Suggestions for Your Household</h2>
+      <ul style="margin: 0; padding-left: 20px; list-style: '✨ '; line-height: 1.5;">
+        ${suggestions.map(s => `<li style="margin-bottom: 8px;">${s.text} ${s.activity ? `<br><small style='color:#555'><em>(Activity: ${s.activity})</em></small>` : ''}</li>`).join('')}
+      </ul>
+    </div>`;
+  }
+
+  // --- Add Goals Section ---
+  if (goalOptions && goalOptions.length > 0) {
+    emailBody += `
+    <div style="background-color: ${CONFIG.COLORS.CHALLENGE_BG}; padding: 15px; margin: 15px 0; border: 1px solid ${CONFIG.COLORS.CHALLENGE_BORDER}; border-radius: 5px;">
+      <h2 style="font-size: 16px; color: #B9770E; margin: 0 0 10px 0; border-bottom: 1px solid ${CONFIG.COLORS.CHALLENGE_BORDER}; padding-bottom: 5px;">🎯 Today's Challenges for Your Household</h2>
+      <p style="font-size: 0.9em; color: #777; margin-top: 0;">Consider tackling one of these as a household!</p>
+      <ul style="margin: 0; padding-left: 20px; list-style: '➡️ '; line-height: 1.5;">
+        ${goalOptions.map(g => `<li style="margin-bottom: 8px;">${g.text} ${g.points ? `(<span style="color:${CONFIG.COLORS.CHART_POSITIVE}">Potential: +${g.points} pts</span>)` : ''}</li>`).join('')}
+      </ul>
+    </div>`;
+  }
+
+  // --- Add Footer ---
+  emailBody += `
+    <div style="text-align: center; margin-top: 20px;">
+      <a href="${ss.getUrl()}" style="display: inline-block; background-color: #5dade2; color: white; text-decoration: none; padding: 10px 20px; border-radius: 4px; font-size: 0.9em;">Open Budget Game</a>
+    </div>
+    <div style="text-align: center; color: #aaa; font-size: 11px; margin-top: 15px;">
+      <p>Budget Game Household Summary</p>
+    </div>
+  </div>`;
+
+  return emailBody;
+}
+
+/**
+ * Fallback function to send the original daily digest
+ * @return {boolean} Success or failure
+ */
+function sendRegularDailyDigest() {
   try {
     // Add diagnostic log at the very beginning
     Logger.log("--- Starting sendDailyDigest ---");
