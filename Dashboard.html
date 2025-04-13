@@ -72,10 +72,25 @@
           <p>Loading streak data...</p>
         </div>
       </div>
-      
-      <div class="mobile-actions">
-        <button id="mobile-email-button" class="btn btn-primary">Send Daily Digest</button>
-        <a href="<?= getScriptUrl() ?>?page=admin" class="btn btn-outline">Admin</a>
+      <div class="dashboard-section">
+        <h3>Weekly Goals</h3>
+        <div id="weekly-goals-container">
+          <p class="loading">Loading weekly goals data...</p>
+        </div>
+      </div>
+      <!-- ADD THE GOAL HISTORY SECTION HERE -->
+      <div class="dashboard-section">
+        <h3>Goal Achievement History</h3>
+        <div id="goal-history-container">
+          <p class="loading">Loading goal history data...</p>
+        </div>
+      </div>
+        
+        <!-- Mobile actions at the bottom -->
+        <div class="mobile-actions">
+          <button id="mobile-email-button" class="btn btn-primary">Send Daily Digest</button>
+          <a href="<?= getScriptUrl() ?>?page=admin" class="btn btn-outline">Admin</a>
+        </div>
       </div>
     </div>
     
@@ -94,29 +109,63 @@
         setTimeout(initializeDashboard, 100);
       });
       
+      /**
+       * Initializes the dashboard with all data and visualizations
+       */
       function initializeDashboard() {
-        // Check if Chart.js is available
-        if (typeof Chart === 'undefined') {
-          console.error('Chart.js is not loaded!');
-          document.querySelectorAll('.chart-container').forEach(container => {
-            container.innerHTML = '<div class="error-message">Failed to load Chart.js library</div>';
-          });
-          return;
+        console.log("Initializing dashboard...");
+        
+        // Check if we need to refresh goals (set by ActivityTracker)
+        const refreshGoals = localStorage.getItem('refreshGoals') === 'true';
+        const goalsUpdateTime = localStorage.getItem('goalsUpdateTime');
+        
+        if (refreshGoals) {
+          console.log("Goals refresh flag detected, clearing flag");
+          localStorage.removeItem('refreshGoals');
+          
+          // Only keep update time for debugging
+          if (goalsUpdateTime) {
+            const updateTimeAgo = Math.round((Date.now() - parseInt(goalsUpdateTime)) / 1000);
+            console.log(`Goals were flagged for update ${updateTimeAgo} seconds ago`);
+          }
         }
         
-        // Load dashboard data
+        // Load historical chart data for visualizations
         loadDashboardData();
         
-        // Set up email button
+        // Load weekly goals data (with priority if refresh flag was set)
+        if (refreshGoals) {
+          // Load immediately if refresh flagged
+          loadWeeklyGoals();
+        } else {
+          // Otherwise load after a short delay to prioritize chart loading
+          setTimeout(loadWeeklyGoals, 100);
+        }
+        
+        // Add this line to load goal history data
+        loadGoalHistory();
+        
+        // Set up email button functionality
         document.getElementById('email-button').addEventListener('click', sendDailyDigest);
         
-        // Mobile email button
+        // Mobile email button (if exists in the template)
         const mobileEmailBtn = document.getElementById('mobile-email-button');
         if (mobileEmailBtn) {
           mobileEmailBtn.addEventListener('click', sendDailyDigest);
         }
+        
+        // Poll for goal updates every minute (in case multiple windows are open)
+        // This ensures goal displays stay in sync across multiple open dashboard tabs
+        setInterval(function() {
+          const refreshGoals = localStorage.getItem('refreshGoals') === 'true';
+          if (refreshGoals) {
+            console.log("Goals refresh detected during polling");
+            localStorage.removeItem('refreshGoals');
+            loadWeeklyGoals();
+          }
+        }, 60000); // Check every minute
       }
-      
+
       function loadDashboardData() {
         // Show loading state in each chart container
         document.querySelectorAll('.chart-container').forEach(container => {
@@ -517,6 +566,320 @@
         });
       }
       
+      function loadWeeklyGoals() {
+        const goalsContainer = document.getElementById('weekly-goals-container');
+        if (!goalsContainer) return;
+        
+        goalsContainer.innerHTML = '<p class="loading">Loading weekly goals data...</p>';
+        
+        google.script.run
+          .withSuccessHandler(renderWeeklyGoals)
+          .withFailureHandler(function(error) {
+            console.error("Error loading weekly goals:", error);
+            goalsContainer.innerHTML = `
+              <div class="error-message">
+                Failed to load weekly goals data: ${error.message || 'Unknown error'}
+              </div>
+            `;
+          })
+          .getWeeklyGoalsData();
+      }
+
+      function renderWeeklyGoals(data) {
+        console.log("Weekly goals data received:", data);
+        const goalsContainer = document.getElementById('weekly-goals-container');
+        if (!goalsContainer) return;
+        
+        // Clear container
+        goalsContainer.innerHTML = '';
+        
+        // Check if we have previous week data to compare
+        if (!data.previousWeek.exists) {
+          goalsContainer.innerHTML = `
+            <div class="info-message">
+              <p>No previous week data found to compare. Goals will be available next week!</p>
+            </div>
+          `;
+          return;
+        }
+        
+        // Create summary text
+        const summaryDiv = document.createElement('div');
+        summaryDiv.className = 'goals-summary';
+        summaryDiv.innerHTML = `
+          <p>Current Week: <strong>${data.currentWeek.total >= 0 ? '+' : ''}${data.currentWeek.total}</strong> points</p>
+          <p>Previous Week: <strong>${data.previousWeek.total >= 0 ? '+' : ''}${data.previousWeek.total}</strong> points</p>
+        `;
+        goalsContainer.appendChild(summaryDiv);
+        
+        // Create goals list
+        const goalsList = document.createElement('div');
+        goalsList.className = 'goals-list';
+        
+        // Add each goal card
+        Object.entries(data.goals).forEach(([goalKey, goal]) => {
+          const goalCard = document.createElement('div');
+          goalCard.className = `goal-card ${goal.achieved ? 'achieved' : ''}`;
+          
+          // Prepare text and colors
+          const statusText = goal.achieved ? '✅ Achieved!' : 'In Progress';
+          const statusClass = goal.achieved ? 'status-achieved' : 'status-pending';
+          
+          goalCard.innerHTML = `
+            <div class="goal-header">
+              <h4>${goal.description}</h4>
+              <span class="goal-status ${statusClass}">${statusText}</span>
+            </div>
+            <div class="goal-details">
+              <p>Target: ${goal.target >= 0 ? '+' : ''}${goal.target} points</p>
+              <p>Current: ${goal.current >= 0 ? '+' : ''}${goal.current} points</p>
+            </div>
+            <div class="goal-progress">
+              <div class="progress-bar">
+                <div class="progress-fill" style="width: ${goal.percentComplete}%"></div>
+              </div>
+              <span class="progress-text">${goal.percentComplete}% Complete</span>
+            </div>
+          `;
+          
+          goalsList.appendChild(goalCard);
+        });
+        
+        goalsContainer.appendChild(goalsList);
+      }
+
+      function loadGoalHistory() {
+        const historyContainer = document.getElementById('goal-history-container');
+        if (!historyContainer) return;
+        
+        historyContainer.innerHTML = '<p class="loading">Loading goal history data...</p>';
+        
+        google.script.run
+          .withSuccessHandler(renderGoalHistory)
+          .withFailureHandler(function(error) {
+            console.error("Error loading goal history:", error);
+            historyContainer.innerHTML = `
+              <div class="error-message">
+                Failed to load goal history data: ${error.message || 'Unknown error'}
+              </div>
+            `;
+          })
+          .getGoalAchievementHistory();
+      }
+
+      function renderGoalHistory(data) {
+        console.log("Goal history data received:", data);
+        const historyContainer = document.getElementById('goal-history-container');
+        if (!historyContainer) return;
+        
+        // Clear container
+        historyContainer.innerHTML = '';
+        
+        // Check if we have enough data
+        if (!data.weeklyTotals || data.weeklyTotals.length === 0) {
+          historyContainer.innerHTML = `
+            <div class="info-message">
+              <p>Not enough weekly data available yet to show goal achievement history. At least two weeks of data are needed.</p>
+            </div>
+          `;
+          return;
+        }
+        
+        // Create achievement summary cards
+        const summaryDiv = document.createElement('div');
+        summaryDiv.className = 'achievement-summary';
+        
+        // Goal 1: Higher than previous
+        const goal1Card = document.createElement('div');
+        goal1Card.className = 'achievement-card';
+        goal1Card.innerHTML = `
+          <h4>Higher Point Total</h4>
+          <div class="achievement-count">${data.goalAchievements.higherThanPrevious.totalAchieved}</div>
+          <p>times achieved</p>
+        `;
+        summaryDiv.appendChild(goal1Card);
+        
+        // Goal 2: Double points
+        const goal2Card = document.createElement('div');
+        goal2Card.className = 'achievement-card';
+        goal2Card.innerHTML = `
+          <h4>Double Points</h4>
+          <div class="achievement-count">${data.goalAchievements.doublePoints.totalAchieved}</div>
+          <p>times achieved</p>
+        `;
+        summaryDiv.appendChild(goal2Card);
+        
+        historyContainer.appendChild(summaryDiv);
+        
+        // Create weekly totals chart
+        const chartContainer = document.createElement('div');
+        chartContainer.className = 'chart-container';
+        chartContainer.style.height = '250px';
+        chartContainer.style.marginTop = '20px';
+        chartContainer.innerHTML = '<canvas id="weekly-totals-chart"></canvas>';
+        historyContainer.appendChild(chartContainer);
+        
+        // Create achievement details if there are any
+        if (data.goalAchievements.higherThanPrevious.totalAchieved > 0 || 
+            data.goalAchievements.doublePoints.totalAchieved > 0) {
+            
+          const detailsDiv = document.createElement('div');
+          detailsDiv.className = 'achievement-details';
+          
+          // Higher than previous details
+          if (data.goalAchievements.higherThanPrevious.totalAchieved > 0) {
+            const goal1Details = document.createElement('div');
+            goal1Details.className = 'goal-details-section';
+            goal1Details.innerHTML = `
+              <h4>Higher Point Total Achievements</h4>
+              <div class="achievement-weeks">
+                ${data.goalAchievements.higherThanPrevious.achievedWeeks.map(week => `
+                  <div class="achievement-week">
+                    <div class="week-name">${week.week}</div>
+                    <div class="week-improvement">+${week.improvement} pts</div>
+                    <div class="week-comparison">${week.current} vs ${week.previous}</div>
+                  </div>
+                `).join('')}
+              </div>
+            `;
+            detailsDiv.appendChild(goal1Details);
+          }
+          
+          // Double points details
+          if (data.goalAchievements.doublePoints.totalAchieved > 0) {
+            const goal2Details = document.createElement('div');
+            goal2Details.className = 'goal-details-section';
+            goal2Details.innerHTML = `
+              <h4>Double Points Achievements</h4>
+              <div class="achievement-weeks">
+                ${data.goalAchievements.doublePoints.achievedWeeks.map(week => `
+                  <div class="achievement-week">
+                    <div class="week-name">${week.week}</div>
+                    <div class="week-improvement">${week.multiplier}x</div>
+                    <div class="week-comparison">${week.current} vs ${week.previous}</div>
+                  </div>
+                `).join('')}
+              </div>
+            `;
+            detailsDiv.appendChild(goal2Details);
+          }
+          
+          historyContainer.appendChild(detailsDiv);
+        }
+        
+        // Render the weekly totals chart
+        renderWeeklyTotalsChart(data.weeklyTotals);
+      }
+
+      function renderWeeklyTotalsChart(weeklyTotals) {
+        const ctx = document.getElementById('weekly-totals-chart');
+        if (!ctx) return;
+        
+        // Extract labels and data
+        const labels = weeklyTotals.map(week => week.week);
+        const totals = weeklyTotals.map(week => week.total);
+        const previousTotals = weeklyTotals.map(week => week.previousTotal);
+        
+        // Create the chart
+        if (charts.weeklyTotalsChart) {
+          charts.weeklyTotalsChart.destroy();
+        }
+        
+        charts.weeklyTotalsChart = new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels: labels,
+            datasets: [
+              {
+                label: 'Weekly Total',
+                data: totals,
+                backgroundColor: function(context) {
+                  const value = context.dataset.data[context.dataIndex];
+                  const previousValue = previousTotals[context.dataIndex];
+                  
+                  // Check if goal achieved
+                  if (value >= previousValue * 2) {
+                    return 'rgba(255, 159, 64, 0.7)'; // Orange for double points
+                  } else if (value > previousValue) {
+                    return 'rgba(52, 168, 83, 0.7)'; // Green for higher than previous
+                  } else {
+                    return 'rgba(66, 133, 244, 0.7)'; // Blue for no goal
+                  }
+                },
+                borderColor: function(context) {
+                  const value = context.dataset.data[context.dataIndex];
+                  const previousValue = previousTotals[context.dataIndex];
+                  
+                  if (value >= previousValue * 2) {
+                    return 'rgba(255, 159, 64, 1)';
+                  } else if (value > previousValue) {
+                    return 'rgba(52, 168, 83, 1)';
+                  } else {
+                    return 'rgba(66, 133, 244, 1)';
+                  }
+                },
+                borderWidth: 1
+              },
+              {
+                label: 'Previous Week',
+                data: previousTotals,
+                type: 'line',
+                borderColor: 'rgba(153, 153, 153, 1)',
+                backgroundColor: 'rgba(0, 0, 0, 0)',
+                borderWidth: 2,
+                borderDash: [5, 5],
+                pointRadius: 3
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              y: {
+                beginAtZero: true,
+                grid: {
+                  color: 'rgba(0, 0, 0, 0.05)'
+                }
+              },
+              x: {
+                grid: {
+                  display: false
+                }
+              }
+            },
+            plugins: {
+              title: {
+                display: true,
+                text: 'Weekly Point Totals & Goal Achievements'
+              },
+              tooltip: {
+                callbacks: {
+                  afterLabel: function(context) {
+                    const dataIndex = context.dataIndex;
+                    const currentValue = totals[dataIndex];
+                    const previousValue = previousTotals[dataIndex];
+                    
+                    let goals = [];
+                    if (currentValue > previousValue) {
+                      goals.push("✅ Higher than previous week");
+                    }
+                    if (currentValue >= previousValue * 2) {
+                      goals.push("🔥 Double points achieved");
+                    }
+                    
+                    return goals.length > 0 ? goals : ["No goals achieved"];
+                  }
+                }
+              },
+              legend: {
+                position: 'top',
+              }
+            }
+          }
+        });
+      }
+
       function renderStreaks(streakData) {
         const container = document.getElementById('streaks-container');
         container.innerHTML = '';
