@@ -69,6 +69,7 @@
         <button id="mobile-email-button" class="btn btn-primary">Send Daily Digest</button>
         <a href="<?= getScriptUrl() ?>?page=admin" class="btn btn-outline">Admin</a>
       </div>
+
     </div>
     
     <div id="notification" class="notification hidden"></div>
@@ -328,11 +329,16 @@
           .processWebAppSubmission(activitiesToSubmit);
       }
       
+      /**
+       * Handles the successful response after submitting activities
+       * @param {Object} result - The server response object
+       */
       function handleSubmitSuccess(result) {
+        // Re-enable buttons after submission completes
         toggleSubmitButtons(false);
         
         if (result.success) {
-          // Update UI with new totals
+          // Update UI with new daily points total
           currentDayPoints += result.points;
           updateScoreDisplay('daily-score', currentDayPoints);
           
@@ -347,22 +353,32 @@
             updateScoreDisplay('weekly-score', weeklyPoints);
           }
           
-          // Clear selections
+          // Signal to dashboard to refresh goals if they were updated
+          if (result.goalsUpdated) {
+            console.log("Goals updated, setting refresh flag for dashboard");
+            localStorage.setItem('refreshGoals', 'true');
+            localStorage.setItem('goalsUpdateTime', Date.now().toString());
+          }
+          
+          // Clear selections to prepare for new entries
           selectedActivities.clear();
           
-          // Re-render the UI
+          // Re-render the UI to reflect changes
           renderActivitySections();
           
-          // Show success message
+          // Show success message to the user
           showNotification('Activities submitted successfully!');
           
-          // Refresh weekly data (optional, since we've handled the update already)
+          // Refresh weekly data to ensure everything is in sync
+          // This is optional since we've already updated based on the response
           google.script.run
             .withSuccessHandler(handleWeekData)
             .withFailureHandler(handleError)
             .getWeekData();
         } else {
-          showNotification('Error: ' + result.message);
+          // Handle error case
+          showNotification('Error: ' + (result.message || 'Unknown error during submission'));
+          console.error('Submission error from server:', result);
         }
       }
       
