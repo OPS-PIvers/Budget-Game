@@ -56,62 +56,103 @@ function getWebAppActivityData() {
 }
 
 /**
- * Gets the current day's points and activities
- * @return {Object} Current day totals and activities
+ * Gets the current day's points and activities for the user's household
+ * @return {Object} Current day totals and activities for the household
  */
 function getTodayData() {
   const today = new Date();
   const formattedDate = formatDateYMD(today);
   
+  // Get current user's email and household
+  const email = Session.getEffectiveUser().getEmail();
+  const householdId = getUserHouseholdId(email);
+  let householdEmails = [];
+  
+  if (householdId) {
+    householdEmails = getHouseholdEmails(householdId);
+    Logger.log(`Found ${householdEmails.length} members in household for ${email}`);
+  } else {
+    // No household found, just use current user's email
+    householdEmails = [email];
+    Logger.log(`No household found for ${email}, using individual data`);
+  }
+  
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const dashboardSheet = ss.getSheetByName(CONFIG.SHEET_NAMES.DASHBOARD);
   
   if (!dashboardSheet) {
-    return { points: 0, activities: [] };
+    return { points: 0, activities: [], householdId: householdId };
   }
   
   let todayPoints = 0;
-  let todayActivitiesStr = "";
+  const activitiesMap = new Map(); // Use a Map to deduplicate activities
   const lastRow = dashboardSheet.getLastRow();
   
   if (lastRow > 1) {
-    const dates = dashboardSheet.getRange(2, 1, lastRow-1, 1).getValues();
-    const data = dashboardSheet.getRange(2, 1, lastRow-1, 3).getValues(); // A:C
+    // Get dates, activities, points and email column (if it exists)
+    // This assumes Dashboard has columns: Date, Points, Activities, PositiveCount, NegativeCount, WeekNumber, Email
+    // Adjust the range if your sheet structure is different
+    const data = dashboardSheet.getRange(2, 1, lastRow - 1, 7).getValues();
     
-    for (let i = dates.length - 1; i >= 0; i--) {
-      if (dates[i][0] instanceof Date && formatDateYMD(dates[i][0]) === formattedDate) {
-        todayPoints = data[i][1] || 0;
-        todayActivitiesStr = data[i][2] || "";
-        break;
+    // Loop through all rows in the Dashboard
+    for (let i = 0; i < data.length; i++) {
+      const rowDate = data[i][0];
+      const rowPoints = data[i][1] || 0;
+      const rowActivities = data[i][2] || "";
+      const rowEmail = data[i][6] || ""; // Assuming Email is column 7
+      
+      if (rowDate instanceof Date && formatDateYMD(rowDate) === formattedDate) {
+        // Check if this row belongs to someone in the user's household
+        if (householdEmails.length === 0 || 
+            householdEmails.some(email => email.toLowerCase() === rowEmail.toString().toLowerCase())) {
+          
+          // Add points to total
+          todayPoints += rowPoints;
+          
+          // Process activities
+          if (rowActivities) {
+            const activitiesList = rowActivities.split(", ");
+            activitiesList.forEach(activityStr => {
+              // Parse out activity name from the format string
+              const match = activityStr.match(/(➕|➖)\s(.+?)(\s\(🔥\d+\))?\s\(([+-]\d+)\)/);
+              if (match) {
+                const isPositive = match[1] === "➕";
+                const name = match[2];
+                const streakInfo = match[3] ? match[3].trim() : "";
+                const points = parseInt(match[4]);
+                
+                // Use the activity name as the key to deduplicate
+                if (!activitiesMap.has(name)) {
+                  activitiesMap.set(name, { 
+                    name, 
+                    points, 
+                    isPositive,
+                    streakInfo
+                  });
+                }
+              }
+            });
+          }
+        }
       }
     }
   }
   
-  // Parse activities from the string format
-  const activities = [];
-  if (todayActivitiesStr) {
-    const activitiesList = todayActivitiesStr.split(", ");
-    activitiesList.forEach(activityStr => {
-      // Parse out activity name from the format string
-      const match = activityStr.match(/(➕|➖)\s(.+?)\s(\(🔥\d+\))?\s\(([+-]\d+)\)/);
-      if (match) {
-        const isPositive = match[1] === "➕";
-        const name = match[2];
-        const points = parseInt(match[4]);
-        activities.push({ name, points, isPositive });
-      }
-    });
-  }
+  // Convert the Map values to an array for the result
+  const activities = Array.from(activitiesMap.values());
   
   return { 
     points: todayPoints, 
-    activities: activities 
+    activities: activities,
+    householdId: householdId,
+    householdName: householdId ? getHouseholdName(householdId) : null,
+    members: householdEmails
   };
 }
 
 /**
- * Gets the current week's data
- * @return {Object} Weekly totals and averages
+ * Gets the current week's data for the user's household
+ * @return {Object} Weekly totals and averages for the household
  */
 function getWeekData() {
   try {
@@ -122,8 +163,26 @@ function getWeekData() {
       negativeCount: 0,
       topActivity: "None",
       dailyAverage: 0,
-      weeklyAverage: 0
+      weeklyAverage: 0,
+      householdId: null,
+      householdName: null
     };
+    
+    // Get current user's email and household
+    const email = Session.getEffectiveUser().getEmail();
+    const householdId = getUserHouseholdId(email);
+    let householdEmails = [];
+    
+    if (householdId) {
+      householdEmails = getHouseholdEmails(householdId);
+      result.householdId = householdId;
+      result.householdName = getHouseholdName(householdId);
+      Logger.log(`Found ${householdEmails.length} members in household for ${email}`);
+    } else {
+      // No household found, just use current user's email
+      householdEmails = [email];
+      Logger.log(`No household found for ${email}, using individual data`);
+    }
     
     // Get the spreadsheet
     const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -140,89 +199,145 @@ function getWeekData() {
     
     const weekSheet = ss.getSheetByName(weekSheetName);
     
-    // If week sheet exists, get data directly from it
-    if (weekSheet) {
-      Logger.log(`Found week sheet: ${weekSheetName}`);
-      
-      // Get the total weekly points (cell B3)
-      try {
-        const weeklyTotal = weekSheet.getRange("B3").getValue();
-        if (typeof weeklyTotal === 'number') {
-          result.weeklyTotal = weeklyTotal;
-          Logger.log(`Read weekly total from sheet: ${result.weeklyTotal}`);
-          
-          // Get other values
-          const positiveCount = weekSheet.getRange("B4").getValue();
-          const negativeCount = weekSheet.getRange("B5").getValue();
-          const topActivity = weekSheet.getRange("B6").getValue();
-          
-          if (typeof positiveCount === 'number') result.positiveCount = positiveCount;
-          if (typeof negativeCount === 'number') result.negativeCount = negativeCount;
-          if (topActivity) result.topActivity = topActivity;
-        } else {
-          Logger.log(`WARNING: Weekly total is not a number: ${weeklyTotal}`);
-        }
-      } catch (e) {
-        Logger.log(`ERROR reading from week sheet: ${e}`);
-      }
-    } else {
-      Logger.log(`Week sheet not found: ${weekSheetName}`);
+    // If week sheet doesn't exist, calculate from Dashboard
+    if (!weekSheet) {
+      Logger.log(`Week sheet not found: ${weekSheetName}, calculating from Dashboard`);
+      return calculateWeekDataFromDashboard(weekStartDate, today, householdEmails, result);
     }
     
-    // Calculate averages
-    try {
-      // Calculate daily average
-      const dashboardSheet = ss.getSheetByName(CONFIG.SHEET_NAMES.DASHBOARD);
-      if (dashboardSheet) {
-        const lastRow = dashboardSheet.getLastRow();
-        if (lastRow > 1) {
-          const points = dashboardSheet.getRange(2, 2, lastRow-1, 1).getValues();
-          let sum = 0;
-          let count = 0;
+    // If week sheet exists, aggregate household data from it
+    Logger.log(`Found week sheet: ${weekSheetName}`);
+    
+    // Get all rows from the weekly sheet (assumes data starts at row 10)
+    const lastRow = weekSheet.getLastRow();
+    if (lastRow < 10) {
+      return result; // No data rows yet
+    }
+    
+    // This assumes weekly sheet has: Date, Points, PosActivities, NegActivities, Email
+    const weekData = weekSheet.getRange(10, 1, lastRow - 9, 5).getValues();
+    
+    // Process all rows in the week sheet for the household
+    let positiveCount = 0;
+    let negativeCount = 0;
+    const activityCounts = {};
+    
+    weekData.forEach(row => {
+      const rowDate = row[0];
+      const rowPoints = row[1] || 0;
+      const rowPosActivities = row[2] || "";
+      const rowNegActivities = row[3] || "";
+      const rowEmail = row[4] || "";
+      
+      // Check if this row belongs to someone in the user's household
+      if (householdEmails.length === 0 || 
+          householdEmails.some(email => email.toLowerCase() === rowEmail.toString().toLowerCase())) {
+        
+        // Add points to weekly total
+        result.weeklyTotal += rowPoints;
+        
+        // Count positive activities
+        if (rowPosActivities) {
+          const posActivities = rowPosActivities.split(", ");
+          positiveCount += posActivities.filter(a => a.trim() !== "").length;
           
-          points.forEach(row => {
-            if (typeof row[0] === 'number') {
-              sum += row[0];
-              count++;
+          // Count each activity for top activity calculation
+          posActivities.forEach(activity => {
+            if (activity && activity.trim()) {
+              const match = activity.match(/➕\s(.+?)(\s\(🔥\d+\))?\s\(\+/);
+              if (match) {
+                const actName = match[1].trim();
+                activityCounts[actName] = (activityCounts[actName] || 0) + 1;
+              }
             }
           });
+        }
+        
+        // Count negative activities
+        if (rowNegActivities) {
+          const negActivities = rowNegActivities.split(", ");
+          negativeCount += negActivities.filter(a => a.trim() !== "").length;
           
-          if (count > 0) {
-            result.dailyAverage = Math.round((sum / count) * 10) / 10;
-          }
+          // Count each activity for top activity calculation
+          negActivities.forEach(activity => {
+            if (activity && activity.trim()) {
+              const match = activity.match(/➖\s(.+?)\s\(/);
+              if (match) {
+                const actName = match[1].trim();
+                activityCounts[actName] = (activityCounts[actName] || 0) + 1;
+              }
+            }
+          });
         }
       }
-      
-      // Calculate weekly average
+    });
+    
+    // Update counts in result
+    result.positiveCount = positiveCount;
+    result.negativeCount = negativeCount;
+    
+    // Find top activity
+    let maxCount = 0;
+    for (const activity in activityCounts) {
+      if (activityCounts[activity] > maxCount) {
+        maxCount = activityCounts[activity];
+        result.topActivity = activity;
+      }
+    }
+    
+    // Calculate average daily points for this week
+    if (result.weeklyTotal !== 0) {
+      // Get how many days of the current week have passed
+      const daysPassed = Math.min(7, Math.floor((today - weekStartDate) / (24 * 60 * 60 * 1000)) + 1);
+      result.dailyAverage = Math.round((result.weeklyTotal / daysPassed) * 10) / 10;
+    }
+    
+    // Calculate weekly average from past weeks
+    try {
       const sheets = ss.getSheets();
       const weekPrefix = CONFIG.SHEET_NAMES.WEEK_PREFIX;
       let weekSum = 0;
       let weekCount = 0;
       
-      sheets.forEach(sheet => {
+      for (const sheet of sheets) {
         const sheetName = sheet.getName();
-        if (sheetName.startsWith(weekPrefix)) {
+        if (sheetName.startsWith(weekPrefix) && sheetName !== weekSheetName) {
           try {
-            const total = sheet.getRange("B3").getValue();
-            if (typeof total === 'number') {
-              weekSum += total;
-              weekCount++;
+            // For past weeks, we need to calculate household total from scratch
+            // This assumes the weekly sheets have data starting at row 10 with Email in column 5
+            const lastRow = sheet.getLastRow();
+            if (lastRow >= 10) {
+              let weeklyTotal = 0;
+              const weekData = sheet.getRange(10, 1, lastRow - 9, 5).getValues();
+              
+              weekData.forEach(row => {
+                const rowEmail = row[4] || "";
+                const rowPoints = row[1] || 0;
+                
+                if (householdEmails.length === 0 || 
+                    householdEmails.some(email => email.toLowerCase() === rowEmail.toString().toLowerCase())) {
+                  weeklyTotal += rowPoints;
+                }
+              });
+              
+              if (weeklyTotal !== 0) {
+                weekSum += weeklyTotal;
+                weekCount++;
+              }
             }
           } catch (e) {
-            // Skip this sheet
+            Logger.log(`Error processing week sheet ${sheetName}: ${e}`);
           }
         }
-      });
+      }
       
       if (weekCount > 0) {
         result.weeklyAverage = Math.round((weekSum / weekCount) * 10) / 10;
       }
     } catch (e) {
-      Logger.log(`ERROR calculating averages: ${e}`);
+      Logger.log(`Error calculating weekly average: ${e}`);
     }
     
-    // Final sanity check to ensure object is properly formatted
-    Logger.log(`FINAL RESULT for getWeekData: ${JSON.stringify(result)}`);
     return result;
     
   } catch (error) {
@@ -236,13 +351,104 @@ function getWeekData() {
       negativeCount: 0,
       topActivity: "None",
       dailyAverage: 0,
-      weeklyAverage: 0
+      weeklyAverage: 0,
+      householdId: null,
+      householdName: null
     };
   }
 }
 
 /**
- * Processes activity submissions from the web app
+ * Helper function to calculate week data from Dashboard when weekly sheet doesn't exist
+ * @param {Date} weekStartDate - Start date of the week
+ * @param {Date} today - Current date
+ * @param {Array<string>} householdEmails - Array of emails in the household
+ * @param {Object} result - The result object to populate
+ * @return {Object} Updated result object
+ */
+function calculateWeekDataFromDashboard(weekStartDate, today, householdEmails, result) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const dashboardSheet = ss.getSheetByName(CONFIG.SHEET_NAMES.DASHBOARD);
+  
+  if (!dashboardSheet) {
+    return result;
+  }
+  
+  const weekEndDate = new Date(weekStartDate);
+  weekEndDate.setDate(weekEndDate.getDate() + 6);
+  
+  const startDateStr = formatDateYMD(weekStartDate);
+  const endDateStr = formatDateYMD(weekEndDate);
+  
+  const lastRow = dashboardSheet.getLastRow();
+  if (lastRow <= 1) {
+    return result;
+  }
+  
+  // This assumes Dashboard has columns: Date, Points, Activities, PositiveCount, NegativeCount, WeekNumber, Email
+  const data = dashboardSheet.getRange(2, 1, lastRow - 1, 7).getValues();
+  const activityCounts = {};
+  
+  for (let i = 0; i < data.length; i++) {
+    const rowDate = data[i][0];
+    if (!(rowDate instanceof Date)) continue;
+    
+    const dateStr = formatDateYMD(rowDate);
+    const rowEmail = data[i][6] || "";
+    
+    // Check if date is in current week and belongs to someone in the household
+    if (dateStr >= startDateStr && dateStr <= endDateStr && 
+        (householdEmails.length === 0 || 
+         householdEmails.some(email => email.toLowerCase() === rowEmail.toString().toLowerCase()))) {
+      
+      const rowPoints = data[i][1] || 0;
+      const rowPosCount = data[i][3] || 0;
+      const rowNegCount = data[i][4] || 0;
+      const rowActivities = data[i][2] || "";
+      
+      result.weeklyTotal += rowPoints;
+      result.positiveCount += rowPosCount;
+      result.negativeCount += rowNegCount;
+      
+      // Count activities for top activity
+      if (rowActivities) {
+        const activitiesList = rowActivities.split(", ");
+        activitiesList.forEach(activityStr => {
+          const posMatch = activityStr.match(/➕\s(.+?)(\s\(🔥\d+\))?\s\(\+/);
+          const negMatch = activityStr.match(/➖\s(.+?)\s\(/);
+          
+          let actName = null;
+          if (posMatch) actName = posMatch[1].trim();
+          else if (negMatch) actName = negMatch[1].trim();
+          
+          if (actName) {
+            activityCounts[actName] = (activityCounts[actName] || 0) + 1;
+          }
+        });
+      }
+    }
+  }
+  
+  // Find top activity
+  let maxCount = 0;
+  for (const activity in activityCounts) {
+    if (activityCounts[activity] > maxCount) {
+      maxCount = activityCounts[activity];
+      result.topActivity = activity;
+    }
+  }
+  
+  // Calculate average daily points for this week
+  if (result.weeklyTotal !== 0) {
+    const daysPassed = Math.min(7, Math.floor((today - weekStartDate) / (24 * 60 * 60 * 1000)) + 1);
+    result.dailyAverage = Math.round((result.weeklyTotal / daysPassed) * 10) / 10;
+  }
+  
+  return result;
+}
+
+/**
+ * Process web app submission with household awareness
  * @param {Array} activities - Array of selected activity names
  * @return {Object} Result with updated point totals
  */
@@ -271,10 +477,15 @@ function processWebAppSubmission(activities) {
       }
     });
     
-    // Update Dashboard and Weekly sheets
+    // Update Dashboard and Weekly sheets - these functions should handle
+    // individual user's data regardless of household
     updateDashboard(timestamp, email, processedActivities, totalPoints);
     createOrUpdateWeeklySheet(timestamp, email, processedActivities, totalPoints);
     updateMobileView();
+    
+    // Get updated weekly total for the household
+    const weekData = getWeekData();
+    const updatedWeeklyTotal = weekData.weeklyTotal || 0;
     
     // Return updated totals
     return {
@@ -283,6 +494,8 @@ function processWebAppSubmission(activities) {
       weeklyTotal: updatedWeeklyTotal,
       goalsUpdated: true,
       activities: processedActivities,
+      householdId: weekData.householdId,
+      householdName: weekData.householdName,
       message: `Successfully logged ${activities.length} activities`
     };
   } catch (error) {
@@ -293,6 +506,7 @@ function processWebAppSubmission(activities) {
     };
   }
 }
+
 
 // WebApp.gs - Add these new functions
 
@@ -493,7 +707,7 @@ function getScriptUrl() {
 // WebApp.gs - Updated functions with date formatting fix
 
 /**
- * Gets historical data for visualizations
+ * Gets historical data for visualizations with household filtering
  * @return {Object} Data for charts including daily and weekly trends
  */
 function getHistoricalData() {
@@ -504,44 +718,105 @@ function getHistoricalData() {
     return { success: false, message: "Dashboard sheet not found" };
   }
   
+  // Get current user's email and household
+  const email = Session.getEffectiveUser().getEmail();
+  const householdId = getUserHouseholdId(email);
+  let householdEmails = [];
+  
+  if (householdId) {
+    householdEmails = getHouseholdEmails(householdId);
+    Logger.log(`Found ${householdEmails.length} members in household for ${email}`);
+  } else {
+    // No household found, just use current user's email
+    householdEmails = [email];
+    Logger.log(`No household found for ${email}, using individual data`);
+  }
+  
   // Get daily data from dashboard
   const lastRow = dashboardSheet.getLastRow();
   let dailyData = [];
   
   if (lastRow > 1) {
-    const data = dashboardSheet.getRange(2, 1, lastRow - 1, 3).getValues(); // A2:C<lastRow>
+    // Important: For historical data, don't filter strictly by household email
+    // Instead, include all data if it's old (before households were implemented)
+    // or if it belongs to the current household
+    
+    // This assumes Dashboard has: Date, Points, Activities, PositiveCount, NegativeCount, WeekNumber, Email
+    // If Email is in a different column, adjust the column index accordingly
+    const data = dashboardSheet.getRange(2, 1, lastRow - 1, dashboardSheet.getLastColumn()).getValues();
     const timezone = Session.getScriptTimeZone();
     
-    dailyData = data.map(row => {
-      // Ensure date is a proper Date object
-      const dateObj = row[0] instanceof Date ? row[0] : new Date(row[0]);
+    // Create a map to aggregate data by date
+    const dateMap = new Map();
+    
+    // Determine cutoff date for historical data (adjust this based on when you implemented households)
+    const householdImplementationDate = new Date("2025-04-01"); // Set this to when you implemented households
+    
+    data.forEach(row => {
+      const dateObj = row[0];
+      // Find which column has the email (might not be column 7)
+      // Assume column 7 if email column exists, otherwise no filtering
+      const rowEmail = row.length >= 7 ? (row[6] || "") : "";
       
       // Skip invalid dates
       if (!(dateObj instanceof Date) || isNaN(dateObj.getTime())) {
-        return null;
+        return;
       }
       
-      // Create daily data entry with date and points
-      return {
-        date: formatDateYMD(dateObj),
-        displayDate: Utilities.formatDate(dateObj, timezone, "MMM d"),
-        points: row[1] || 0,
-        activities: row[2] || ""
-      };
-    }).filter(item => item !== null); // Filter out invalid entries
+      // Include row if:
+      // 1. It's before households were implemented OR
+      // 2. No email column exists (pre-household data) OR
+      // 3. The email is part of the household
+      const isBeforeHouseholds = dateObj < householdImplementationDate;
+      const isInHousehold = householdEmails.some(email => 
+        email.toLowerCase() === rowEmail.toString().toLowerCase());
+      
+      if (isBeforeHouseholds || rowEmail === "" || isInHousehold) {
+        const dateStr = formatDateYMD(dateObj);
+        const points = row[1] || 0;
+        const activities = row[2] || "";
+        
+        // Aggregate by date
+        if (!dateMap.has(dateStr)) {
+          dateMap.set(dateStr, {
+            date: dateStr,
+            displayDate: Utilities.formatDate(dateObj, timezone, "MMM d"),
+            points: 0,
+            activities: ""
+          });
+        }
+        
+        // Add points and activities
+        const entry = dateMap.get(dateStr);
+        entry.points += points;
+        
+        if (activities) {
+          if (entry.activities) {
+            entry.activities += ", " + activities;
+          } else {
+            entry.activities = activities;
+          }
+        }
+      }
+    });
     
-    // Sort by date
+    // Convert map to array and sort by date
+    dailyData = Array.from(dateMap.values());
     dailyData.sort((a, b) => a.date.localeCompare(b.date));
   }
   
-  // Get weekly data from weekly sheets
-  const weeklyData = getWeeklyHistoricalData();
+  // Get weekly data with the same historical data approach
+  const weeklyData = getWeeklyHistoricalDataForHousehold(householdEmails);
   
   // Get streak data
   let streakData = { buildingStreaks: {}, streaks: {} };
   try {
-    if (typeof trackActivityStreaks === "function") {
-      streakData = trackActivityStreaks() || { buildingStreaks: {}, streaks: {} };
+    if (typeof trackActivityStreaksForHousehold === "function") {
+      streakData = trackActivityStreaksForHousehold(householdId) || { buildingStreaks: {}, streaks: {} };
+    } else if (typeof trackActivityStreaks === "function") {
+      // Fallback to regular streak tracking if household version doesn't exist
+      streakData = trackActivityStreaks();
+      Logger.log("Using regular streak tracking - household version not found");
     }
   } catch (e) {
     Logger.log(`Error getting streak data: ${e}`);
@@ -555,21 +830,27 @@ function getHistoricalData() {
     dailyData: dailyData,
     weeklyData: weeklyData,
     streakData: streakData,
-    movingAverages: movingAverages
+    movingAverages: movingAverages,
+    householdId: householdId,
+    householdName: householdId ? getHouseholdName(householdId) : null
   };
 }
 
 /**
- * Gets weekly historical data from all week sheets
- * @return {Array} Array of weekly data objects
+ * Gets weekly historical data with a flexible approach for households
+ * @param {Array<string>} householdEmails - Array of emails in household
+ * @return {Array} Filtered weekly data
  */
-function getWeeklyHistoricalData() {
+function getWeeklyHistoricalDataForHousehold(householdEmails) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheets = ss.getSheets();
   const weekPrefix = CONFIG.SHEET_NAMES.WEEK_PREFIX;
   const timezone = Session.getScriptTimeZone();
   
   const weeklyData = [];
+  
+  // Determine cutoff date for historical data
+  const householdImplementationDate = new Date("2025-04-01"); // Set this to when you implemented households
   
   sheets.forEach(sheet => {
     const sheetName = sheet.getName();
@@ -593,29 +874,116 @@ function getWeeklyHistoricalData() {
             return; // Skip this sheet
           }
           
-          // Get weekly totals from the sheet
-          const totalPoints = sheet.getRange("B3").getValue() || 0;
-          const positiveCount = sheet.getRange("B4").getValue() || 0;
-          const negativeCount = sheet.getRange("B5").getValue() || 0;
+          // Get data rows
+          const lastRow = sheet.getLastRow();
+          if (lastRow < 10) {
+            return; // No data rows
+          }
           
-          // Get daily breakdown
-          const dailyPoints = sheet.getRange("H8:H14").getValues().map(row => row[0] || 0);
+          // For historical data:
+          // 1. Include all data from weeks before households implementation
+          // 2. For recent weeks, filter by household
+          const isBeforeHouseholds = weekStartDate < householdImplementationDate;
           
+          // Process all rows in this sheet
+          let totalPoints = 0;
+          let positiveCount = 0;
+          let negativeCount = 0;
+          const activityCounts = {};
+          const dailyBreakdown = {
+            sunday: 0, monday: 0, tuesday: 0, wednesday: 0, 
+            thursday: 0, friday: 0, saturday: 0
+          };
+          
+          // Find which columns have the data we need
+          // Assume it's: Date, Points, PosAct, NegAct, Email
+          // If the sheet doesn't have all columns, adapt accordingly
+          const data = sheet.getRange(10, 1, lastRow - 9, sheet.getLastColumn()).getValues();
+          
+          for (const row of data) {
+            const rowDate = row[0];
+            const rowPoints = row[1] || 0;
+            const rowPosAct = row.length > 2 ? (row[2] || "") : "";
+            const rowNegAct = row.length > 3 ? (row[3] || "") : "";
+            const rowEmail = row.length > 4 ? (row[4] || "") : "";
+            
+            // Check if we should include this row
+            const isInHousehold = householdEmails.some(email => 
+              email.toLowerCase() === rowEmail.toString().toLowerCase());
+              
+            if (isBeforeHouseholds || rowEmail === "" || isInHousehold) {
+              totalPoints += rowPoints;
+              
+              // Count positive activities
+              if (rowPosAct) {
+                const posCount = rowPosAct.split(",").filter(a => a.trim()).length;
+                positiveCount += posCount;
+                
+                // Process for top activity
+                rowPosAct.split(",").forEach(act => {
+                  if (act.trim()) {
+                    const match = act.trim().match(/➕\s(.+?)(\s\(🔥\d+\))?\s\(\+/);
+                    if (match) {
+                      const name = match[1].trim();
+                      activityCounts[name] = (activityCounts[name] || 0) + 1;
+                    }
+                  }
+                });
+              }
+              
+              // Count negative activities
+              if (rowNegAct) {
+                const negCount = rowNegAct.split(",").filter(a => a.trim()).length;
+                negativeCount += negCount;
+                
+                // Process for top activity
+                rowNegAct.split(",").forEach(act => {
+                  if (act.trim()) {
+                    const match = act.trim().match(/➖\s(.+?)\s\(/);
+                    if (match) {
+                      const name = match[1].trim();
+                      activityCounts[name] = (activityCounts[name] || 0) + 1;
+                    }
+                  }
+                });
+              }
+              
+              // Add to daily breakdown
+              if (rowDate instanceof Date) {
+                const day = rowDate.getDay(); // 0 = Sunday, 6 = Saturday
+                switch (day) {
+                  case 0: dailyBreakdown.sunday += rowPoints; break;
+                  case 1: dailyBreakdown.monday += rowPoints; break;
+                  case 2: dailyBreakdown.tuesday += rowPoints; break;
+                  case 3: dailyBreakdown.wednesday += rowPoints; break;
+                  case 4: dailyBreakdown.thursday += rowPoints; break;
+                  case 5: dailyBreakdown.friday += rowPoints; break;
+                  case 6: dailyBreakdown.saturday += rowPoints; break;
+                }
+              }
+            }
+          }
+          
+          // Find top activity
+          let topActivity = "None";
+          let maxCount = 0;
+          for (const activity in activityCounts) {
+            if (activityCounts[activity] > maxCount) {
+              maxCount = activityCounts[activity];
+              topActivity = activity;
+            }
+          }
+          
+          // Add to weekly data
           weeklyData.push({
             startDate: formatDateYMD(weekStartDate),
             displayDate: Utilities.formatDate(weekStartDate, timezone, "MMM d, yyyy"),
             totalPoints: totalPoints,
             positiveCount: positiveCount,
             negativeCount: negativeCount,
-            dailyBreakdown: {
-              sunday: dailyPoints[0],
-              monday: dailyPoints[1],
-              tuesday: dailyPoints[2],
-              wednesday: dailyPoints[3],
-              thursday: dailyPoints[4],
-              friday: dailyPoints[5],
-              saturday: dailyPoints[6]
-            }
+            topActivity: topActivity,
+            topActivityCount: maxCount,
+            dailyBreakdown: dailyBreakdown
           });
         }
       } catch (e) {
