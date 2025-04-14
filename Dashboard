@@ -78,6 +78,19 @@
           <p class="loading">Loading weekly goals data...</p>
         </div>
       </div>
+      <div class="dashboard-section">
+        <h3>Lifetime Activity Frequency</h3>
+        <div class="chart-container" id="lifetime-chart-container">
+          <canvas id="lifetime-activity-chart"></canvas>
+        </div>
+      </div>
+
+      <div class="dashboard-section">
+        <h3>Previous Week Activity Frequency</h3>
+        <div class="chart-container" id="prev-week-chart-container">
+          <canvas id="prev-week-activity-chart"></canvas>
+        </div>
+      </div>
       <!-- ADD THE GOAL HISTORY SECTION HERE -->
       <div class="dashboard-section">
         <h3>Goal Achievement History</h3>
@@ -212,12 +225,15 @@
           
           // Render streaks
           renderStreaks(data.streakData);
+          
+          // Render the new activity frequency charts
+          renderActivityFrequencyChart('lifetime-activity-chart', data.lifetimeActivityCounts, 'Lifetime');
+          renderActivityFrequencyChart('prev-week-activity-chart', data.prevWeekActivityCounts, 'Previous Week');
         } catch (error) {
           console.error('Error rendering charts:', error);
           showNotification('Error rendering charts: ' + error.message);
         }
       }
-      
       function renderPointsChart(dailyData, movingAverages) {
         if (!dailyData || dailyData.length === 0) {
           showChartError('points-chart', 'No daily data available');
@@ -565,7 +581,172 @@
           }
         });
       }
-      
+      /**
+       * Renders a horizontal bar chart showing activity frequency
+       * @param {string} canvasId - The ID of the canvas element
+       * @param {Object} activityCounts - Map of activity names to count and positive/negative status
+       * @param {string} timeframe - Label for the timeframe ("Lifetime" or "Previous Week")
+       */
+      function renderActivityFrequencyChart(canvasId, activityCounts, timeframe) {
+        const canvas = document.getElementById(canvasId);
+        if (!canvas) {
+          console.error(`Canvas element "${canvasId}" not found!`);
+          return;
+        }
+        
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          console.error(`Could not get 2D context for "${canvasId}"`);
+          return;
+        }
+        
+        // Check if we have data
+        if (!activityCounts || Object.keys(activityCounts).length === 0) {
+          showChartError(canvasId, `No activity data available for ${timeframe.toLowerCase()} period`);
+          return;
+        }
+        
+        console.log(`Rendering ${timeframe} activity frequency chart with ${Object.keys(activityCounts).length} activities`);
+        
+        // Process data
+        const processedData = [];
+        let totalActivities = 0;
+        
+        // Calculate total activities (only counting those with at least 1 occurrence)
+        for (const activityName in activityCounts) {
+          totalActivities += activityCounts[activityName].count;
+        }
+        
+        console.log(`Total ${timeframe} activities count: ${totalActivities}`);
+        
+        // If no activities were found, handle this case specially 
+        if (totalActivities === 0) {
+          showChartError(canvasId, `No activities logged in this ${timeframe.toLowerCase()} period`);
+          return;
+        }
+        
+        // Convert to percentage and create processed data array
+        for (const activityName in activityCounts) {
+          const item = activityCounts[activityName];
+          const percentage = totalActivities > 0 ? (item.count / totalActivities) * 100 : 0;
+          
+          // Add all activities to the data array, even those with 0 count
+          processedData.push({
+            name: activityName,
+            percentage: Math.round(percentage * 10) / 10, // Round to 1 decimal
+            positive: item.positive,
+            count: item.count
+          });
+        }
+        
+        // Split into positive and negative activities
+        const positiveActivities = processedData.filter(item => item.positive);
+        const negativeActivities = processedData.filter(item => !item.positive);
+        
+        // Sort according to requirements:
+        // 1. Most frequent positive activities (descending %)
+        const frequentPositive = positiveActivities.filter(item => item.count > 0)
+          .sort((a, b) => b.percentage - a.percentage);
+        
+        // 2. Least frequent positive activities (ascending % - these are the zeros)
+        const rarePositive = positiveActivities.filter(item => item.count === 0)
+          .sort((a, b) => a.name.localeCompare(b.name)); // Alphabetical order for zero-count items
+        
+        // 3. Least frequent negative activities (ascending %)
+        const rareNegative = negativeActivities.filter(item => item.count === 0)
+          .sort((a, b) => a.name.localeCompare(b.name)); // Alphabetical order for zero-count items
+        
+        // 4. Most frequent negative activities (descending %)
+        const frequentNegative = negativeActivities.filter(item => item.count > 0)
+          .sort((a, b) => b.percentage - a.percentage);
+        
+        // Combine sorted arrays according to the required sort order
+        const sortedData = [...frequentPositive, ...rarePositive, ...rareNegative, ...frequentNegative];
+        
+        console.log(`${timeframe}: Positive activities with occurrences: ${frequentPositive.length}`);
+        console.log(`${timeframe}: Positive activities with zero occurrences: ${rarePositive.length}`);
+        console.log(`${timeframe}: Negative activities with occurrences: ${frequentNegative.length}`);
+        console.log(`${timeframe}: Negative activities with zero occurrences: ${rareNegative.length}`);
+        
+        // Extract labels, percentages, and flags for chart data
+        const sortedLabels = sortedData.map(item => item.name);
+        const sortedPercentages = sortedData.map(item => item.percentage);
+        const sortedPositiveFlags = sortedData.map(item => item.positive);
+        const sortedCounts = sortedData.map(item => item.count);
+        
+        // Destroy existing chart if it exists
+        if (charts[canvasId]) {
+          charts[canvasId].destroy();
+        }
+        
+        // Create new chart
+        charts[canvasId] = new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels: sortedLabels,
+            datasets: [{
+              label: '% of Total Activities',
+              data: sortedPercentages,
+              backgroundColor: function(context) {
+                const index = context.dataIndex;
+                return sortedPositiveFlags[index] ? 'rgba(52, 168, 83, 0.7)' : 'rgba(234, 67, 53, 0.7)';
+              },
+              borderColor: function(context) {
+                const index = context.dataIndex;
+                return sortedPositiveFlags[index] ? 'rgba(52, 168, 83, 1)' : 'rgba(234, 67, 53, 1)';
+              },
+              borderWidth: 1
+            }]
+          },
+          options: {
+            indexAxis: 'y', // Horizontal bar chart
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              x: {
+                title: {
+                  display: true,
+                  text: '% of Total Activities'
+                },
+                ticks: {
+                  callback: function(value) {
+                    return value + '%';
+                  }
+                },
+                min: 0 // Start at 0
+              },
+              y: {
+                // Limit the number of labels shown if there are too many
+                ticks: {
+                  autoSkip: true,
+                  maxTicksLimit: 25
+                }
+              }
+            },
+            plugins: {
+              tooltip: {
+                callbacks: {
+                  label: function(context) {
+                    const index = context.dataIndex;
+                    let label = context.dataset.label || '';
+                    if (label) {
+                      label += ': ';
+                    }
+                    if (context.parsed.x !== null) {
+                      label += context.parsed.x.toFixed(1) + '%';
+                    }
+                    label += ` (${sortedCounts[index]} occurrences)`;
+                    return label;
+                  }
+                }
+              },
+              legend: {
+                display: false // Hide legend since it's self-explanatory
+              }
+            }
+          }
+        });
+      }
       function loadWeeklyGoals() {
         const goalsContainer = document.getElementById('weekly-goals-container');
         if (!goalsContainer) return;
@@ -976,6 +1157,7 @@
         container.appendChild(errorDiv);
       }
       
+      // Update handleDashboardError to include the new chart containers
       function handleDashboardError(error) {
         console.error('Dashboard error:', error);
         showNotification('Error loading dashboard data: ' + (error.message || 'Unknown error'));
