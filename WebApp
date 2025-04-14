@@ -448,6 +448,38 @@ function calculateWeekDataFromDashboard(weekStartDate, today, householdEmails, r
 }
 
 /**
+ * Helper function to process a single activity entry and update counts
+ * @param {string} activityEntry - The activity entry text to process
+ * @param {Object} activityData - The cached activity data
+ * @param {Object} activityCounts - The counts object to update
+ */
+function processActivityEntry(activityEntry, activityData, activityCounts) {
+  // Try different regex patterns - first the more specific one with icons
+  let match = activityEntry.match(/^[➕➖]\s(.*?)\s*(?:\(🔥\d+\))?\s*\(([+-]\d+)\)/);
+  
+  // If that doesn't match, try a simpler pattern that might catch differently formatted entries
+  if (!match) {
+    match = activityEntry.match(/(.*?)\s*\(([+-]\d+)\)/);
+  }
+  
+  if (match && match[1]) {
+    const activityName = match[1].trim();
+    
+    // Check if this is a valid activity in our reference
+    if (activityCounts[activityName]) {
+      // Increment count
+      activityCounts[activityName].count++;
+    } else {
+      // Log uncommon scenario - an activity found in the logs but not in reference
+      Logger.log(`Activity found in logs but not in reference: "${activityName}"`);
+    }
+  } else {
+    // This helps debug entries that don't match our regex patterns
+    Logger.log(`Could not parse activity entry: "${activityEntry}"`);
+  }
+}
+
+/**
  * Process web app submission with household awareness
  * @param {Array} activities - Array of selected activity names
  * @return {Object} Result with updated point totals
@@ -831,6 +863,9 @@ function getHistoricalData() {
     weeklyData: weeklyData,
     streakData: streakData,
     movingAverages: movingAverages,
+    // Add new data:
+    lifetimeActivityCounts: getLifetimeActivityCounts(),
+    prevWeekActivityCounts: getPreviousWeekActivityCounts(),
     householdId: householdId,
     householdName: householdId ? getHouseholdName(householdId) : null
   };
@@ -1393,4 +1428,484 @@ function getGoalAchievementHistory() {
       }
     };
   }
+}
+
+/**
+ * Gets lifetime activity counts for visualization.
+ * Reads from Form Responses sheet to count every instance of each activity ever logged.
+ * @return {Object} Map of activity names to count and positive/negative status
+ */
+function getLifetimeActivityCounts() {
+  // Get activity data for reference values
+  const activityData = getActivityDataCached();
+  const activityCounts = {};
+  
+  // Initialize all activities from reference with count 0
+  for (const activityName in activityData.pointValues) {
+    activityCounts[activityName] = {
+      count: 0,
+      positive: activityData.pointValues[activityName] > 0
+    };
+  }
+  
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const formResponsesSheet = ss.getSheetByName(CONFIG.SHEET_NAMES.FORM_RESPONSES);
+  
+  if (!formResponsesSheet) {
+    Logger.log("Form Responses sheet not found for lifetime activity counts");
+    return activityCounts; // Return all activities with 0 count
+  }
+  
+  const lastRow = formResponsesSheet.getLastRow();
+  if (lastRow <= 1) {
+    Logger.log("No data in Form Responses sheet beyond header");
+    return activityCounts; // Return all activities with 0 count
+  }
+  
+  // Log the number of rows we're processing
+  Logger.log(`Processing ${lastRow - 1} rows from Form Responses for lifetime activity counts`);
+  
+  // Get all form response data (all columns)
+  const formData = formResponsesSheet.getRange(2, 1, lastRow - 1, formResponsesSheet.getLastColumn()).getValues();
+  
+  // Process each row
+  let totalActivitiesFound = 0;
+  formData.forEach((row, rowIndex) => {
+    // Skip first column (timestamp) and process activity columns
+    for (let col = 1; col < row.length; col++) {
+      const cellValue = row[col];
+      
+      // Skip empty cells and Yes/No answers
+      if (cellValue && 
+          typeof cellValue === 'string' && 
+          cellValue.trim() !== 'Yes' && 
+          cellValue.trim() !== 'No') {
+        
+        // Process the cell value - either directly or by splitting if it contains multiple activities
+        if (cellValue.includes(", ")) {
+          // Split by comma if multiple activities in one cell
+          const activitiesList = cellValue.split(", ");
+          
+          activitiesList.forEach(activityEntry => {
+            processActivityEntry(activityEntry, activityData, activityCounts);
+            totalActivitiesFound++;
+          });
+        } else {
+          // Process the single activity entry
+          processActivityEntry(cellValue, activityData, activityCounts);
+          totalActivitiesFound++;
+        }
+      }
+    }
+    
+    // Log progress for every 100 rows
+    if (rowIndex % 100 === 0) {
+      Logger.log(`Processed ${rowIndex} rows, found ${totalActivitiesFound} activities so far`);
+    }
+  });
+  
+  Logger.log(`Total lifetime activities found: ${totalActivitiesFound}`);
+  Logger.log(`Unique activities found: ${Object.keys(activityCounts).length}`);
+  
+  return activityCounts;
+}
+
+/**
+ * Gets activity counts for the previous week for visualization.
+ * Prioritizes weekly sheet, which has proven to be the most reliable source.
+ * @return {Object} Map of activity names to count and positive/negative status
+ */
+function getPreviousWeekActivityCounts() {
+  // Get activity data for reference values
+  const activityData = getActivityDataCached();
+  const activityCounts = {};
+  
+  // Initialize all activities from reference with count 0
+  for (const activityName in activityData.pointValues) {
+    activityCounts[activityName] = {
+      count: 0,
+      positive: activityData.pointValues[activityName] > 0
+    };
+  }
+  
+  // Get spreadsheet reference
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  
+  // Calculate start and end dates for the previous week
+  const today = new Date();
+  const currentWeekStart = getWeekStartDate(today);
+  const endDate = new Date(currentWeekStart);
+  endDate.setDate(endDate.getDate() - 1); // Move to end of previous week (Saturday)
+  const startDate = new Date(endDate);
+  startDate.setDate(startDate.getDate() - 6); // Go back to start of previous week (Sunday)
+  
+  Logger.log(`Calculating previous week activity counts for: ${formatDateYMD(startDate)} to ${formatDateYMD(endDate)}`);
+  
+  // Get current user's email and household
+  const email = Session.getEffectiveUser().getEmail();
+  const householdId = getUserHouseholdId(email);
+  let householdEmails = [];
+  
+  if (householdId) {
+    householdEmails = getHouseholdEmails(householdId);
+    Logger.log(`Found ${householdEmails.length} members in household for previous week activity counts`);
+  } else {
+    // No household found, just use current user's email
+    householdEmails = [email];
+    Logger.log(`No household found for ${email}, using individual data`);
+  }
+  
+  // APPROACH 1 (PRIORITY): Check weekly sheet first since logs show it's the most reliable source
+  const weekSheetName = getWeekSheetName(startDate);
+  const weekSheet = ss.getSheetByName(weekSheetName);
+  
+  if (weekSheet) {
+    try {
+      Logger.log(`Checking weekly sheet: ${weekSheetName}`);
+      const lastRow = weekSheet.getLastRow();
+      if (lastRow >= 10) {
+        // This assumes weekly sheet has: Date, Points, Positive Activities, Negative Activities, Email
+        const weekData = weekSheet.getRange(10, 1, lastRow - 9, 5).getValues();
+        
+        // Process each row
+        let processedActivities = 0;
+        
+        weekData.forEach(row => {
+          const rowEmail = row[4] || ""; // Email in column E
+          const posActivities = row[2] || ""; // Positive activities in column C
+          const negActivities = row[3] || ""; // Negative activities in column D
+          
+          // Check if this row belongs to the household
+          const isInHousehold = householdEmails.length === 0 || 
+                               householdEmails.some(email => 
+                                 email.toLowerCase() === rowEmail.toString().toLowerCase());
+          
+          if (isInHousehold) {
+            // Process positive activities
+            if (posActivities) {
+              const posList = posActivities.split(", ");
+              posList.forEach(activityStr => {
+                const match = activityStr.match(/➕\s(.*?)(?:\s\(🔥\d+\))?\s\(\+/);
+                if (match && match[1]) {
+                  const activityName = match[1].trim();
+                  if (activityCounts[activityName]) {
+                    activityCounts[activityName].count++;
+                    processedActivities++;
+                  }
+                }
+              });
+            }
+            
+            // Process negative activities
+            if (negActivities) {
+              const negList = negActivities.split(", ");
+              negList.forEach(activityStr => {
+                const match = activityStr.match(/➖\s(.*?)\s\(/);
+                if (match && match[1]) {
+                  const activityName = match[1].trim();
+                  if (activityCounts[activityName]) {
+                    activityCounts[activityName].count++;
+                    processedActivities++;
+                  }
+                }
+              });
+            }
+          }
+        });
+        
+        Logger.log(`Processed ${processedActivities} activities from weekly sheet`);
+        
+        // If we found activities, return the results
+        if (processedActivities > 0) {
+          return activityCounts;
+        }
+      }
+    } catch (error) {
+      Logger.log(`Error processing weekly sheet: ${error}`);
+    }
+  }
+  
+  // APPROACH 2: If weekly sheet didn't work, try getWeekActivities
+  if (typeof getWeekActivities === "function") {
+    try {
+      Logger.log("Falling back to getWeekActivities");
+      const weekActivities = getWeekActivities(startDate, endDate, householdEmails);
+      Logger.log(`Found ${weekActivities.length} activities via getWeekActivities`);
+      
+      if (weekActivities && weekActivities.length > 0) {
+        // Process each activity
+        let validActivitiesFound = 0;
+        weekActivities.forEach(activity => {
+          if (activity && activity.name) {
+            const activityName = activity.name;
+            
+            // Only count if activity exists in the pointValues reference
+            if (activityCounts[activityName]) {
+              // Increment count
+              activityCounts[activityName].count++;
+              validActivitiesFound++;
+            }
+          }
+        });
+        
+        Logger.log(`Found ${validActivitiesFound} valid activities from getWeekActivities`);
+        
+        // If we found valid activities, return the results
+        if (validActivitiesFound > 0) {
+          return activityCounts;
+        }
+      }
+    } catch (error) {
+      Logger.log(`Error using getWeekActivities: ${error}`);
+    }
+  }
+  
+  // APPROACH 3: Last resort, try Dashboard
+  Logger.log("Trying Dashboard data as last resort");
+  const dashboardSheet = ss.getSheetByName(CONFIG.SHEET_NAMES.DASHBOARD);
+  
+  if (dashboardSheet) {
+    try {
+      const lastRow = dashboardSheet.getLastRow();
+      if (lastRow > 1) {
+        // Get all dashboard data
+        const dashData = dashboardSheet.getRange(2, 1, lastRow - 1, dashboardSheet.getLastColumn()).getValues();
+        const startDateStr = formatDateYMD(startDate);
+        const endDateStr = formatDateYMD(endDate);
+        
+        Logger.log(`Looking for Dashboard entries between ${startDateStr} and ${endDateStr}`);
+        
+        // Find all rows within date range and for household members
+        let processedActivities = 0;
+        
+        dashData.forEach((row) => {
+          const rowDate = row[0]; // Date in column A
+          
+          // Skip invalid dates
+          if (!(rowDate instanceof Date) || isNaN(rowDate.getTime())) return;
+          
+          const dateStr = formatDateYMD(rowDate);
+          
+          // Check if date is in previous week
+          if (dateStr >= startDateStr && dateStr <= endDateStr) {
+            // Get email from row (try to find it by looking for @ symbol)
+            let rowEmail = "";
+            for (let i = 0; i < row.length; i++) {
+              if (row[i] && typeof row[i] === 'string' && row[i].includes('@')) {
+                rowEmail = row[i].toString().trim().toLowerCase();
+                break;
+              }
+            }
+            
+            // Check if this row belongs to the household
+            const isInHousehold = householdEmails.length === 0 || 
+                                 householdEmails.some(email => 
+                                   email.toLowerCase() === rowEmail);
+            
+            if (isInHousehold) {
+              // Get activities string (typically in column C)
+              const activitiesStr = row[2] || "";
+              
+              if (activitiesStr) {
+                // Split by comma to get individual activities
+                const activitiesList = activitiesStr.split(", ");
+                
+                activitiesList.forEach(activityStr => {
+                  // Try to parse using different patterns
+                  let activityName = null;
+                  
+                  // Pattern 1: ➕ ActivityName (🔥X) (+Y)
+                  const posPattern1 = /➕\s(.*?)(?:\s\(🔥\d+\))?\s\(\+/;
+                  // Pattern 2: ➖ ActivityName (-Y)
+                  const negPattern = /➖\s(.*?)\s\(/;
+                  // Pattern 3: ➕ ActivityName (+Y)
+                  const posPattern2 = /➕\s(.*?)\s\(\+/;
+                  
+                  let match = activityStr.match(posPattern1) || 
+                              activityStr.match(negPattern) || 
+                              activityStr.match(posPattern2);
+                  
+                  if (match && match[1]) {
+                    activityName = match[1].trim();
+                    
+                    // Only count if it exists in our reference
+                    if (activityCounts[activityName]) {
+                      activityCounts[activityName].count++;
+                      processedActivities++;
+                    }
+                  }
+                });
+              }
+            }
+          }
+        });
+        
+        Logger.log(`Processed ${processedActivities} activities from Dashboard`);
+      }
+    } catch (error) {
+      Logger.log(`Error processing Dashboard data: ${error}`);
+    }
+  }
+  
+  // Always return activity counts, even if we didn't find any activities
+  return activityCounts;
+}
+
+/**
+ * Helper function to process an activity and update the counts
+ * @param {string} activityName - The name of the activity
+ * @param {boolean} isPositive - Whether the activity is positive
+ * @param {Object} activityData - Cached activity data
+ * @param {Object} activityCounts - Counts object to update
+ */
+function processActivity(activityName, isPositive, activityData, activityCounts) {
+  // Only count if activity exists in the pointValues reference
+  if (activityData.pointValues[activityName] !== undefined) {
+    // Initialize if first time seeing this activity
+    if (!activityCounts[activityName]) {
+      activityCounts[activityName] = { 
+        count: 0, 
+        positive: isPositive 
+      };
+    }
+    
+    // Increment count
+    activityCounts[activityName].count++;
+  } else {
+    Logger.log(`Activity not found in reference: "${activityName}"`);
+  }
+}
+
+/**
+ * Helper function to process weekly sheet for activity counts
+ * @param {Sheet} weekSheet - The weekly sheet to process
+ * @param {Array} householdEmails - Array of household member emails
+ * @param {Object} activityData - Cached activity data
+ * @param {Object} activityCounts - Counts object to update
+ * @return {number} Number of activities found
+ */
+function processWeeklySheet(weekSheet, householdEmails, activityData, activityCounts) {
+  let processedActivities = 0;
+  const lastRow = weekSheet.getLastRow();
+  
+  if (lastRow < 10) return 0; // No data rows
+  
+  // This assumes weekly sheet has: Date, Points, Positive Activities, Negative Activities, Email
+  const weekData = weekSheet.getRange(10, 1, lastRow - 9, 5).getValues();
+  
+  weekData.forEach(row => {
+    const rowEmail = row[4] || ""; // Email in column E
+    const posActivities = row[2] || ""; // Positive activities in column C
+    const negActivities = row[3] || ""; // Negative activities in column D
+    
+    // Check if this row belongs to someone in the user's household
+    if (householdEmails.length === 0 || 
+        householdEmails.some(email => email.toLowerCase() === rowEmail.toString().toLowerCase())) {
+      
+      // Process positive activities
+      if (posActivities) {
+        const posList = posActivities.split(", ");
+        posList.forEach(activityStr => {
+          // Parse positive activity name
+          const match = activityStr.match(/➕\s(.*?)(?:\s\(🔥\d+\))?\s\(\+/);
+          if (match && match[1]) {
+            const activityName = match[1].trim();
+            if (activityCounts[activityName]) {
+              activityCounts[activityName].count++;
+              processedActivities++;
+            }
+          }
+        });
+      }
+      
+      // Process negative activities
+      if (negActivities) {
+        const negList = negActivities.split(", ");
+        negList.forEach(activityStr => {
+          // Parse negative activity name
+          const match = activityStr.match(/➖\s(.*?)\s\(/);
+          if (match && match[1]) {
+            const activityName = match[1].trim();
+            if (activityCounts[activityName]) {
+              activityCounts[activityName].count++;
+              processedActivities++;
+            }
+          }
+        });
+      }
+    }
+  });
+  
+  return processedActivities;
+}
+
+/**
+ * Helper function to process dashboard sheet for activities within a date range
+ * @param {Sheet} dashboardSheet - The dashboard sheet to process
+ * @param {Date} startDate - Start date of the week
+ * @param {Date} endDate - End date of the week
+ * @param {Array} householdEmails - Array of household member emails
+ * @param {Object} activityData - Cached activity data
+ * @param {Object} activityCounts - Counts object to update
+ * @return {number} Number of activities found
+ */
+function processDashboardForWeek(dashboardSheet, startDate, endDate, householdEmails, activityData, activityCounts) {
+  let processedActivities = 0;
+  const lastRow = dashboardSheet.getLastRow();
+  
+  if (lastRow <= 1) return 0; // No data rows
+  
+  // Get all dashboard data
+  const dashData = dashboardSheet.getRange(2, 1, lastRow - 1, dashboardSheet.getLastColumn()).getValues();
+  const startDateStr = formatDateYMD(startDate);
+  const endDateStr = formatDateYMD(endDate);
+  
+  // Find all rows within date range and for household members
+  dashData.forEach(row => {
+    const rowDate = row[0]; // Date in column A
+    if (!(rowDate instanceof Date)) return; // Skip invalid dates
+    
+    const dateStr = formatDateYMD(rowDate);
+    if (dateStr >= startDateStr && dateStr <= endDateStr) {
+      // Try to find which column has email
+      let rowEmail = "";
+      for (let i = 0; i < row.length; i++) {
+        if (row[i] && typeof row[i] === 'string' && row[i].includes('@')) {
+          rowEmail = row[i];
+          break;
+        }
+      }
+      
+      // Check if this row belongs to the household
+      if (householdEmails.length === 0 || 
+          householdEmails.some(email => email.toLowerCase() === rowEmail.toString().toLowerCase())) {
+        
+        const activitiesStr = row[2] || ""; // Activities usually in column C
+        
+        if (activitiesStr) {
+          const activitiesList = activitiesStr.split(", ");
+          
+          activitiesList.forEach(activityStr => {
+            // Try to parse activity
+            const posMatch = activityStr.match(/➕\s(.*?)(?:\s\(🔥\d+\))?\s\(\+/);
+            const negMatch = activityStr.match(/➖\s(.*?)\s\(/);
+            
+            let activityName = null;
+            if (posMatch && posMatch[1]) {
+              activityName = posMatch[1].trim();
+            } else if (negMatch && negMatch[1]) {
+              activityName = negMatch[1].trim();
+            }
+            
+            if (activityName && activityCounts[activityName]) {
+              activityCounts[activityName].count++;
+              processedActivities++;
+            }
+          });
+        }
+      }
+    }
+  });
+  
+  return processedActivities;
 }
