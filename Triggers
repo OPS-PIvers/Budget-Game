@@ -1,0 +1,171 @@
+// Triggers.gs
+/**
+ * Functions for setting up and managing script triggers for Budget Game v3 (Streamlined).
+ */
+
+/**
+ * Sets up an onEdit trigger specifically for the Points Reference sheet.
+ */
+function setupPointsReferenceEditTrigger() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const triggers = ScriptApp.getProjectTriggers();
+  const handlerFunction = CONFIG.TRIGGERS.POINTS_EDIT;
+  let triggerExists = false;
+
+  triggers.forEach(trigger => {
+    if (trigger.getHandlerFunction() === handlerFunction) {
+      triggerExists = true;
+    }
+  });
+
+  if (!triggerExists) {
+    try {
+      ScriptApp.newTrigger(handlerFunction)
+        .forSpreadsheet(ss)
+        .onEdit()
+        .create();
+      Logger.log(`Created onEdit trigger for ${handlerFunction}.`);
+      // SpreadsheetApp.getUi().alert(`Auto-update trigger for '${CONFIG.SHEET_NAMES.POINTS_REFERENCE}' has been set up.`);
+    } catch (e) {
+        Logger.log(`Failed to create onEdit trigger for ${handlerFunction}: ${e}`);
+        SpreadsheetApp.getUi().alert(`Error setting up Points Ref trigger: ${e.message}`);
+    }
+  } else {
+    Logger.log(`onEdit trigger for ${handlerFunction} already exists.`);
+  }
+}
+
+/**
+ * Sets up an onEdit trigger specifically for the Form Responses sheet.
+ */
+function setupFormResponsesEditTrigger() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const triggers = ScriptApp.getProjectTriggers();
+  const handlerFunction = CONFIG.TRIGGERS.RESPONSES_EDIT;
+  let triggerExists = false;
+
+  triggers.forEach(trigger => {
+    if (trigger.getHandlerFunction() === handlerFunction) {
+      triggerExists = true;
+    }
+  });
+
+  if (!triggerExists) {
+     try {
+        ScriptApp.newTrigger(handlerFunction)
+          .forSpreadsheet(ss)
+          .onEdit()
+          .create();
+        Logger.log(`Created onEdit trigger for ${handlerFunction}.`);
+        // SpreadsheetApp.getUi().alert(`Edit detection trigger for '${CONFIG.SHEET_NAMES.FORM_RESPONSES}' has been set up.`);
+     } catch (e) {
+         Logger.log(`Failed to create onEdit trigger for ${handlerFunction}: ${e}`);
+         SpreadsheetApp.getUi().alert(`Error setting up Form Responses trigger: ${e.message}`);
+     }
+  } else {
+    Logger.log(`onEdit trigger for ${handlerFunction} already exists.`);
+  }
+}
+
+/**
+ * Sets up ALL required triggers for the Budget Game.
+ * Deletes only triggers related to this script before creating them.
+ * Uses CONFIG for handler names and settings.
+ */
+function setupAllTriggers() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const currentTriggers = ScriptApp.getProjectTriggers();
+  // Define only the handlers for USED triggers
+  const expectedHandlers = [
+      CONFIG.TRIGGERS.DAILY_DIGEST,
+      CONFIG.TRIGGERS.WEEKLY_DIGEST,
+      CONFIG.TRIGGERS.FORM_SUBMIT,
+      CONFIG.TRIGGERS.POINTS_EDIT,
+      CONFIG.TRIGGERS.RESPONSES_EDIT
+  ];
+
+  Logger.log("Setting up all required triggers...");
+  let triggersDeletedCount = 0;
+  let triggersCreatedCount = 0;
+  let triggerErrors = [];
+
+  // Delete existing triggers managed by this script
+  currentTriggers.forEach(trigger => {
+    const handler = trigger.getHandlerFunction();
+    if (expectedHandlers.includes(handler)) {
+      try {
+        ScriptApp.deleteTrigger(trigger);
+        Logger.log(`Deleted existing trigger for: ${handler}`);
+        triggersDeletedCount++;
+      } catch (e) {
+         Logger.log(`Failed to delete trigger for ${handler}: ${e}`);
+         triggerErrors.push(`Delete failed for ${handler}: ${e.message}`);
+      }
+    }
+  });
+  if (triggersDeletedCount > 0) Logger.log(`Deleted ${triggersDeletedCount} existing script triggers.`);
+
+  // --- Create New Triggers ---
+
+  // 1. Daily Digest (Evening)
+  try {
+    ScriptApp.newTrigger(CONFIG.TRIGGERS.DAILY_DIGEST)
+      .timeBased().atHour(CONFIG.DAILY_DIGEST_HOUR).everyDays(1).create();
+     Logger.log(`Created trigger: ${CONFIG.TRIGGERS.DAILY_DIGEST} (Hour ${CONFIG.DAILY_DIGEST_HOUR})`);
+     triggersCreatedCount++;
+  } catch (e) { Logger.log(`FAIL ${CONFIG.TRIGGERS.DAILY_DIGEST}: ${e}`); triggerErrors.push(`Create ${CONFIG.TRIGGERS.DAILY_DIGEST}: ${e.message}`); }
+
+  // 2. Weekly Digest
+  try {
+      ScriptApp.newTrigger(CONFIG.TRIGGERS.WEEKLY_DIGEST)
+        .timeBased().onWeekDay(CONFIG.WEEKLY_DIGEST_DAY).atHour(CONFIG.WEEKLY_DIGEST_HOUR).create();
+       Logger.log(`Created trigger: ${CONFIG.TRIGGERS.WEEKLY_DIGEST} (Day ${CONFIG.WEEKLY_DIGEST_DAY}, Hour ${CONFIG.WEEKLY_DIGEST_HOUR})`);
+       triggersCreatedCount++;
+  } catch (e) { Logger.log(`FAIL ${CONFIG.TRIGGERS.WEEKLY_DIGEST}: ${e}`); triggerErrors.push(`Create ${CONFIG.TRIGGERS.WEEKLY_DIGEST}: ${e.message}`); }
+
+  // 3. Form Submit
+  let formLinked = false;
+  try {
+    // Use configured Form URL directly as linked URL might not always be set reliably
+    if (CONFIG.FORM_URL) {
+       const form = FormApp.openByUrl(CONFIG.FORM_URL);
+       ScriptApp.newTrigger(CONFIG.TRIGGERS.FORM_SUBMIT)
+         .forForm(form).onFormSubmit().create();
+       Logger.log(`Created trigger: ${CONFIG.TRIGGERS.FORM_SUBMIT}`);
+       triggersCreatedCount++;
+       formLinked = true;
+    } else {
+       Logger.log("Skipping form submit trigger: CONFIG.FORM_URL is not defined.");
+       triggerErrors.push("Form Submit Trigger Skipped: No CONFIG.FORM_URL set.");
+    }
+  } catch (e) { Logger.log(`FAIL ${CONFIG.TRIGGERS.FORM_SUBMIT}: ${e}`); triggerErrors.push(`Create ${CONFIG.TRIGGERS.FORM_SUBMIT}: ${e.message}`); }
+
+  // 4. Points Reference Edit
+  try {
+     ScriptApp.newTrigger(CONFIG.TRIGGERS.POINTS_EDIT)
+      .forSpreadsheet(ss).onEdit().create();
+     Logger.log(`Created trigger: ${CONFIG.TRIGGERS.POINTS_EDIT} (onEdit)`);
+     triggersCreatedCount++;
+  } catch (e) { Logger.log(`FAIL ${CONFIG.TRIGGERS.POINTS_EDIT}: ${e}`); triggerErrors.push(`Create ${CONFIG.TRIGGERS.POINTS_EDIT}: ${e.message}`); }
+
+  // 5. Form Responses Edit
+  try {
+     ScriptApp.newTrigger(CONFIG.TRIGGERS.RESPONSES_EDIT)
+      .forSpreadsheet(ss).onEdit().create();
+     Logger.log(`Created trigger: ${CONFIG.TRIGGERS.RESPONSES_EDIT} (onEdit)`);
+     triggersCreatedCount++;
+  } catch (e) { Logger.log(`FAIL ${CONFIG.TRIGGERS.RESPONSES_EDIT}: ${e}`); triggerErrors.push(`Create ${CONFIG.TRIGGERS.RESPONSES_EDIT}: ${e.message}`); }
+
+
+  // --- Report Results ---
+  let message = `Trigger Setup Complete.\nCreated: ${triggersCreatedCount} triggers.`;
+  if (!formLinked) message += "\nWarning: Form submit trigger not created (CONFIG.FORM_URL missing?).";
+  if (triggerErrors.length > 0) {
+     message += `\n\nERRORS ENCOUNTERED:\n- ${triggerErrors.join('\n- ')}`;
+     Logger.log(`Trigger setup finished with ${triggerErrors.length} errors.`);
+     SpreadsheetApp.getUi().alert(message); // Show errors prominently
+  } else {
+     Logger.log("Trigger setup finished successfully.");
+     SpreadsheetApp.getActiveSpreadsheet().toast('All required triggers have been set up/updated!', 'Success', 7);
+  }
+}
