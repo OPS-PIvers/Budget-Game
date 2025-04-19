@@ -1,0 +1,261 @@
+// FormSync.gs
+/**
+ * Updates the Google Form dropdown/checkbox options based on the Points Reference sheet.
+ * Groups activities by category with improved error handling and validation.
+ * @return {boolean} True if form was updated successfully, false otherwise.
+ */
+function updateFormFromSheet() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let form;
+  let formUrl = "";
+
+  // First try to get the form using reliable methods
+  try {
+    // Try linked form URL first
+    formUrl = ss.getFormUrl();
+    if (formUrl) {
+      Logger.log(`Using linked form URL: ${formUrl}`);
+      try {
+        form = FormApp.openByUrl(formUrl);
+      } catch (formOpenError) {
+        Logger.log(`Error opening linked form: ${formOpenError}. Will try CONFIG URL as backup.`);
+        formUrl = ""; // Reset to trigger CONFIG fallback
+      }
+    }
+    
+    // Fall back to CONFIG.FORM_URL if linked form isn't available
+    if (!formUrl && CONFIG.FORM_URL) {
+      formUrl = CONFIG.FORM_URL;
+      Logger.log(`Using CONFIG.FORM_URL: ${formUrl}`);
+      try {
+        form = FormApp.openByUrl(formUrl);
+      } catch (configFormError) {
+        Logger.log(`Error opening form using CONFIG.FORM_URL: ${configFormError}`);
+        
+        // One last attempt - see if the spreadsheet is the destination for any form
+        try {
+          const formEditUrl = ss.getFormEditUrl();
+          if (formEditUrl) {
+            formUrl = formEditUrl.replace('/edit', '/viewform');
+            Logger.log(`Trying form edit URL: ${formUrl}`);
+            form = FormApp.openByUrl(formUrl);
+          }
+        } catch (lastAttemptError) {
+          Logger.log(`Last attempt to find form failed: ${lastAttemptError}`);
+        }
+      }
+    }
+    
+    // If we still don't have a form, bail out
+    if (!form) {
+      const errorMsg = "Could not open form - no valid URL found or no permission to edit";
+      Logger.log(`ERROR: ${errorMsg}`);
+      SpreadsheetApp.getUi().alert(`Error: ${errorMsg}. Check form URL and permissions.`);
+      return false;
+    }
+  } catch (e) {
+    Logger.log(`Critical error finding/opening form: ${e}. Details: ${e.stack}`);
+    SpreadsheetApp.getUi().alert("Error connecting to form. Check form URL and permissions.");
+    return false;
+  }
+
+  // Get activity data, with safeguards if data can't be loaded
+  const activityData = getActivityDataCached(); // Use cached data
+  const { pointValues, categories } = activityData;
+
+  if (!pointValues || Object.keys(pointValues).length === 0) {
+    Logger.log("No activities found in Points Reference. Form not updated.");
+    SpreadsheetApp.getUi().alert("No activities found in Points Reference sheet. Form not updated.");
+    return false;
+  }
+
+  // Group activities by category for form sections
+  try {
+    const categoryGroups = {};
+    // Initialize all categories from CONFIG
+    CONFIG.CATEGORIES.forEach(cat => categoryGroups[cat] = []);
+
+    // Add activities to their respective categories
+    Object.keys(pointValues).forEach(activity => {
+      const category = categories[activity];
+      const points = pointValues[activity];
+      const formattedPoints = points >= 0 ? `+${points}` : points;
+      const choiceString = `${activity} (${formattedPoints})`;
+
+      if (category && categoryGroups[category] !== undefined) {
+        categoryGroups[category].push(choiceString);
+      } else {
+        // If category doesn't exist in CONFIG, log and skip
+        Logger.log(`Warning: Activity "${activity}" has unknown or uninitialized category "${category}". Skipping form update for this item.`);
+      }
+    });
+
+    // Sort choices alphabetically within each category for consistency
+    CONFIG.CATEGORIES.forEach(cat => {
+      if(categoryGroups[cat]) {
+        categoryGroups[cat].sort((a, b) => a.localeCompare(b));
+      }
+    });
+
+    // Count total checkbox items for validation
+    let checkboxItemCount = 0;
+    let updatedItemCount = 0;
+    let newItemCount = 0;
+    
+    // Generate a mapping of expected item titles
+    const expectedItemTitles = CONFIG.CATEGORIES.map(cat => 
+      `Which ${cat} activities did you complete?`
+    );
+
+    // --- Update Form Items ---
+    // 1. First attempt to update existing checkbox items
+    const formItems = form.getItems(FormApp.ItemType.CHECKBOX);
+    checkboxItemCount = formItems.length;
+    const updatedCategories = new Set();
+
+    // For each existing checkbox item, try to match it to a category
+    formItems.forEach(item => {
+      const itemTitle = item.getTitle();
+      let categoryFound = null;
+
+      // Try matching title directly to "Which [Category] activities...?"
+      const titleMatch = itemTitle.match(/Which (.*?) activities/i);
+      if (titleMatch && CONFIG.CATEGORIES.includes(titleMatch[1].trim())) {
+        categoryFound = titleMatch[1].trim();
+      } else {
+        // Fallback - infer category from existing choices
+        const choices = item.asCheckboxItem().getChoices();
+        if (choices.length > 0) {
+          const firstChoice = choices[0].getValue();
+          // Extract activity name before points
+          const choiceMatch = firstChoice.match(/(.*?)\s*\([+-]?\d+\)\s*$/);
+          if (choiceMatch) {
+            const activityName = choiceMatch[1].trim();
+            const inferredCategory = categories[activityName];
+            if (CONFIG.CATEGORIES.includes(inferredCategory)) {
+              categoryFound = inferredCategory;
+            }
+          }
+        }
+      }
+
+      // If category was found, update the choices
+      if (categoryFound) {
+        const choicesForCategory = categoryGroups[categoryFound] || [];
+        try {
+          // Update the choices for this category
+          item.asCheckboxItem().setChoiceValues(choicesForCategory);
+          updatedCategories.add(categoryFound);
+          updatedItemCount++;
+          
+          if (choicesForCategory.length > 0) {
+            Logger.log(`Updated ${choicesForCategory.length} choices for "${itemTitle}" (Category: ${categoryFound})`);
+          } else {
+            Logger.log(`No activities for category "${categoryFound}". Cleared choices for "${itemTitle}".`);
+          }
+        } catch (updateError) {
+          Logger.log(`Error updating choices for "${itemTitle}": ${updateError}`);
+        }
+      } else {
+        Logger.log(`Could not determine category for existing checkbox item: "${itemTitle}". Leaving as is.`);
+      }
+    });
+
+    // 2. Add new items for categories that weren't found/updated
+    CONFIG.CATEGORIES.forEach(category => {
+      // Only proceed if:
+      // 1. This category wasn't already updated above
+      // 2. There are actually activities for this category
+      // 3. The expected title doesn't already exist in the form
+      const expectedTitle = `Which ${category} activities did you complete?`;
+      const activitiesExist = categoryGroups[category] && categoryGroups[category].length > 0;
+      
+      if (!updatedCategories.has(category) && activitiesExist) {
+        // Extra check - search all form items (not just checkboxes) for this title
+        const titleExists = form.getItems().some(item => item.getTitle() === expectedTitle);
+        
+        if (!titleExists) {
+          try {
+            form.addCheckboxItem()
+              .setTitle(expectedTitle)
+              .setChoiceValues(categoryGroups[category]);
+            Logger.log(`Added new form item for category: "${category}" with ${categoryGroups[category].length} choices`);
+            newItemCount++;
+          } catch (addError) {
+            Logger.log(`Error adding new form item for category "${category}": ${addError}`);
+          }
+        } else {
+          Logger.log(`Skipping add for category "${category}": Item with title "${expectedTitle}" already exists but isn't a checkbox.`);
+        }
+      }
+    });
+
+    // Add the "Resend Daily Digest?" question if it doesn't exist
+    let digestQuestionAdded = false;
+    try {
+      digestQuestionAdded = addResendDigestQuestion(form);
+    } catch (digestError) {
+      Logger.log(`Error adding digest question: ${digestError}`);
+    }
+
+    // Log summary of what we did
+    Logger.log(`Form update summary: ${checkboxItemCount} existing checkbox items, ${updatedItemCount} updated, ${newItemCount} added new.`);
+    if (digestQuestionAdded) {
+      Logger.log("Added 'Resend Daily Digest?' question to the form.");
+    }
+    
+    // Success toast with more details
+    const summaryMsg = `Form updated successfully. Updated ${updatedItemCount} categories, added ${newItemCount} new.`;
+    SpreadsheetApp.getActiveSpreadsheet().toast(summaryMsg, 'Form Update Complete', 5);
+    return true;
+    
+  } catch (error) {
+    Logger.log(`CRITICAL ERROR updating form: ${error}\nStack: ${error.stack}`);
+    SpreadsheetApp.getUi().alert(`Error updating form: ${error.message}`);
+    return false;
+  }
+}
+
+/**
+ * Adds the "Resend Daily Digest?" question to the form if it doesn't exist.
+ * @param {Form} form The Form object.
+ * @return {boolean} True if question was added, false if it already existed or failed.
+ */
+function addResendDigestQuestion(form) {
+  const questionTitle = "Resend Daily Digest?";
+  
+  try {
+    // Check if the question already exists
+    const items = form.getItems();
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].getTitle() === questionTitle) {
+        return false; // Already exists
+      }
+    }
+
+    // Add as Multiple Choice for simple Yes/No
+    const newItem = form.addMultipleChoiceItem()
+      .setTitle(questionTitle)
+      .setChoices([
+        form.createChoice('Yes'),
+        form.createChoice('No')
+      ])
+      .setRequired(false); // Make it optional
+      
+    // Try to place it at the end of the form  
+    try {
+      const allItems = form.getItems();
+      if (allItems.length > 1) {
+        form.moveItem(newItem, allItems.length - 1);
+      }
+    } catch (moveError) {
+      Logger.log(`Warning: Couldn't move digest question to end of form: ${moveError}`);
+      // Not critical, continue
+    }
+    
+    return true; // Successfully added
+  } catch (e) {
+    Logger.log(`Error adding "${questionTitle}" question: ${e}\nStack: ${e.stack}`);
+    return false;
+  }
+}
