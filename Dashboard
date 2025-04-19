@@ -110,1116 +110,847 @@
     <div id="notification" class="notification hidden"></div>
     
     <!-- Load Chart.js from CDN -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js"></script>
-    
-    <script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@2.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+
+<script>
       // Global variables
       let charts = {}; // Store chart instances
-      
+      let dashboardDataCache = null; // Cache fetched historical data
+
       // Wait for DOM and Chart.js to be fully loaded
-      document.addEventListener('DOMContentLoaded', function() {
-        // Wait a moment to ensure Chart.js is loaded
-        setTimeout(initializeDashboard, 100);
-      });
-      
+      document.addEventListener('DOMContentLoaded', initializeDashboard);
+
       /**
        * Initializes the dashboard with all data and visualizations
        */
       function initializeDashboard() {
         console.log("Initializing dashboard...");
-        
-        // Check if we need to refresh goals (set by ActivityTracker)
         const refreshGoals = localStorage.getItem('refreshGoals') === 'true';
-        const goalsUpdateTime = localStorage.getItem('goalsUpdateTime');
-        
         if (refreshGoals) {
-          console.log("Goals refresh flag detected, clearing flag");
+          console.log("Goals refresh flag detected, clearing flag.");
           localStorage.removeItem('refreshGoals');
-          
-          // Only keep update time for debugging
-          if (goalsUpdateTime) {
-            const updateTimeAgo = Math.round((Date.now() - parseInt(goalsUpdateTime)) / 1000);
-            console.log(`Goals were flagged for update ${updateTimeAgo} seconds ago`);
-          }
         }
-        
-        // Load historical chart data for visualizations
-        loadDashboardData();
-        
-        // Load weekly goals data (with priority if refresh flag was set)
-        if (refreshGoals) {
-          // Load immediately if refresh flagged
-          loadWeeklyGoals();
-        } else {
-          // Otherwise load after a short delay to prioritize chart loading
-          setTimeout(loadWeeklyGoals, 100);
-        }
-        
-        // Add this line to load goal history data
-        loadGoalHistory();
-        
-        // Set up email button functionality
-        document.getElementById('email-button').addEventListener('click', sendDailyDigest);
-        
-        // Mobile email button (if exists in the template)
+        loadDashboardData(); // Fetches historical, calls renderDashboard -> loadSecondaryData
+
+        const emailBtn = document.getElementById('email-button');
+        if (emailBtn) emailBtn.addEventListener('click', sendDailyDigest);
         const mobileEmailBtn = document.getElementById('mobile-email-button');
-        if (mobileEmailBtn) {
-          mobileEmailBtn.addEventListener('click', sendDailyDigest);
-        }
-        
-        // Poll for goal updates every minute (in case multiple windows are open)
-        // This ensures goal displays stay in sync across multiple open dashboard tabs
-        setInterval(function() {
-          const refreshGoals = localStorage.getItem('refreshGoals') === 'true';
-          if (refreshGoals) {
+        if (mobileEmailBtn) mobileEmailBtn.addEventListener('click', sendDailyDigest);
+
+        setInterval(() => {
+          const needsRefresh = localStorage.getItem('refreshGoals') === 'true';
+          if (needsRefresh) {
             console.log("Goals refresh detected during polling");
             localStorage.removeItem('refreshGoals');
             loadWeeklyGoals();
           }
-        }, 60000); // Check every minute
+        }, 60000);
       }
 
+      /**
+       * Loads primary dashboard data (historical trends, streaks, counts)
+       */
       function loadDashboardData() {
-        // Show loading state in each chart container
-        document.querySelectorAll('.chart-container').forEach(container => {
-          // Make sure canvas exists and has proper dimensions
-          const canvas = container.querySelector('canvas');
-          if (canvas) {
-            canvas.width = container.clientWidth;
-            canvas.height = container.clientHeight;
-          } else {
-            console.warn('Canvas element missing in chart container');
-          }
-          
-          // Add loading indicator
-          const loading = document.createElement('div');
-          loading.className = 'loading';
-          loading.textContent = 'Loading chart data...';
-          container.appendChild(loading);
-        });
-        
-        // Load historical data
+        setLoadingState(true);
+        const cacheExpiry = 5 * 60 * 1000;
+        if (dashboardDataCache && (Date.now() - dashboardDataCache.timestamp < cacheExpiry)) {
+            console.log("Using cached dashboard data.");
+            // Pass specific properties from cached data
+            renderDashboard(
+                dashboardDataCache.data.success,
+                dashboardDataCache.data.message,
+                dashboardDataCache.data.dailyData,
+                dashboardDataCache.data.weeklyData,
+                dashboardDataCache.data.streakData,
+                dashboardDataCache.data.movingAverages,
+                dashboardDataCache.data.lifetimeActivityCounts,
+                dashboardDataCache.data.prevWeekActivityCounts,
+                dashboardDataCache.data.householdId,
+                dashboardDataCache.data.householdName,
+                dashboardDataCache.data.currentStreakSettings // Pass directly from cache
+            );
+            loadSecondaryData();
+            setLoadingState(false);
+            return;
+        }
+        console.log("Fetching fresh dashboard data from server...");
         google.script.run
-          .withSuccessHandler(renderDashboard)
+          .withSuccessHandler(response => {
+              console.log("<<< Full response received from getHistoricalData:", response); // Keep this log
+              // Cache the full response
+              dashboardDataCache = { data: response, timestamp: Date.now() };
+
+              // <<< CHANGE HERE: Pass individual properties to renderDashboard >>>
+              renderDashboard(
+                  response.success,
+                  response.message,
+                  response.dailyData,
+                  response.weeklyData,
+                  response.streakData,
+                  response.movingAverages,
+                  response.lifetimeActivityCounts,
+                  response.prevWeekActivityCounts,
+                  response.householdId,
+                  response.householdName,
+                  response.currentStreakSettings // Pass the specific property
+              );
+              // <<< END CHANGE >>>
+
+              loadSecondaryData();
+              setLoadingState(false);
+          })
           .withFailureHandler(handleDashboardError)
           .getHistoricalData();
       }
-      
-      function renderDashboard(data) {
-        if (!data.success) {
-          showNotification('Error loading dashboard data');
-          return;
-        }
-        
-        // Clear loading indicators
-        document.querySelectorAll('.chart-container .loading').forEach(loading => {
-          loading.remove();
-        });
-        
+
+      /**
+       * Loads secondary data sections (goals, goal history)
+       */
+      function loadSecondaryData() {
+           loadWeeklyGoals();
+           loadGoalHistory();
+      }
+
+      /**
+       * Shows/Hides loading overlays on dashboard sections
+       * @param {boolean} isLoading - True to show loading, false to hide.
+       */
+      function setLoadingState(isLoading) {
+           // ... (setLoadingState function remains the same) ...
+           const containers = document.querySelectorAll('.dashboard-section');
+           containers.forEach(container => {
+               let loadingDiv = container.querySelector('.loading-overlay');
+               if (isLoading) {
+                   if (!loadingDiv) {
+                       loadingDiv = document.createElement('div');
+                       loadingDiv.className = 'loading-overlay';
+                       loadingDiv.innerHTML = '<div class="spinner"></div> Loading...';
+                       container.style.position = 'relative';
+                       container.appendChild(loadingDiv);
+                   }
+                   loadingDiv.style.display = 'flex';
+               } else {
+                   if (loadingDiv) {
+                       loadingDiv.style.display = 'none';
+                   }
+               }
+           });
+           const styleId = 'loading-overlay-style';
+           if (!document.getElementById(styleId)) {
+               const style = document.createElement('style'); style.id = styleId;
+               style.innerHTML = `
+                   .loading-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(255, 255, 255, 0.8); display: flex; justify-content: center; align-items: center; z-index: 10; font-size: 1.1em; color: var(--text-secondary); }
+                   .spinner { border: 4px solid rgba(0, 0, 0, 0.1); width: 36px; height: 36px; border-radius: 50%; border-left-color: var(--primary-color); animation: spin 1s ease infinite; margin-right: 10px; }
+                   @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`;
+               document.head.appendChild(style);
+           }
+      }
+
+
+      /**
+       * Enhanced renderDashboard function with proper error handling
+       * @param {boolean} success - Success status from server response
+       * @param {string} message - Error message if success is false
+       * @param {Array} dailyData - Daily points data
+       * @param {Array} weeklyData - Weekly aggregated data
+       * @param {Object} streakData - Streak information
+       * @param {Array} movingAverages - Moving averages data
+       * @param {Object} lifetimeCounts - Lifetime activity counts
+       * @param {Object} prevWeekCounts - Previous week activity counts
+       * @param {string} householdId - Household ID
+       * @param {string} householdName - Household name
+       * @param {Object} currentStreakSettings - Current streak settings
+       */
+      function renderDashboard(success, message, dailyData, weeklyData, streakData, movingAverages, 
+                              lifetimeCounts, prevWeekCounts, householdId, householdName, currentStreakSettings) {
         try {
-          // Render charts
-          renderPointsChart(data.dailyData, data.movingAverages);
-          renderWeeklyChart(data.weeklyData);
-          renderDailyDistributionChart(data.weeklyData);
-          renderActivityRatioChart(data.weeklyData);
-          
-          // Render streaks
-          renderStreaks(data.streakData);
-          
-          // Render the new activity frequency charts
-          renderActivityFrequencyChart('lifetime-activity-chart', data.lifetimeActivityCounts, 'Lifetime');
-          renderActivityFrequencyChart('prev-week-activity-chart', data.prevWeekActivityCounts, 'Previous Week');
+          console.log("Rendering dashboard with individual data pieces...");
+
+          if (!success) {
+            handleDashboardError({ message: message || "Failed to load data structure." });
+            return;
+          }
+
+          // Validate data before using it
+          if (!Array.isArray(dailyData) || !Array.isArray(weeklyData)) {
+            console.error("Invalid data format received from server");
+            handleDashboardError({ message: "Invalid data format received from server" });
+            return;
+          }
+
+          // Display household info if available
+          if (householdId && householdName) {
+            displayHouseholdInfo({ householdId: householdId, householdName: householdName, members: [] });
+          }
+
+          // Wrap each chart rendering in its own try-catch to prevent one failure from stopping all charts
+          try {
+            renderPointsChart(dailyData, movingAverages);
+          } catch (error) {
+            console.error('Error rendering points chart:', error);
+            showChartError('points-chart', 'Error rendering chart: ' + error.message);
+          }
+
+          try {
+            renderWeeklyChart(weeklyData);
+          } catch (error) {
+            console.error('Error rendering weekly chart:', error);
+            showChartError('weekly-chart', 'Error rendering chart: ' + error.message);
+          }
+
+          try {
+            renderDailyDistributionChart(weeklyData);
+          } catch (error) {
+            console.error('Error rendering daily distribution chart:', error);
+            showChartError('daily-distribution-chart', 'Error rendering chart: ' + error.message);
+          }
+
+          try {
+            renderActivityRatioChart(weeklyData, lifetimeCounts);
+          } catch (error) {
+            console.error('Error rendering activity ratio chart:', error);
+            showChartError('activity-ratio-chart', 'Error rendering chart: ' + error.message);
+          }
+
+          try {
+            renderActivityFrequencyChart('lifetime-activity-chart', lifetimeCounts, 'Lifetime', true); // Use percentage
+          } catch (error) {
+            console.error('Error rendering lifetime activity frequency chart:', error);
+            showChartError('lifetime-activity-chart', 'Error rendering chart: ' + error.message);
+          }
+
+          try {
+            renderActivityFrequencyChart('prev-week-activity-chart', prevWeekCounts, 'Previous Week', false); // Use counts
+          } catch (error) {
+            console.error('Error rendering previous week activity frequency chart:', error);
+            showChartError('prev-week-activity-chart', 'Error rendering chart: ' + error.message);
+          }
+
+          try {
+            renderStreaks(streakData, currentStreakSettings);
+          } catch (error) {
+            console.error('Error rendering streaks:', error);
+            document.getElementById('streaks-container').innerHTML = 
+              '<div class="error-message">Error rendering streaks: ' + error.message + '</div>';
+          }
+
         } catch (error) {
-          console.error('Error rendering charts:', error);
-          showNotification('Error rendering charts: ' + error.message);
+          console.error('Error rendering dashboard components:', error);
+          showNotification('Error rendering dashboard: ' + error.message, true);
         }
       }
+
+
+      // --- Chart Rendering Functions ---
+
+      /** Renders the daily points line chart */
       function renderPointsChart(dailyData, movingAverages) {
-        if (!dailyData || dailyData.length === 0) {
-          showChartError('points-chart', 'No daily data available');
-          return;
-        }
-        
-        const canvas = document.getElementById('points-chart');
-        if (!canvas) {
-          console.error('Canvas element "points-chart" not found!');
-          return;
-        }
-        
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
-          console.error('Could not get 2D context for "points-chart"');
-          return;
-        }
-        
-        // Prepare data
-        const dates = dailyData.map(day => day.displayDate);
-        const points = dailyData.map(day => day.points);
-        const averages = movingAverages.map(avg => avg.average);
-        
-        // Create chart
-        if (charts.pointsChart) {
-          charts.pointsChart.destroy(); // Destroy existing chart
-        }
-        
-        charts.pointsChart = new Chart(ctx, {
-          type: 'line',
-          data: {
-            labels: dates,
-            datasets: [
-              {
-                label: 'Daily Points',
-                data: points,
-                backgroundColor: 'rgba(66, 133, 244, 0.2)',
-                borderColor: 'rgba(66, 133, 244, 1)',
-                borderWidth: 2,
-                pointRadius: 3,
-                tension: 0.1
-              },
-              {
-                label: '7-Day Moving Average',
-                data: averages,
-                borderColor: 'rgba(234, 67, 53, 1)',
-                borderWidth: 2,
-                borderDash: [5, 5],
-                pointRadius: 0,
-                fill: false
-              }
-            ]
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-              y: {
-                grid: {
-                  color: 'rgba(0, 0, 0, 0.05)'
-                }
-              },
-              x: {
-                grid: {
-                  display: false
-                }
-              }
-            },
-            plugins: {
-              title: {
-                display: true,
-                text: 'Daily Points Trend'
-              },
-              tooltip: {
-                mode: 'index',
-                intersect: false
-              }
-            }
-          }
-        });
-      }
-      
-      function renderWeeklyChart(weeklyData) {
-        if (!weeklyData || weeklyData.length === 0) {
-          showChartError('weekly-chart', 'No weekly data available');
-          return;
-        }
-        
-        const canvas = document.getElementById('weekly-chart');
-        if (!canvas) {
-          console.error('Canvas element "weekly-chart" not found!');
-          return;
-        }
-        
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
-          console.error('Could not get 2D context for "weekly-chart"');
-          return;
-        }
-        
-        // Prepare data
-        const weeks = weeklyData.map(week => week.displayDate);
-        const points = weeklyData.map(week => week.totalPoints);
-        
-        // Calculate trend line (simple moving average)
-        const trendPoints = [];
-        const window = Math.min(2, Math.floor(points.length / 2)); // 2-week moving average, or less if not enough data
-        
-        for (let i = 0; i < points.length; i++) {
-          if (i < window - 1) {
-            trendPoints.push(null); // Not enough data for trend
-          } else {
-            // Calculate average of current window
-            let sum = 0;
-            for (let j = 0; j < window; j++) {
-              sum += points[i - j];
-            }
-            trendPoints.push(sum / window);
-          }
-        }
-        
-        // Create chart
-        if (charts.weeklyChart) {
-          charts.weeklyChart.destroy(); // Destroy existing chart
-        }
-        
-        charts.weeklyChart = new Chart(ctx, {
-          type: 'bar',
-          data: {
-            labels: weeks,
-            datasets: [
-              {
-                label: 'Weekly Points',
-                data: points,
-                backgroundColor: function(context) {
-                  const value = context.dataset.data[context.dataIndex];
-                  return value >= 0 ? 'rgba(52, 168, 83, 0.7)' : 'rgba(234, 67, 53, 0.7)';
-                },
-                borderColor: function(context) {
-                  const value = context.dataset.data[context.dataIndex];
-                  return value >= 0 ? 'rgba(52, 168, 83, 1)' : 'rgba(234, 67, 53, 1)';
-                },
-                borderWidth: 1
-              },
-              {
-                label: 'Trend',
-                data: trendPoints,
+            const canvasId = 'points-chart'; const canvas = document.getElementById(canvasId); if (!canvas) return; const ctx = canvas.getContext('2d');
+            if (!dailyData || dailyData.length === 0) { showChartError(canvasId, 'No daily point data available for this household.'); return; }
+            const dates = dailyData.map(day => day.date); const points = dailyData.map(day => day.points); const averages = movingAverages.map(avg => avg.average);
+            if (charts.pointsChart) charts.pointsChart.destroy();
+            charts.pointsChart = new Chart(ctx, {
                 type: 'line',
-                borderColor: 'rgba(251, 188, 5, 1)',
-                backgroundColor: 'rgba(0, 0, 0, 0)',
-                borderWidth: 2,
-                pointRadius: 0,
-                tension: 0.1
-              }
-            ]
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-              y: {
-                grid: {
-                  color: 'rgba(0, 0, 0, 0.05)'
-                }
-              },
-              x: {
-                grid: {
-                  display: false
-                }
-              }
-            },
-            plugins: {
-              title: {
-                display: true,
-                text: 'Weekly Performance'
-              }
-            }
-          }
-        });
+                data: { labels: dates, datasets: [ { label: 'Daily Points', data: points, borderColor: 'rgba(66, 133, 244, 1)', backgroundColor: 'rgba(66, 133, 244, 0.1)', fill: true, tension: 0.1 }, { label: '7-Day Avg', data: averages, borderColor: 'rgba(234, 67, 53, 1)', borderWidth: 2, borderDash: [5, 5], pointRadius: 0, fill: false } ] },
+                options: { responsive: true, maintainAspectRatio: false, scales: { x: { type: 'time', time: { unit: 'day', tooltipFormat: 'MMM d, yyyy', displayFormats: { day: 'MMM d' } }, grid: { display: false } }, y: { grid: { color: 'rgba(0, 0, 0, 0.05)' } } }, plugins: { title: { display: true, text: 'Daily Points Trend (Household)' } } }
+            });
       }
-      
+
+      /** Renders the weekly performance bar chart */
+      function renderWeeklyChart(weeklyData) {
+            const canvasId = 'weekly-chart'; const canvas = document.getElementById(canvasId); if (!canvas) return; const ctx = canvas.getContext('2d');
+            if (!weeklyData || weeklyData.length === 0) { showChartError(canvasId, 'No weekly performance data available for this household.'); return; }
+            const weeks = weeklyData.map(week => week.startDate); const points = weeklyData.map(week => week.totalPoints);
+            if (charts.weeklyChart) charts.weeklyChart.destroy();
+            charts.weeklyChart = new Chart(ctx, {
+                type: 'bar',
+                data: { labels: weeks, datasets: [{ label: 'Weekly Points', data: points, backgroundColor: points.map(p => p >= 0 ? 'rgba(52, 168, 83, 0.7)' : 'rgba(234, 67, 53, 0.7)'), borderColor: points.map(p => p >= 0 ? 'rgba(52, 168, 83, 1)' : 'rgba(234, 67, 53, 1)'), borderWidth: 1 }] },
+                options: { responsive: true, maintainAspectRatio: false, scales: { x: { type: 'time', time: { unit: 'week', tooltipFormat: "'Week of' MMM d, yyyy", displayFormats: { week: 'MMM d' } }, grid: { display: false } }, y: { grid: { color: 'rgba(0, 0, 0, 0.05)' } } }, plugins: { title: { display: true, text: 'Weekly Performance (Household)' } } }
+            });
+      }
+
+      /** Renders the daily distribution bar chart */
       function renderDailyDistributionChart(weeklyData) {
-        if (!weeklyData || weeklyData.length === 0) {
-          showChartError('daily-distribution-chart', 'No weekly data available');
-          return;
-        }
-        
-        const canvas = document.getElementById('daily-distribution-chart');
-        if (!canvas) {
-          console.error('Canvas element "daily-distribution-chart" not found!');
-          return;
-        }
-        
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
-          console.error('Could not get 2D context for "daily-distribution-chart"');
-          return;
-        }
-        
-        // Calculate average points per day of week
-        const dayTotals = {
-          sunday: 0, monday: 0, tuesday: 0, wednesday: 0,
-          thursday: 0, friday: 0, saturday: 0
-        };
-        
-        const dayCounts = {
-          sunday: 0, monday: 0, tuesday: 0, wednesday: 0,
-          thursday: 0, friday: 0, saturday: 0
-        };
-        
-        weeklyData.forEach(week => {
-          const breakdown = week.dailyBreakdown;
-          for (const day in breakdown) {
-            if (breakdown[day] !== 0) {
-              dayTotals[day] += breakdown[day];
-              dayCounts[day]++;
-            }
+          const canvasId = 'daily-distribution-chart'; 
+          const canvas = document.getElementById(canvasId); 
+          if (!canvas) return; 
+          const ctx = canvas.getContext('2d');
+          
+          if (!weeklyData || weeklyData.length === 0) { 
+              showChartError(canvasId, 'No daily distribution data available.'); 
+              return; 
           }
-        });
-        
-        const dayAverages = {};
-        for (const day in dayTotals) {
-          dayAverages[day] = dayCounts[day] > 0 ? dayTotals[day] / dayCounts[day] : 0;
-        }
-        
-        // Prepare data
-        const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-        const dayKeys = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-        const averages = dayKeys.map(day => dayAverages[day]);
-        
-        // Create chart
-        if (charts.dailyDistributionChart) {
-          charts.dailyDistributionChart.destroy(); // Destroy existing chart
-        }
-        
-        charts.dailyDistributionChart = new Chart(ctx, {
-          type: 'bar',
-          data: {
-            labels: days,
-            datasets: [{
-              label: 'Average Points',
-              data: averages,
-              backgroundColor: averages.map(value => 
-                value >= 0 ? 'rgba(52, 168, 83, 0.7)' : 'rgba(234, 67, 53, 0.7)'
-              ),
-              borderColor: averages.map(value => 
-                value >= 0 ? 'rgba(52, 168, 83, 1)' : 'rgba(234, 67, 53, 1)'
-              ),
-              borderWidth: 1
-            }]
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-              y: {
-                beginAtZero: true,
-                grid: {
-                  color: 'rgba(0, 0, 0, 0.05)'
-                }
+          
+          // More robust calculation of day averages
+          const dayTotals = { sun: 0, mon: 0, tue: 0, wed: 0, thu: 0, fri: 0, sat: 0 }; 
+          const dayCounts = { sun: 0, mon: 0, tue: 0, wed: 0, thu: 0, fri: 0, sat: 0 }; 
+          const dayKeys = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+          
+          // Process all weeks of data to get more comprehensive view
+          weeklyData.forEach(week => { 
+              const breakdown = week.dailyBreakdown; 
+              if (breakdown) { 
+                  Object.keys(breakdown).forEach(key => { 
+                      // Convert full day names to short keys for consistency
+                      const shortKey = key.substring(0, 3).toLowerCase();
+                      if (dayTotals.hasOwnProperty(shortKey)) {
+                          const points = breakdown[key] || 0; 
+                          if (points !== 0) { // Only count days with actual data
+                              dayTotals[shortKey] += points; 
+                              dayCounts[shortKey]++; 
+                          }
+                      }
+                  }); 
+              } 
+          });
+          
+          // Calculate averages, handling division by zero
+          const averages = dayKeys.map(key => dayCounts[key] > 0 ? (dayTotals[key] / dayCounts[key]) : 0); 
+          
+          // Check if we have any data to display
+          if (averages.every(val => val === 0)) {
+              showChartError(canvasId, 'No daily distribution data available yet.');
+              return;
+          }
+          
+          const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+          
+          if (charts.dailyDistributionChart) charts.dailyDistributionChart.destroy();
+          charts.dailyDistributionChart = new Chart(ctx, {
+              type: 'bar',
+              data: { 
+                  labels: days, 
+                  datasets: [{ 
+                      label: 'Average Points', 
+                      data: averages, 
+                      backgroundColor: averages.map(v => v >= 0 ? 'rgba(52, 168, 83, 0.7)' : 'rgba(234, 67, 53, 0.7)'), 
+                      borderColor: averages.map(v => v >= 0 ? 'rgba(52, 168, 83, 1)' : 'rgba(234, 67, 53, 1)'), 
+                      borderWidth: 1 
+                  }] 
               },
-              x: {
-                grid: {
-                  display: false
-                }
+              options: { 
+                  responsive: true, 
+                  maintainAspectRatio: false, 
+                  scales: { 
+                      y: { 
+                          beginAtZero: true, 
+                          grid: { color: 'rgba(0, 0, 0, 0.05)' } 
+                      }, 
+                      x: { 
+                          grid: { display: false } 
+                      } 
+                  }, 
+                  plugins: { 
+                      title: { 
+                          display: true, 
+                          text: 'Avg Points by Day (Household)' 
+                      } 
+                  } 
               }
-            },
-            plugins: {
-              title: {
-                display: true,
-                text: 'Points by Day of Week'
-              }
-            }
-          }
-        });
+          });
       }
-      
-      function renderActivityRatioChart(weeklyData) {
-        if (!weeklyData || weeklyData.length === 0) {
-          showChartError('activity-ratio-chart', 'No weekly data available');
-          return;
-        }
-        
-        const canvas = document.getElementById('activity-ratio-chart');
-        if (!canvas) {
-          console.error('Canvas element "activity-ratio-chart" not found!');
-          return;
-        }
-        
+
+      /**
+       * Improved implementation of renderActivityRatioChart that uses activityCounts directly
+       * @param {Array} weeklyData - Weekly data array (not used in this implementation)
+       * @param {Object} lifetimeActivityCounts - The activity counts from getHistoricalData
+       */
+      function renderActivityRatioChart(weeklyData, lifetimeActivityCounts) {
+        const canvasId = 'activity-ratio-chart'; 
+        const canvas = document.getElementById(canvasId); 
+        if (!canvas) return; 
         const ctx = canvas.getContext('2d');
-        if (!ctx) {
-          console.error('Could not get 2D context for "activity-ratio-chart"');
-          return;
-        }
         
-        // Calculate total positive and negative activities
-        let totalPositive = 0;
+        // Calculate totals from the activity counts directly
+        let totalPositive = 0; 
         let totalNegative = 0;
         
-        weeklyData.forEach(week => {
-          totalPositive += week.positiveCount || 0;
-          totalNegative += week.negativeCount || 0;
-        });
-        
-        // Check if we have any data
-        if (totalPositive === 0 && totalNegative === 0) {
-          showChartError('activity-ratio-chart', 'No activity data available');
-          return;
-        }
-        
-        // Create chart
-        if (charts.activityRatioChart) {
-          charts.activityRatioChart.destroy(); // Destroy existing chart
-        }
-        
-        charts.activityRatioChart = new Chart(ctx, {
-          type: 'pie',
-          data: {
-            labels: ['Positive', 'Negative'],
-            datasets: [{
-              data: [totalPositive, totalNegative],
-              backgroundColor: [
-                'rgba(52, 168, 83, 0.7)',
-                'rgba(234, 67, 53, 0.7)'
-              ],
-              borderColor: [
-                'rgba(52, 168, 83, 1)',
-                'rgba(234, 67, 53, 1)'
-              ],
-              borderWidth: 1
-            }]
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-              title: {
-                display: true,
-                text: 'Positive vs Negative Activities'
-              },
-              legend: {
-                position: 'bottom'
+        // Process lifetime activity counts if available
+        if (lifetimeActivityCounts && typeof lifetimeActivityCounts === 'object') {
+          // Loop through all activities and sum up based on positive flag
+          Object.entries(lifetimeActivityCounts).forEach(([activityName, data]) => {
+            // Skip internal flags like _hasData
+            if (activityName.startsWith('_')) return;
+            
+            // Only count activities that have been done at least once
+            if (data && typeof data.count === 'number' && data.count > 0) {
+              if (data.positive) {
+                totalPositive += data.count;
+              } else {
+                totalNegative += data.count;
               }
             }
-          }
-        });
-      }
-      /**
-       * Renders a horizontal bar chart showing activity frequency
-       * @param {string} canvasId - The ID of the canvas element
-       * @param {Object} activityCounts - Map of activity names to count and positive/negative status
-       * @param {string} timeframe - Label for the timeframe ("Lifetime" or "Previous Week")
-       */
-      function renderActivityFrequencyChart(canvasId, activityCounts, timeframe) {
-        const canvas = document.getElementById(canvasId);
-        if (!canvas) {
-          console.error(`Canvas element "${canvasId}" not found!`);
-          return;
-        }
-        
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
-          console.error(`Could not get 2D context for "${canvasId}"`);
-          return;
-        }
-        
-        // Check if we have data
-        if (!activityCounts || Object.keys(activityCounts).length === 0) {
-          showChartError(canvasId, `No activity data available for ${timeframe.toLowerCase()} period`);
-          return;
-        }
-        
-        console.log(`Rendering ${timeframe} activity frequency chart with ${Object.keys(activityCounts).length} activities`);
-        
-        // Process data
-        const processedData = [];
-        let totalActivities = 0;
-        
-        // Calculate total activities (only counting those with at least 1 occurrence)
-        for (const activityName in activityCounts) {
-          totalActivities += activityCounts[activityName].count;
-        }
-        
-        console.log(`Total ${timeframe} activities count: ${totalActivities}`);
-        
-        // If no activities were found, handle this case specially 
-        if (totalActivities === 0) {
-          showChartError(canvasId, `No activities logged in this ${timeframe.toLowerCase()} period`);
-          return;
-        }
-        
-        // Convert to percentage and create processed data array
-        for (const activityName in activityCounts) {
-          const item = activityCounts[activityName];
-          const percentage = totalActivities > 0 ? (item.count / totalActivities) * 100 : 0;
-          
-          // Add all activities to the data array, even those with 0 count
-          processedData.push({
-            name: activityName,
-            percentage: Math.round(percentage * 10) / 10, // Round to 1 decimal
-            positive: item.positive,
-            count: item.count
           });
         }
         
-        // Split into positive and negative activities
-        const positiveActivities = processedData.filter(item => item.positive);
-        const negativeActivities = processedData.filter(item => !item.positive);
-        
-        // Sort according to requirements:
-        // 1. Most frequent positive activities (descending %)
-        const frequentPositive = positiveActivities.filter(item => item.count > 0)
-          .sort((a, b) => b.percentage - a.percentage);
-        
-        // 2. Least frequent positive activities (ascending % - these are the zeros)
-        const rarePositive = positiveActivities.filter(item => item.count === 0)
-          .sort((a, b) => a.name.localeCompare(b.name)); // Alphabetical order for zero-count items
-        
-        // 3. Least frequent negative activities (ascending %)
-        const rareNegative = negativeActivities.filter(item => item.count === 0)
-          .sort((a, b) => a.name.localeCompare(b.name)); // Alphabetical order for zero-count items
-        
-        // 4. Most frequent negative activities (descending %)
-        const frequentNegative = negativeActivities.filter(item => item.count > 0)
-          .sort((a, b) => b.percentage - a.percentage);
-        
-        // Combine sorted arrays according to the required sort order
-        const sortedData = [...frequentPositive, ...rarePositive, ...rareNegative, ...frequentNegative];
-        
-        console.log(`${timeframe}: Positive activities with occurrences: ${frequentPositive.length}`);
-        console.log(`${timeframe}: Positive activities with zero occurrences: ${rarePositive.length}`);
-        console.log(`${timeframe}: Negative activities with occurrences: ${frequentNegative.length}`);
-        console.log(`${timeframe}: Negative activities with zero occurrences: ${rareNegative.length}`);
-        
-        // Extract labels, percentages, and flags for chart data
-        const sortedLabels = sortedData.map(item => item.name);
-        const sortedPercentages = sortedData.map(item => item.percentage);
-        const sortedPositiveFlags = sortedData.map(item => item.positive);
-        const sortedCounts = sortedData.map(item => item.count);
-        
-        // Destroy existing chart if it exists
-        if (charts[canvasId]) {
-          charts[canvasId].destroy();
+        // Check if we have meaningful data
+        if (totalPositive === 0 && totalNegative === 0) { 
+          showChartError(canvasId, 'No positive/negative activity data available.'); 
+          return; 
         }
         
-        // Create new chart
-        charts[canvasId] = new Chart(ctx, {
-          type: 'bar',
-          data: {
-            labels: sortedLabels,
-            datasets: [{
-              label: '% of Total Activities',
-              data: sortedPercentages,
-              backgroundColor: function(context) {
-                const index = context.dataIndex;
-                return sortedPositiveFlags[index] ? 'rgba(52, 168, 83, 0.7)' : 'rgba(234, 67, 53, 0.7)';
-              },
-              borderColor: function(context) {
-                const index = context.dataIndex;
-                return sortedPositiveFlags[index] ? 'rgba(52, 168, 83, 1)' : 'rgba(234, 67, 53, 1)';
-              },
-              borderWidth: 1
-            }]
+        if (charts.activityRatioChart) charts.activityRatioChart.destroy();
+        charts.activityRatioChart = new Chart(ctx, {
+          type: 'pie',
+          data: { 
+            labels: ['Positive', 'Negative'], 
+            datasets: [{ 
+              data: [totalPositive, totalNegative], 
+              backgroundColor: [ 
+                'rgba(52, 168, 83, 0.7)', 
+                'rgba(234, 67, 53, 0.7)' 
+              ], 
+              borderColor: [ 
+                'rgba(52, 168, 83, 1)', 
+                'rgba(234, 67, 53, 1)' 
+              ], 
+              borderWidth: 1 
+            }] 
           },
-          options: {
-            indexAxis: 'y', // Horizontal bar chart
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-              x: {
-                title: {
-                  display: true,
-                  text: '% of Total Activities'
-                },
-                ticks: {
-                  callback: function(value) {
-                    return value + '%';
-                  }
-                },
-                min: 0 // Start at 0
+          options: { 
+            responsive: true, 
+            maintainAspectRatio: false, 
+            plugins: { 
+              title: { 
+                display: true, 
+                text: 'Positive vs Negative Activities (Household)' 
+              }, 
+              legend: { 
+                position: 'bottom' 
               },
-              y: {
-                // Limit the number of labels shown if there are too many
-                ticks: {
-                  autoSkip: true,
-                  maxTicksLimit: 25
-                }
-              }
-            },
-            plugins: {
               tooltip: {
                 callbacks: {
                   label: function(context) {
-                    const index = context.dataIndex;
-                    let label = context.dataset.label || '';
-                    if (label) {
-                      label += ': ';
-                    }
-                    if (context.parsed.x !== null) {
-                      label += context.parsed.x.toFixed(1) + '%';
-                    }
-                    label += ` (${sortedCounts[index]} occurrences)`;
-                    return label;
+                    const label = context.label || '';
+                    const value = context.raw || 0;
+                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                    const percentage = Math.round((value / total) * 100);
+                    return `${label}: ${value} (${percentage}%)`;
                   }
                 }
-              },
-              legend: {
-                display: false // Hide legend since it's self-explanatory
               }
-            }
+            } 
           }
         });
       }
-      function loadWeeklyGoals() {
-        const goalsContainer = document.getElementById('weekly-goals-container');
-        if (!goalsContainer) return;
-        
-        goalsContainer.innerHTML = '<p class="loading">Loading weekly goals data...</p>';
-        
-        google.script.run
-          .withSuccessHandler(renderWeeklyGoals)
-          .withFailureHandler(function(error) {
-            console.error("Error loading weekly goals:", error);
-            goalsContainer.innerHTML = `
-              <div class="error-message">
-                Failed to load weekly goals data: ${error.message || 'Unknown error'}
-              </div>
-            `;
-          })
-          .getWeeklyGoalsData();
-      }
 
-      function renderWeeklyGoals(data) {
-        console.log("Weekly goals data received:", data);
-        const goalsContainer = document.getElementById('weekly-goals-container');
-        if (!goalsContainer) return;
+      /**
+       * Renders a bar chart showing activity frequency with separated positive/negative activities.
+       * @param {string} canvasId - The ID of the canvas element to render the chart on
+       * @param {Object} activityCounts - Activity data object { activityName: { count, positive } }
+       * @param {string} timeframe - The timeframe label (e.g., 'Lifetime', 'Previous Week')
+       * @param {boolean} usePercentage - Whether to display as percentage of total (for lifetime)
+       */
+      function renderActivityFrequencyChart(canvasId, activityCounts, timeframe, usePercentage = false) {
+        const canvas = document.getElementById(canvasId);
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
         
-        // Clear container
-        goalsContainer.innerHTML = '';
-        
-        // Check if we have previous week data to compare
-        if (!data.previousWeek.exists) {
-          goalsContainer.innerHTML = `
-            <div class="info-message">
-              <p>No previous week data found to compare. Goals will be available next week!</p>
-            </div>
-          `;
+        // Process data
+        if (!activityCounts || typeof activityCounts !== 'object' || Object.keys(activityCounts).length === 0) {
+          showChartError(canvasId, `No ${timeframe.toLowerCase()} activity data available.`);
           return;
         }
         
-        // Create summary text
-        const summaryDiv = document.createElement('div');
-        summaryDiv.className = 'goals-summary';
-        summaryDiv.innerHTML = `
-          <p>Current Week: <strong>${data.currentWeek.total >= 0 ? '+' : ''}${data.currentWeek.total}</strong> points</p>
-          <p>Previous Week: <strong>${data.previousWeek.total >= 0 ? '+' : ''}${data.previousWeek.total}</strong> points</p>
-        `;
-        goalsContainer.appendChild(summaryDiv);
-        
-        // Create goals list
-        const goalsList = document.createElement('div');
-        goalsList.className = 'goals-list';
-        
-        // Add each goal card
-        Object.entries(data.goals).forEach(([goalKey, goal]) => {
-          const goalCard = document.createElement('div');
-          goalCard.className = `goal-card ${goal.achieved ? 'achieved' : ''}`;
-          
-          // Prepare text and colors
-          const statusText = goal.achieved ? '✅ Achieved!' : 'In Progress';
-          const statusClass = goal.achieved ? 'status-achieved' : 'status-pending';
-          
-          goalCard.innerHTML = `
-            <div class="goal-header">
-              <h4>${goal.description}</h4>
-              <span class="goal-status ${statusClass}">${statusText}</span>
-            </div>
-            <div class="goal-details">
-              <p>Target: ${goal.target >= 0 ? '+' : ''}${goal.target} points</p>
-              <p>Current: ${goal.current >= 0 ? '+' : ''}${goal.current} points</p>
-            </div>
-            <div class="goal-progress">
-              <div class="progress-bar">
-                <div class="progress-fill" style="width: ${goal.percentComplete}%"></div>
-              </div>
-              <span class="progress-text">${goal.percentComplete}% Complete</span>
-            </div>
-          `;
-          
-          goalsList.appendChild(goalCard);
-        });
-        
-        goalsContainer.appendChild(goalsList);
-      }
-
-      function loadGoalHistory() {
-        const historyContainer = document.getElementById('goal-history-container');
-        if (!historyContainer) return;
-        
-        historyContainer.innerHTML = '<p class="loading">Loading goal history data...</p>';
-        
-        google.script.run
-          .withSuccessHandler(renderGoalHistory)
-          .withFailureHandler(function(error) {
-            console.error("Error loading goal history:", error);
-            historyContainer.innerHTML = `
-              <div class="error-message">
-                Failed to load goal history data: ${error.message || 'Unknown error'}
-              </div>
-            `;
-          })
-          .getGoalAchievementHistory();
-      }
-
-      function renderGoalHistory(data) {
-        console.log("Goal history data received:", data);
-        const historyContainer = document.getElementById('goal-history-container');
-        if (!historyContainer) return;
-        
-        // Clear container
-        historyContainer.innerHTML = '';
-        
-        // Check if we have enough data
-        if (!data.weeklyTotals || data.weeklyTotals.length === 0) {
-          historyContainer.innerHTML = `
-            <div class="info-message">
-              <p>Not enough weekly data available yet to show goal achievement history. At least two weeks of data are needed.</p>
-            </div>
-          `;
+        // Filter "_hasData" flag if present
+        if (activityCounts._hasData === false && timeframe === 'Previous Week') {
+          showChartError(canvasId, 'No activity data available for the previous week.');
           return;
         }
         
-        // Create achievement summary cards
-        const summaryDiv = document.createElement('div');
-        summaryDiv.className = 'achievement-summary';
+        // Separate into positive and negative activities
+        const positiveActivities = [];
+        const negativeActivities = [];
         
-        // Goal 1: Higher than previous
-        const goal1Card = document.createElement('div');
-        goal1Card.className = 'achievement-card';
-        goal1Card.innerHTML = `
-          <h4>Higher Point Total</h4>
-          <div class="achievement-count">${data.goalAchievements.higherThanPrevious.totalAchieved}</div>
-          <p>times achieved</p>
-        `;
-        summaryDiv.appendChild(goal1Card);
+        // Calculate total count for percentage calculation
+        let totalActivityCount = 0;
         
-        // Goal 2: Double points
-        const goal2Card = document.createElement('div');
-        goal2Card.className = 'achievement-card';
-        goal2Card.innerHTML = `
-          <h4>Double Points</h4>
-          <div class="achievement-count">${data.goalAchievements.doublePoints.totalAchieved}</div>
-          <p>times achieved</p>
-        `;
-        summaryDiv.appendChild(goal2Card);
-        
-        historyContainer.appendChild(summaryDiv);
-        
-        // Create weekly totals chart
-        const chartContainer = document.createElement('div');
-        chartContainer.className = 'chart-container';
-        chartContainer.style.height = '250px';
-        chartContainer.style.marginTop = '20px';
-        chartContainer.innerHTML = '<canvas id="weekly-totals-chart"></canvas>';
-        historyContainer.appendChild(chartContainer);
-        
-        // Create achievement details if there are any
-        if (data.goalAchievements.higherThanPrevious.totalAchieved > 0 || 
-            data.goalAchievements.doublePoints.totalAchieved > 0) {
+        Object.entries(activityCounts)
+          .filter(([key, data]) => key !== '_hasData' && data && data.count > 0)
+          .forEach(([activityName, data]) => {
+            totalActivityCount += data.count;
             
-          const detailsDiv = document.createElement('div');
-          detailsDiv.className = 'achievement-details';
-          
-          // Higher than previous details
-          if (data.goalAchievements.higherThanPrevious.totalAchieved > 0) {
-            const goal1Details = document.createElement('div');
-            goal1Details.className = 'goal-details-section';
-            goal1Details.innerHTML = `
-              <h4>Higher Point Total Achievements</h4>
-              <div class="achievement-weeks">
-                ${data.goalAchievements.higherThanPrevious.achievedWeeks.map(week => `
-                  <div class="achievement-week">
-                    <div class="week-name">${week.week}</div>
-                    <div class="week-improvement">+${week.improvement} pts</div>
-                    <div class="week-comparison">${week.current} vs ${week.previous}</div>
-                  </div>
-                `).join('')}
-              </div>
-            `;
-            detailsDiv.appendChild(goal1Details);
-          }
-          
-          // Double points details
-          if (data.goalAchievements.doublePoints.totalAchieved > 0) {
-            const goal2Details = document.createElement('div');
-            goal2Details.className = 'goal-details-section';
-            goal2Details.innerHTML = `
-              <h4>Double Points Achievements</h4>
-              <div class="achievement-weeks">
-                ${data.goalAchievements.doublePoints.achievedWeeks.map(week => `
-                  <div class="achievement-week">
-                    <div class="week-name">${week.week}</div>
-                    <div class="week-improvement">${week.multiplier}x</div>
-                    <div class="week-comparison">${week.current} vs ${week.previous}</div>
-                  </div>
-                `).join('')}
-              </div>
-            `;
-            detailsDiv.appendChild(goal2Details);
-          }
-          
-          historyContainer.appendChild(detailsDiv);
+            if (data.positive) {
+              positiveActivities.push({
+                name: activityName,
+                count: data.count,
+                positive: true
+              });
+            } else {
+              negativeActivities.push({
+                name: activityName,
+                count: data.count,
+                positive: false
+              });
+            }
+          });
+        
+        // Sort each group by count (descending)
+        positiveActivities.sort((a, b) => b.count - a.count);
+        negativeActivities.sort((a, b) => b.count - a.count);
+        
+        // If no activities found after filtering
+        if (positiveActivities.length === 0 && negativeActivities.length === 0) {
+          showChartError(canvasId, `No ${timeframe.toLowerCase()} activity data found.`);
+          return;
         }
         
-        // Render the weekly totals chart
-        renderWeeklyTotalsChart(data.weeklyTotals);
-      }
-
-      function renderWeeklyTotalsChart(weeklyTotals) {
-        const ctx = document.getElementById('weekly-totals-chart');
-        if (!ctx) return;
+        // Create or update chart - we'll use two datasets for positive and negative
+        const chartKey = canvasId + 'Chart';
+        if (charts[chartKey]) charts[chartKey].destroy();
         
-        // Extract labels and data
-        const labels = weeklyTotals.map(week => week.week);
-        const totals = weeklyTotals.map(week => week.total);
-        const previousTotals = weeklyTotals.map(week => week.previousTotal);
+        // Get top items from each category (adjust limits as needed)
+        const topPositiveLimit = 8;
+        const topNegativeLimit = 5;
+        const topPositive = positiveActivities.slice(0, topPositiveLimit);
+        const topNegative = negativeActivities.slice(0, topNegativeLimit);
         
-        // Create the chart
-        if (charts.weeklyTotalsChart) {
-          charts.weeklyTotalsChart.destroy();
+        // Set up datasets for both categories
+        const datasets = [];
+        
+        // Positive activities dataset
+        if (topPositive.length > 0) {
+          const positiveLabels = topPositive.map(item => item.name);
+          const positiveCounts = topPositive.map(item => {
+            if (usePercentage) {
+              return parseFloat(((item.count / totalActivityCount) * 100).toFixed(1));
+            }
+            return item.count;
+          });
+          
+          datasets.push({
+            label: 'Positive Activities',
+            data: positiveCounts.map((count, i) => ({ 
+              x: count, 
+              y: positiveLabels[i] 
+            })),
+            backgroundColor: 'rgba(52, 168, 83, 0.7)',
+            borderColor: 'rgba(52, 168, 83, 1)',
+            borderWidth: 1
+          });
         }
         
-        charts.weeklyTotalsChart = new Chart(ctx, {
+        // Negative activities dataset
+        if (topNegative.length > 0) {
+          const negativeLabels = topNegative.map(item => item.name);
+          const negativeCounts = topNegative.map(item => {
+            if (usePercentage) {
+              return parseFloat(((item.count / totalActivityCount) * 100).toFixed(1));
+            }
+            return item.count;
+          });
+          
+          datasets.push({
+            label: 'Negative Activities',
+            data: negativeCounts.map((count, i) => ({ 
+              x: count, 
+              y: negativeLabels[i] 
+            })),
+            backgroundColor: 'rgba(234, 67, 53, 0.7)',
+            borderColor: 'rgba(234, 67, 53, 1)',
+            borderWidth: 1
+          });
+        }
+        
+        charts[chartKey] = new Chart(ctx, {
           type: 'bar',
           data: {
-            labels: labels,
-            datasets: [
-              {
-                label: 'Weekly Total',
-                data: totals,
-                backgroundColor: function(context) {
-                  const value = context.dataset.data[context.dataIndex];
-                  const previousValue = previousTotals[context.dataIndex];
-                  
-                  // Check if goal achieved
-                  if (value >= previousValue * 2) {
-                    return 'rgba(255, 159, 64, 0.7)'; // Orange for double points
-                  } else if (value > previousValue) {
-                    return 'rgba(52, 168, 83, 0.7)'; // Green for higher than previous
-                  } else {
-                    return 'rgba(66, 133, 244, 0.7)'; // Blue for no goal
-                  }
-                },
-                borderColor: function(context) {
-                  const value = context.dataset.data[context.dataIndex];
-                  const previousValue = previousTotals[context.dataIndex];
-                  
-                  if (value >= previousValue * 2) {
-                    return 'rgba(255, 159, 64, 1)';
-                  } else if (value > previousValue) {
-                    return 'rgba(52, 168, 83, 1)';
-                  } else {
-                    return 'rgba(66, 133, 244, 1)';
-                  }
-                },
-                borderWidth: 1
-              },
-              {
-                label: 'Previous Week',
-                data: previousTotals,
-                type: 'line',
-                borderColor: 'rgba(153, 153, 153, 1)',
-                backgroundColor: 'rgba(0, 0, 0, 0)',
-                borderWidth: 2,
-                borderDash: [5, 5],
-                pointRadius: 3
-              }
-            ]
+            datasets: datasets
           },
           options: {
             responsive: true,
             maintainAspectRatio: false,
-            scales: {
-              y: {
-                beginAtZero: true,
-                grid: {
-                  color: 'rgba(0, 0, 0, 0.05)'
-                }
-              },
-              x: {
-                grid: {
-                  display: false
-                }
-              }
-            },
+            indexAxis: 'y',
             plugins: {
               title: {
                 display: true,
-                text: 'Weekly Point Totals & Goal Achievements'
+                text: `${timeframe} Activity Frequency${usePercentage ? ' (% of Total)' : ''}`
               },
               tooltip: {
                 callbacks: {
-                  afterLabel: function(context) {
-                    const dataIndex = context.dataIndex;
-                    const currentValue = totals[dataIndex];
-                    const previousValue = previousTotals[dataIndex];
-                    
-                    let goals = [];
-                    if (currentValue > previousValue) {
-                      goals.push("✅ Higher than previous week");
-                    }
-                    if (currentValue >= previousValue * 2) {
-                      goals.push("🔥 Double points achieved");
-                    }
-                    
-                    return goals.length > 0 ? goals : ["No goals achieved"];
+                  label: function(context) {
+                    const value = context.parsed.x;
+                    const label = context.dataset.label;
+                    return usePercentage ? 
+                      `${label}: ${value}%` : 
+                      `${label}: ${value}`;
                   }
                 }
               },
               legend: {
                 position: 'top',
+                labels: {
+                  usePointStyle: true,
+                  pointStyle: 'rect'
+                }
+              }
+            },
+            scales: {
+              x: {
+                beginAtZero: true,
+                title: {
+                  display: true,
+                  text: usePercentage ? 'Percentage (%)' : 'Frequency'
+                },
+                ticks: {
+                  precision: usePercentage ? 1 : 0 // Decimal places
+                }
+              },
+              y: {
+                type: 'category',
+                labels: [],
+                ticks: {
+                  autoSkip: false,
+                  callback: function(value) {
+                    // Truncate long activity names
+                    const label = this.getLabelForValue(value);
+                    if (!label) return "";
+                    
+                    const maxLength = 25;
+                    return label.length > maxLength ? 
+                      label.substring(0, maxLength - 3) + '...' : 
+                      label;
+                  }
+                }
               }
             }
           }
         });
       }
 
-      function renderStreaks(streakData) {
-        // ADD THIS LINE:
-        console.log("renderStreaks received data:", JSON.stringify(streakData)); // Log received data
+      // --- Goal Rendering (Simplified) ---
 
+      /** Loads and renders the status of the two specific dashboard goals */
+      function loadWeeklyGoals() {
+        const goalsContainer = document.getElementById('weekly-goals-container'); if (!goalsContainer) return; goalsContainer.innerHTML = '<p class="loading">Loading goal status...</p>';
+        google.script.run.withSuccessHandler(renderWeeklyGoals).withFailureHandler(err => { console.error("Error loading weekly goal status:", err); goalsContainer.innerHTML = `<div class="error-message">Failed to load goal status: ${err.message || 'Unknown error'}</div>`; }).getWeeklyGoalsData();
+      }
+
+      /** Renders the two dashboard goals */
+      function renderWeeklyGoals(data) {
+          console.log("Weekly goal status data received:", data); const goalsContainer = document.getElementById('weekly-goals-container'); if (!goalsContainer) return; goalsContainer.innerHTML = '';
+          if (!data || !data.higherThanPrevious || !data.doublePoints) { goalsContainer.innerHTML = '<div class="info-message"><p>Goal status could not be determined. Ensure at least two weeks of data exist.</p></div>'; return; }
+          const goalsList = document.createElement('div'); goalsList.className = 'goals-list simple';
+          const goal1 = data.higherThanPrevious; const goal1Card = document.createElement('div'); goal1Card.className = `goal-card simple ${goal1.achieved ? 'achieved' : 'pending'}`; goal1Card.innerHTML = `<div class="goal-header"><h4>${goal1.description}</h4><span class="goal-status ${goal1.achieved ? 'status-achieved' : 'status-pending'}">${goal1.achieved ? '✅ Achieved!' : 'Pending'}</span></div><div class="goal-details simple"><span>Last Week: <strong>${goal1.current >= 0 ? '+' : ''}${goal1.current}</strong></span><span>Prev. Week: <strong>${goal1.target >= 0 ? '+' : ''}${goal1.target}</strong></span></div>`; goalsList.appendChild(goal1Card);
+          const goal2 = data.doublePoints; const goal2Card = document.createElement('div'); goal2Card.className = `goal-card simple ${goal2.achieved ? 'achieved' : 'pending'}`; goal2Card.innerHTML = `<div class="goal-header"><h4>${goal2.description}</h4><span class="goal-status ${goal2.achieved ? 'status-achieved' : 'status-pending'}">${goal2.achieved ? '✅ Achieved!' : 'Pending'}</span></div><div class="goal-details simple"><span>Last Week: <strong>${goal2.current >= 0 ? '+' : ''}${goal2.current}</strong></span><span>Target (2x Prev): <strong>${goal2.target >= 0 ? '+' : ''}${goal2.target}</strong></span></div>`; goalsList.appendChild(goal2Card);
+          goalsContainer.appendChild(goalsList);
+          const styleId = 'simple-goal-style'; if (!document.getElementById(styleId)) { const style = document.createElement('style'); style.id = styleId; style.innerHTML = `.goals-list.simple{display:flex;gap:16px;flex-wrap:wrap;}.goal-card.simple{flex:1;min-width:250px;padding:12px 16px;border-left-width:3px;}.goal-card.simple .goal-header h4{font-size:1em;margin-bottom:8px;}.goal-card.simple .goal-status{font-size:.8em;padding:3px 6px;}.goal-details.simple{font-size:.9em;display:flex;justify-content:space-between;color:var(--text-secondary);}.goal-card.pending{border-left-color:var(--accent-color);}.goal-card.pending .status-pending{background-color:rgba(251,188,5,.1);color:#F57C00;}`; document.head.appendChild(style); }
+      }
+
+      // --- Goal History Rendering ---
+
+      /** Loads and renders the historical goal achievement section */
+      function loadGoalHistory() {
+            const historyContainer = document.getElementById('goal-history-container'); if (!historyContainer) return; historyContainer.innerHTML = '<p class="loading">Loading goal history...</p>';
+            google.script.run.withSuccessHandler(renderGoalHistory).withFailureHandler(err => { console.error("Error loading goal history:", err); historyContainer.innerHTML = `<div class="error-message">Failed to load goal history: ${err.message || 'Unknown error'}</div>`; }).getGoalAchievementHistory();
+      }
+
+      /** Renders the goal history cards, chart, and details */
+      function renderGoalHistory(data) {
+            console.log("Goal history data received:", data); const historyContainer = document.getElementById('goal-history-container'); if (!historyContainer) return; historyContainer.innerHTML = '';
+            if (!data || !data.weeklyTotals || data.weeklyTotals.length === 0) { historyContainer.innerHTML = `<div class="info-message"><p>Not enough weekly data available to show goal achievement history.</p></div>`; return; }
+            const summaryDiv = document.createElement('div'); summaryDiv.className = 'achievement-summary'; summaryDiv.innerHTML = `<div class="achievement-card"><h4>Higher Point Total</h4><div class="achievement-count">${data.goalAchievements.higherThanPrevious.totalAchieved}</div><p>times achieved</p></div><div class="achievement-card"><h4>Double Points</h4><div class="achievement-count">${data.goalAchievements.doublePoints.totalAchieved}</div><p>times achieved</p></div>`; historyContainer.appendChild(summaryDiv);
+            const chartContainer = document.createElement('div'); chartContainer.className = 'chart-container'; chartContainer.style.height = '250px'; chartContainer.style.marginTop = '20px'; chartContainer.innerHTML = '<canvas id="weekly-totals-chart"></canvas>'; historyContainer.appendChild(chartContainer);
+            const detailsDiv = document.createElement('div'); detailsDiv.className = 'achievement-details simple'; detailsDiv.innerHTML = `<p style="text-align: center; color: var(--text-secondary); font-size: 0.9em;">Detailed weekly achievements can be viewed in the chart tooltips.</p>`; if (data.goalAchievements.higherThanPrevious.totalAchieved > 0 || data.goalAchievements.doublePoints.totalAchieved > 0) { historyContainer.appendChild(detailsDiv); }
+            renderWeeklyTotalsChart(data.weeklyTotals);
+      }
+
+      /** Renders the weekly totals bar chart with previous week line */
+      function renderWeeklyTotalsChart(weeklyTotals) {
+            const canvasId = 'weekly-totals-chart'; const canvas = document.getElementById(canvasId); if (!canvas) return; const ctx = canvas.getContext('2d');
+            const labels = weeklyTotals.map(week => week.week.split(',')[0]); const totals = weeklyTotals.map(week => week.total); const previousTotals = weeklyTotals.map(week => week.previousTotal);
+            if (charts.weeklyTotalsChart) charts.weeklyTotalsChart.destroy();
+            charts.weeklyTotalsChart = new Chart(ctx, {
+                type: 'bar',
+                data: { labels: labels, datasets: [ { label: 'Weekly Total', data: totals, backgroundColor: ctx => totals[ctx.dataIndex] >= previousTotals[ctx.dataIndex] * 2 ? 'rgba(255, 159, 64, 0.7)' : (totals[ctx.dataIndex] > previousTotals[ctx.dataIndex] ? 'rgba(52, 168, 83, 0.7)' : 'rgba(66, 133, 244, 0.7)'), borderColor: ctx => totals[ctx.dataIndex] >= previousTotals[ctx.dataIndex] * 2 ? 'rgba(255, 159, 64, 1)' : (totals[ctx.dataIndex] > previousTotals[ctx.dataIndex] ? 'rgba(52, 168, 83, 1)' : 'rgba(66, 133, 244, 1)'), borderWidth: 1 }, { label: 'Previous Week', data: previousTotals, type: 'line', borderColor: 'rgba(153, 153, 153, 1)', tension: 0.1, pointRadius: 2, borderWidth: 1, borderDash: [3, 3] } ] },
+                options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' } }, x: { grid: { display: false } } }, plugins: { title: { display: true, text: 'Weekly Totals & Goal Achievements (Household)' }, tooltip: { callbacks: { afterLabel: ctx => { const i = ctx.dataIndex; const goals = []; if (totals[i] > previousTotals[i]) goals.push("✅ Higher than previous"); if (totals[i] >= previousTotals[i] * 2) goals.push("🔥 Double points!"); return goals.length > 0 ? goals : ["No goal achieved"]; } } } } }
+            });
+      }
+
+
+      // --- Streak Rendering ---
+
+      /**
+       * Renders streak information in the dashboard.
+       * Uses the streak settings object passed from the server data.
+       * @param {Object} streakData - Object containing { buildingStreaks, streaks }.
+       * @param {Object} streakSettings - Object containing current streak settings.
+       */
+      function renderStreaks(streakData, streakSettings) {
         const container = document.getElementById('streaks-container');
-        container.innerHTML = ''; // Clear previous content
-
-        const buildingStreaks = streakData.buildingStreaks || {};
-        const fullStreaks = streakData.streaks || {};
-
-        // Check if any streaks exist
-        if (Object.keys(buildingStreaks).length === 0 && Object.keys(fullStreaks).length === 0) {
-          container.innerHTML = '<p>No active streaks found. Start logging activities consistently to build streaks!</p>';
+        if (!container) { 
+          console.error("Streaks container not found!");
           return;
         }
-
-        // Sort streaks by length (descending)
-        const sortedFullStreaks = Object.entries(fullStreaks)
-          .sort(([, a], [, b]) => b - a);
-
-        // Add full streaks (3+ days)
+        
+        container.innerHTML = '';
+        
+        if (!streakData) {
+          console.error("renderStreaks called with invalid streakData");
+          container.innerHTML = '<p class="error-message">Could not load streak data.</p>';
+          return;
+        }
+        
+        // Extract and validate settings, using fallbacks if needed
+        let settingsToUse = {
+          thresholds: {
+            BONUS_1: 3,
+            BONUS_2: 7,
+            MULTIPLIER: 14
+          },
+          bonusPoints: {
+            BONUS_1: 1,
+            BONUS_2: 2
+          }
+        };
+        
+        // Check if we have valid settings from the server
+        if (streakSettings && typeof streakSettings === 'object') {
+          // First try to use uppercase properties
+          if (streakSettings.thresholds && 
+              typeof streakSettings.thresholds.BONUS_1 === 'number' &&
+              typeof streakSettings.thresholds.BONUS_2 === 'number' && 
+              typeof streakSettings.thresholds.MULTIPLIER === 'number') {
+            
+            settingsToUse.thresholds.BONUS_1 = streakSettings.thresholds.BONUS_1;
+            settingsToUse.thresholds.BONUS_2 = streakSettings.thresholds.BONUS_2;
+            settingsToUse.thresholds.MULTIPLIER = streakSettings.thresholds.MULTIPLIER;
+          }
+          // If uppercase not available, try lowercase
+          else if (streakSettings.thresholds && 
+                  typeof streakSettings.thresholds.bonus1 === 'number' &&
+                  typeof streakSettings.thresholds.bonus2 === 'number' && 
+                  typeof streakSettings.thresholds.multiplier === 'number') {
+            
+            settingsToUse.thresholds.BONUS_1 = streakSettings.thresholds.bonus1;
+            settingsToUse.thresholds.BONUS_2 = streakSettings.thresholds.bonus2;
+            settingsToUse.thresholds.MULTIPLIER = streakSettings.thresholds.multiplier;
+          }
+          
+          // Same for bonus points - try uppercase first
+          if (streakSettings.bonusPoints && 
+              typeof streakSettings.bonusPoints.BONUS_1 === 'number' &&
+              typeof streakSettings.bonusPoints.BONUS_2 === 'number') {
+            
+            settingsToUse.bonusPoints.BONUS_1 = streakSettings.bonusPoints.BONUS_1;
+            settingsToUse.bonusPoints.BONUS_2 = streakSettings.bonusPoints.BONUS_2;
+          }
+          // If uppercase not available, try lowercase
+          else if (streakSettings.bonusPoints && 
+                  typeof streakSettings.bonusPoints.bonus1 === 'number' &&
+                  typeof streakSettings.bonusPoints.bonus2 === 'number') {
+            
+            settingsToUse.bonusPoints.BONUS_1 = streakSettings.bonusPoints.bonus1;
+            settingsToUse.bonusPoints.BONUS_2 = streakSettings.bonusPoints.bonus2;
+          }
+        }
+        
+        console.log("Using streak settings for rendering:", settingsToUse);
+        
+        // Continue with streak rendering logic using settingsToUse
+        const buildingStreaks = streakData.buildingStreaks || {};
+        const fullStreaks = streakData.streaks || {};
+        const hasBuildingStreaks = Object.keys(buildingStreaks).length > 0;
+        const hasFullStreaks = Object.keys(fullStreaks).length > 0;
+        
+        if (!hasBuildingStreaks && !hasFullStreaks) {
+          container.innerHTML = '<div class="info-message"><p>No active streaks found for this household.</p></div>';
+          return;
+        }
+        
+        // Render full streaks
+        const sortedFullStreaks = Object.entries(fullStreaks).sort(([, aDays], [, bDays]) => bDays - aDays);
+        
         sortedFullStreaks.forEach(([activity, days]) => {
           const card = document.createElement('div');
           let streakClass = 'streak-card';
           let emoji = '🔥';
           let bonusText = '';
-
-          // Determine streak level (Use CONFIG values if possible, otherwise hardcode like below)
-          const multiplierThreshold = 14; // Example: Get from CONFIG if available client-side
-          const bonus2Threshold = 7;     // Example
-          const bonus1Threshold = 3;     // Example
-          const bonus2Points = 2;        // Example
-          const bonus1Points = 1;        // Example
-
-          if (days >= multiplierThreshold) {
+          
+          if (days >= settingsToUse.thresholds.MULTIPLIER) {
             streakClass += ' multiplier';
             emoji = '🔥🔥🔥';
-            bonusText = '2x Points Multiplier Active!';
-          } else if (days >= bonus2Threshold) {
+            bonusText = '2x Pts Active!';
+          } else if (days >= settingsToUse.thresholds.BONUS_2) {
             streakClass += ' bonus2';
             emoji = '🔥🔥';
-            bonusText = `+${bonus2Points} Bonus Points Active!`;
-          } else if (days >= bonus1Threshold) {
+            bonusText = `+${settingsToUse.bonusPoints.BONUS_2} Bonus Pts!`;
+          } else if (days >= settingsToUse.thresholds.BONUS_1) {
             streakClass += ' bonus1';
-            bonusText = `+${bonus1Points} Bonus Point Active!`;
+            bonusText = `+${settingsToUse.bonusPoints.BONUS_1} Bonus Pt!`;
           }
-
+          
           card.className = streakClass;
           card.innerHTML = `
-            <div style="display: flex; align-items: center;">
-              <span class="streak-days">${days}</span>
-              <span class="streak-emoji">${emoji}</span>
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+              <div style="display: flex; align-items: center;">
+                <span class="streak-days">${days}</span>
+                <span class="streak-emoji">${emoji}</span>
+              </div>
+              <div class="streak-bonus">${bonusText}</div>
             </div>
             <div class="streak-activity">${activity}</div>
-            <div class="streak-bonus">${bonusText}</div>
           `;
-
+          
           container.appendChild(card);
         });
-
-        // Add building streaks (2 days)
+        
+        // Render building streaks
         Object.keys(buildingStreaks).forEach(activity => {
           const card = document.createElement('div');
-          card.className = 'streak-card'; // Basic card style
+          card.className = 'streak-card building';
           card.innerHTML = `
-            <div style="display: flex; align-items: center;">
-              <span class="streak-days">2</span>
-              <span class="streak-emoji">💪</span>
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+              <div style="display: flex; align-items: center;">
+                <span class="streak-days">2</span>
+                <span class="streak-emoji">💪</span>
+              </div>
+              <div class="streak-bonus">Building...</div>
             </div>
             <div class="streak-activity">${activity}</div>
-            <div class="streak-bonus">Keep it up for a bonus!</div>
           `;
-
+          
           container.appendChild(card);
         });
       }
-      
-      function showChartError(chartId, message) {
-        const canvas = document.getElementById(chartId);
-        if (!canvas) {
-          console.error(`Canvas element "${chartId}" not found!`);
-          return;
-        }
-        
-        const container = canvas.parentElement;
-        
-        // Remove canvas
-        canvas.remove();
-        
-        // Add error message
-        const errorDiv = document.createElement('div');
-        errorDiv.className = 'error-message';
-        errorDiv.textContent = message;
-        container.appendChild(errorDiv);
+
+      // --- Utility Functions ---
+
+      /** Displays an error message within a chart container */
+      function showChartError(canvasId, message) {
+        const canvas = document.getElementById(canvasId); const container = canvas ? canvas.parentElement : document.getElementById(canvasId + '-container'); if (!container) return;
+        container.innerHTML = `<div class="error-message">${message}</div>`;
       }
-      
-      // Update handleDashboardError to include the new chart containers
+
+       /** Displays household info at the top of the dashboard */
+       function displayHouseholdInfo(data) {
+          if (!data || !data.householdId || !data.householdName) { const existingInfo = document.getElementById('household-info'); if(existingInfo) existingInfo.remove(); return; }
+          let householdInfo = document.getElementById('household-info');
+          if (!householdInfo) { householdInfo = document.createElement('div'); householdInfo.id = 'household-info'; householdInfo.className = 'household-info'; const mainContent = document.querySelector('.main-content'); if (mainContent) mainContent.prepend(householdInfo); }
+          householdInfo.innerHTML = `<div class="household-name"><span class="household-icon">🏠</span> ${data.householdName} (Household View)</div>`;
+       }
+
+      /** Handles errors during dashboard data loading */
       function handleDashboardError(error) {
-        console.error('Dashboard error:', error);
-        showNotification('Error loading dashboard data: ' + (error.message || 'Unknown error'));
-        
-        // Clear loading indicators and show error in each chart container
-        document.querySelectorAll('.chart-container .loading').forEach(loading => {
-          const container = loading.parentElement;
-          loading.remove();
-          
-          const errorDiv = document.createElement('div');
-          errorDiv.className = 'error-message';
-          errorDiv.textContent = 'Failed to load chart data: ' + (error.message || 'Unknown error');
-          container.appendChild(errorDiv);
-        });
+        console.error('Dashboard loading error:', error); setLoadingState(false); showNotification('Error loading dashboard data: ' + (error?.message || 'Unknown error'), true);
+        showChartError('points-chart', 'Failed to load points data.'); showChartError('weekly-chart', 'Failed to load weekly data.');
+        document.getElementById('streaks-container').innerHTML = '<div class="error-message">Failed to load streak data.</div>'; document.getElementById('weekly-goals-container').innerHTML = '<div class="error-message">Failed to load goal status.</div>'; document.getElementById('goal-history-container').innerHTML = '<div class="error-message">Failed to load goal history.</div>';
       }
-      
-      function showNotification(message) {
-        const notification = document.getElementById('notification');
-        notification.textContent = message;
-        notification.classList.remove('hidden');
-        
-        // Hide after 3 seconds
-        setTimeout(() => {
-          notification.classList.add('hidden');
-        }, 3000);
+
+      /** Shows a notification message */
+      function showNotification(message, isError = false) {
+        const notification = document.getElementById('notification'); notification.textContent = message; notification.style.backgroundColor = isError ? 'var(--negative-color)' : '#323232'; notification.classList.remove('hidden'); setTimeout(() => { notification.classList.add('hidden'); }, 3000);
       }
-      
+
+      /** Sends the daily digest */
       function sendDailyDigest() {
-        const emailBtn = document.getElementById('email-button');
-        const mobileEmailBtn = document.getElementById('mobile-email-button');
-        
-        emailBtn.disabled = true;
-        if (mobileEmailBtn) mobileEmailBtn.disabled = true;
-        
-        emailBtn.textContent = 'Sending...';
-        if (mobileEmailBtn) mobileEmailBtn.textContent = 'Sending...';
-        
-        google.script.run
-          .withSuccessHandler(function(result) {
-            emailBtn.disabled = false;
-            if (mobileEmailBtn) mobileEmailBtn.disabled = false;
-            
-            emailBtn.textContent = 'Send Daily Digest';
-            if (mobileEmailBtn) mobileEmailBtn.textContent = 'Send Daily Digest';
-            
-            if (result.success) {
-              showNotification(result.message);
-            } else {
-              showNotification('Error: ' + result.message);
-            }
-          })
-          .withFailureHandler(function(error) {
-            emailBtn.disabled = false;
-            if (mobileEmailBtn) mobileEmailBtn.disabled = false;
-            
-            emailBtn.textContent = 'Send Daily Digest';
-            if (mobileEmailBtn) mobileEmailBtn.textContent = 'Send Daily Digest';
-            
-            showNotification('Error: ' + (error.message || 'Failed to send email'));
-          })
-          .forceSendDailyDigest();
-      }
+         const emailBtn = document.getElementById('email-button'); const mobileEmailBtn = document.getElementById('mobile-email-button'); if(emailBtn) emailBtn.disabled = true; if(mobileEmailBtn) mobileEmailBtn.disabled = true; if(emailBtn) emailBtn.textContent = 'Sending...'; if(mobileEmailBtn) mobileEmailBtn.textContent = 'Sending...';
+         google.script.run
+           .withSuccessHandler(function(result) { if(emailBtn) emailBtn.disabled = false; if(mobileEmailBtn) mobileEmailBtn.disabled = false; if(emailBtn) emailBtn.textContent = 'Send Daily Digest'; if(mobileEmailBtn) mobileEmailBtn.textContent = 'Send Daily Digest'; showNotification(result.message || (result.success ? 'Digest sent.' : 'Failed to send.'), !result.success); })
+           .withFailureHandler(function(error) { if(emailBtn) emailBtn.disabled = false; if(mobileEmailBtn) mobileEmailBtn.disabled = false; if(emailBtn) emailBtn.textContent = 'Send Daily Digest'; if(mobileEmailBtn) mobileEmailBtn.textContent = 'Send Daily Digest'; handleError(error); })
+           .forceSendDailyDigest();
+       }
     </script>
   </body>
 </html>
