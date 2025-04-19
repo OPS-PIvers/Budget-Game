@@ -204,3 +204,118 @@ function calculateSummaryFromActivities(activities, activityData = null) {
     categories: categoryCounts
   };
 }
+
+// ActivityProcessing.gs or HouseholdManagement.gs - Add this new helper function
+
+/**
+ * Calculates and returns the current weekly summary totals for a specific household.
+ * Reads data from the Dashboard sheet for the current week, filtering by household emails.
+ * @param {Array<string>} householdEmails - An array of email addresses for the household.
+ * @return {Object} Summary object { total, positive, negative, topActivity, topActivityCount, categories }.
+ */
+function getHouseholdWeeklyTotals(householdEmails) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const dashboardSheet = ss.getSheetByName(CONFIG.SHEET_NAMES.DASHBOARD);
+  const defaultSummary = {
+    total: 0,
+    positive: 0,
+    negative: 0,
+    topActivity: "None",
+    topActivityCount: 0,
+    categories: { // Mirroring structure in setupDashboard
+       "Total Positive": 0, "Total Negative": 0,
+       "Health Specific": 0, "Household Specific": 0
+    }
+  };
+
+  if (!dashboardSheet) {
+    Logger.log("Dashboard sheet not found in getHouseholdWeeklyTotals.");
+    return defaultSummary;
+  }
+  if (!householdEmails || householdEmails.length === 0) {
+    Logger.log("No household emails provided to getHouseholdWeeklyTotals.");
+    return defaultSummary; // Cannot filter without emails
+  }
+
+  const today = new Date();
+  const startOfWeek = getWeekStartDate(today);
+  const endOfWeek = getWeekEndDate(today);
+  const startDateStr = formatDateYMD(startOfWeek);
+  const endDateStr = formatDateYMD(endOfWeek);
+
+  let weeklyTotal = 0;
+  let weeklyPositiveCount = 0;
+  let weeklyNegativeCount = 0;
+  const activityCounts = {}; // For finding top activity
+  const categoryCounts = { ...defaultSummary.categories }; // Clone default
+  const activityData = getActivityDataCached(); // Needed for categories
+
+  const lastRow = dashboardSheet.getLastRow();
+  if (lastRow < 2) {
+     Logger.log("No data on Dashboard to calculate household weekly totals.");
+     return defaultSummary;
+  }
+
+  // Assumes Dashboard: A=Date, B=Points, C=Activities, D=PosCount, E=NegCount, G=Email
+  const data = dashboardSheet.getRange(2, 1, lastRow - 1, 7).getValues(); // A:G
+
+  data.forEach(row => {
+    const date = row[0];
+    const rowEmail = row[6] || ""; // Email in Col G
+
+    if (date instanceof Date &&
+        formatDateYMD(date) >= startDateStr &&
+        formatDateYMD(date) <= endDateStr &&
+        householdEmails.some(email => email.toLowerCase() === rowEmail.toLowerCase()))
+    {
+      const points = Number(row[1]) || 0;
+      const activitiesString = row[2] || "";
+      const posCount = Number(row[3]) || 0;
+      const negCount = Number(row[4]) || 0;
+
+      weeklyTotal += points;
+      weeklyPositiveCount += posCount;
+      weeklyNegativeCount += negCount;
+
+      // Tally specific categories and top activity based on the activity string
+      if (activitiesString) {
+        const activitiesList = activitiesString.split(", ");
+        activitiesList.forEach(activityEntry => {
+          // Regex adjusted for optional streak info
+          const match = activityEntry.match(/[➕➖]\s(.+?)\s(?:\(🔥\d+\))?\s*\([+-]/);
+          if (match && match[1]) {
+            const activityName = match[1].trim();
+            activityCounts[activityName] = (activityCounts[activityName] || 0) + 1;
+            const category = activityData.categories[activityName];
+            if (category === 'Health') categoryCounts["Health Specific"]++;
+            if (category === 'Household') categoryCounts["Household Specific"]++;
+          }
+        });
+      }
+    }
+  });
+
+  // Assign overall pos/neg counts
+  categoryCounts["Total Positive"] = weeklyPositiveCount;
+  categoryCounts["Total Negative"] = weeklyNegativeCount;
+
+  // Find top activity
+  let topActivityName = "None";
+  let maxCount = 0;
+  for (const activity in activityCounts) {
+    if (activityCounts[activity] > maxCount) {
+      maxCount = activityCounts[activity];
+      topActivityName = activity;
+    }
+  }
+
+  // Return the calculated data for the household
+   return {
+    total: weeklyTotal,
+    positive: weeklyPositiveCount,
+    negative: weeklyNegativeCount,
+    topActivity: topActivityName,
+    topActivityCount: maxCount,
+    categories: categoryCounts
+  };
+}
