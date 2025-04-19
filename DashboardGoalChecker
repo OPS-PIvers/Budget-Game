@@ -1,0 +1,132 @@
+// DashboardGoalChecker.gs
+/**
+ * Calculates status for the two specific Dashboard Goals
+ * (Higher than Previous Week, Double Previous Week)
+ */
+
+/**
+ * Calculates the status of the 'Higher than Previous' and 'Double Points' goals.
+ * Reads historical data from the Dashboard sheet to determine weekly totals.
+ * @param {string} [householdId=null] Optional household ID to filter data. If null, uses all data.
+ * @return {object} An object containing the status of the two goals.
+ */
+function calculateDashboardGoalStatus(householdId = null) {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const dashboardSheet = ss.getSheetByName(CONFIG.SHEET_NAMES.DASHBOARD);
+    const goals = {
+        higherThanPrevious: { achieved: false, description: "Higher point total than previous week", target: 0, current: 0, percentComplete: 0 },
+        doublePoints: { achieved: false, description: "Double the point total from previous week", target: 0, current: 0, percentComplete: 0 }
+    };
+
+    if (!dashboardSheet) {
+        Logger.log("Dashboard sheet not found in calculateDashboardGoalStatus.");
+        return goals; // Return default goals
+    }
+
+    // --- Get Household Emails if ID is provided ---
+    let householdEmails = [];
+    if (householdId && CONFIG.HOUSEHOLD_SETTINGS.ENABLED) {
+        householdEmails = getHouseholdEmails(householdId);
+        if (!householdEmails || householdEmails.length === 0) {
+            Logger.log(`No members found for household ${householdId} in goal check.`);
+            // Decide behavior: return default or calculate for individual? Assuming default for now.
+            return goals;
+        }
+    }
+    // --- End Household Emails ---
+
+    // --- Aggregate Weekly Totals from Dashboard ---
+    const weeklyTotalsMap = new Map(); // { weekStartDateStr: totalPoints }
+    const lastRow = dashboardSheet.getLastRow();
+
+    if (lastRow > 1) {
+        // Read Date(A), Points(B), Email(G)
+        const data = dashboardSheet.getRange(2, 1, lastRow - 1, 7).getValues();
+
+        data.forEach(row => {
+            const dateObj = row[0];
+            const rowEmail = row[6] || ""; // Email in Col G
+
+            // Check if date is valid and if email matches household (if applicable)
+            if (dateObj instanceof Date && dateObj.getTime() > 0) {
+                let includeRow = true;
+                if (householdId && householdEmails.length > 0) { // Apply household filter only if ID was provided
+                    if (!householdEmails.some(he => he.toLowerCase() === rowEmail.toLowerCase())) {
+                        includeRow = false;
+                    }
+                }
+
+                if (includeRow) {
+                    const points = Number(row[1]) || 0;
+                    const weekStartDate = getWeekStartDate(dateObj);
+                    const weekStartDateStr = formatDateYMD(weekStartDate);
+
+                    weeklyTotalsMap.set(weekStartDateStr, (weeklyTotalsMap.get(weekStartDateStr) || 0) + points);
+                }
+            }
+        });
+    }
+    // --- End Aggregation ---
+
+    if (weeklyTotalsMap.size < 2) {
+        Logger.log("Not enough weekly data (< 2 weeks) on Dashboard to calculate goal status.");
+        return goals; // Need at least two weeks to compare
+    }
+
+    // Sort weeks chronologically
+    const sortedWeeks = Array.from(weeklyTotalsMap.keys()).sort();
+
+    // Get totals for the current and previous *completed* weeks
+    const today = new Date();
+    const currentRunningWeekStartStr = formatDateYMD(getWeekStartDate(today));
+    let currentWeekTotal = weeklyTotalsMap.get(currentRunningWeekStartStr) || 0;
+    let previousWeekTotal = 0;
+
+    // Find the most recent *completed* week before the current one
+    let previousWeekIndex = -1;
+    for (let i = sortedWeeks.length - 1; i >= 0; i--) {
+        if (sortedWeeks[i] < currentRunningWeekStartStr) {
+             previousWeekIndex = i;
+             break;
+        }
+    }
+
+     // Get the total for the week before the *previous* completed week, needed for the goal calculation
+     let twoWeeksAgoTotal = 0;
+     if (previousWeekIndex > 0) { // Make sure there is a week before the previous one
+         const twoWeeksAgoStartStr = sortedWeeks[previousWeekIndex - 1];
+         twoWeeksAgoTotal = weeklyTotalsMap.get(twoWeeksAgoStartStr) || 0;
+         previousWeekTotal = weeklyTotalsMap.get(sortedWeeks[previousWeekIndex]) || 0; // The actual previous week's total
+         Logger.log(`Goal Calc: Previous Week (${sortedWeeks[previousWeekIndex]}): ${previousWeekTotal}, Two Weeks Ago (${twoWeeksAgoStartStr}): ${twoWeeksAgoTotal}`);
+
+     } else if (previousWeekIndex === 0) { // Only one previous week exists
+         previousWeekTotal = weeklyTotalsMap.get(sortedWeeks[previousWeekIndex]) || 0;
+         twoWeeksAgoTotal = 0; // No week before that one
+          Logger.log(`Goal Calc: Previous Week (${sortedWeeks[previousWeekIndex]}): ${previousWeekTotal}, Two Weeks Ago: N/A`);
+     }
+      else {
+        Logger.log("Could not determine previous completed week's total.");
+        return goals; // Cannot calculate goals without previous week data
+    }
+
+
+    // --- Calculate Goal Status based on the PREVIOUS week's performance vs TWO weeks ago ---
+    goals.higherThanPrevious.target = twoWeeksAgoTotal;
+    goals.higherThanPrevious.current = previousWeekTotal; // Check *last* completed week's score
+    goals.higherThanPrevious.achieved = previousWeekTotal > twoWeeksAgoTotal;
+    goals.higherThanPrevious.percentComplete = goals.higherThanPrevious.achieved ? 100 : (twoWeeksAgoTotal > 0 ? Math.min(100, Math.max(0, Math.round((previousWeekTotal / twoWeeksAgoTotal) * 100))) : 0);
+
+    goals.doublePoints.target = twoWeeksAgoTotal * 2;
+    goals.doublePoints.current = previousWeekTotal; // Check *last* completed week's score
+    goals.doublePoints.achieved = previousWeekTotal >= (twoWeeksAgoTotal * 2);
+    goals.doublePoints.percentComplete = goals.doublePoints.achieved ? 100 : (twoWeeksAgoTotal > 0 ? Math.min(100, Math.max(0, Math.round((previousWeekTotal / (twoWeeksAgoTotal * 2)) * 100))) : 0);
+
+    // Handle cases where previous total was 0
+    if (twoWeeksAgoTotal === 0 && previousWeekTotal > 0) {
+        goals.higherThanPrevious.percentComplete = 100;
+        goals.doublePoints.percentComplete = 100; // Infinite improvement
+    }
+
+    Logger.log(`Goal Status Calculated: Higher=${goals.higherThanPrevious.achieved}, Double=${goals.doublePoints.achieved}`);
+    return goals;
+}
