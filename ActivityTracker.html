@@ -1,0 +1,911 @@
+<!-- ActivityTracker.html (Fixed) -->
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <?!= include('Stylesheet'); ?>
+  </head>
+  <body>
+    <header class="app-header">
+      <div class="header-content">
+        <a href="<?= getScriptUrl() ?>" class="app-title">Budget Game Tracker</a>
+        <div class="action-buttons">
+          <button id="email-button" class="btn btn-outline">Send Daily Digest</button>
+          <a href="<?= getScriptUrl() ?>?page=admin" class="btn btn-outline">Admin</a>
+        </div>
+      </div>
+    </header>
+
+    <nav class="nav-container">
+      <div class="main-nav">
+        <a href="<?= getScriptUrl() ?>" class="nav-link active">
+          <svg class="nav-icon" viewBox="0 0 24 24">
+            <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/>
+            <path d="M18 9l-1.4-1.4-5.6 5.6-2.6-2.6L7 12l4 4z"/>
+          </svg>
+          Activity Tracker
+        </a>
+        <a href="<?= getScriptUrl() ?>?page=dashboard" class="nav-link">
+          <svg class="nav-icon" viewBox="0 0 24 24">
+            <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/>
+            <path d="M9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/>
+          </svg>
+          Dashboard
+        </a>
+      </div>
+    </nav>
+
+    <div class="container main-content">
+      <!-- Household Info Placeholder -->
+      <div id="household-info-placeholder"></div>
+
+      <div class="scoreboard">
+        <div class="score-box" id="daily-box">
+          <h2>Today's Points</h2>
+          <div class="score" id="daily-score">0</div>
+          <div class="average">Daily Avg: <span id="daily-average">0</span></div>
+        </div>
+
+        <div class="score-box" id="weekly-box">
+          <h2>Weekly Points</h2>
+          <div class="score" id="weekly-score">0</div>
+          <div class="average">Weekly Avg: <span id="weekly-average">0</span></div>
+        </div>
+      </div>
+
+      <!-- Removed Obsolete Selected Activities List -->
+      <!--
+      <div class="selected-activities">
+        <h3>Selected Activities</h3>
+        <div id="selected-activities-list"></div>
+      </div>
+      -->
+
+      <div class="activity-sections" id="activity-container">
+        <!-- Will be populated via JavaScript -->
+        <div class="loading">Loading activities...</div>
+      </div>
+
+      <div class="actions">
+        <button id="submit-button" class="submit-btn">Submit Activities</button>
+        <button id="reset-button" class="reset-btn">Reset Selections</button>
+      </div>
+
+      <div class="mobile-actions">
+        <button id="mobile-email-button" class="btn btn-primary">Send Daily Digest</button>
+        <a href="<?= getScriptUrl() ?>?page=admin" class="btn btn-outline">Admin</a>
+      </div>
+
+    </div>
+
+    <div id="notification" class="notification hidden"></div>
+
+    <script>
+      // Global state
+      let activityData = {}; // { pointValues: {...}, categories: {...} }
+      let appCategories = []; // Stores category list from server
+      // State for individual activity selection and count
+      let activityState = {}; // { activityName: { selected: boolean, count: number } }
+      let currentDayPoints = 0; // Points logged by household today (before current selections)
+      let weeklyPoints = 0; // Points logged by household this week (before current selections)
+
+      // --- Flags and Temp Storage for Initialization ---
+      let isActivityDataLoaded = false;
+      let isTodayDataLoaded = false;
+      let isWeekDataLoaded = false;
+      let todayDataInternal = null; // Temporary store for today's data
+      let weekDataInternal = null; // Temporary store for week's data
+
+      // --- Define all functions first ---
+
+      /**
+       * Handles activity definitions AND category list received from the server.
+       * Initializes the activityState object.
+       * Sets flag and tries to render the page if all data is ready.
+       * @param {Object} response - The response object { activityData: { pointValues, categories }, categoriesList: Array<string> }.
+       */
+      function handleActivityData(response) {
+        activityData = response?.activityData || { pointValues: {}, categories: {} };
+        appCategories = response?.categoriesList || [];
+
+        // Initialize activityState based on fetched activities
+        activityState = {}; // Reset state
+        if (activityData && activityData.pointValues) {
+           Object.keys(activityData.pointValues).forEach(activityName => {
+               activityState[activityName] = { selected: false, count: 0 };
+           });
+        }
+        // console.log(`Activity data loaded. Categories: ${appCategories.length}. Initialized activityState with ${Object.keys(activityState).length} activities.`);
+
+        isActivityDataLoaded = true;
+        tryRenderPage(); // Attempt to render the page
+      }
+
+      /**
+       * Handles today's aggregated data (points, logged activities, household info).
+       * Stores data, sets flag, and tries to render the page.
+       * @param {Object} data - Object like { points, activities, householdId, householdName, members }.
+       */
+      function handleTodayData(data) {
+        // console.log("Today's data received:", data);
+        todayDataInternal = data; // Store it temporarily
+        isTodayDataLoaded = true;
+        tryRenderPage(); // Attempt to render the page
+      }
+
+      /**
+       * Handles current week's aggregated data.
+       * Stores data, sets flag, and tries to render the page.
+       * @param {Object} data - Object like { weeklyTotal, dailyAverage, weeklyAverage, ... }.
+       */
+       function handleWeekData(data) {
+         // console.log("Weekly data received:", data);
+         weekDataInternal = data; // Store it temporarily
+         isWeekDataLoaded = true;
+         tryRenderPage(); // Attempt to render the page
+       }
+
+      /**
+       * Central function called after each data fetch.
+       * Checks if all required data is loaded, then processes it and renders the UI.
+       */
+      function tryRenderPage() {
+        // Exit if not all data has arrived yet
+        if (!isActivityDataLoaded || !isTodayDataLoaded || !isWeekDataLoaded) {
+           // console.log(`Waiting for data... Activity:${isActivityDataLoaded}, Today:${isTodayDataLoaded}, Week:${isWeekDataLoaded}`);
+           return;
+        }
+
+        console.log("All initial data loaded. Processing and rendering page.");
+
+        // --- Process Stored Data ---
+        // Process Week Data first
+        weeklyPoints = weekDataInternal?.weeklyTotal ?? 0;
+        updateScoreDisplay('weekly-score', weeklyPoints);
+        document.getElementById('daily-average').textContent = weekDataInternal?.dailyAverage ?? '0';
+        document.getElementById('weekly-average').textContent = weekDataInternal?.weeklyAverage ?? '0';
+        // console.log("Weekly data processed. Initial weeklyPoints global:", weeklyPoints);
+
+        // Process Today Data
+        const data = todayDataInternal; // Use stored today data
+        if (data.householdId && data.householdName) {
+          displayHouseholdInfo(data); // Pass full data object
+        } else if (!data.householdId && CONFIG?.HOUSEHOLD_SETTINGS?.ENABLED) {
+          console.warn("User not assigned to a household, but households are enabled.");
+          displayNoHouseholdError(); // Show specific error message
+        } else {
+           // Households disabled or no household assigned - clear any existing info
+           clearHouseholdInfo();
+        }
+
+        currentDayPoints = data.points || 0;
+        updateScoreDisplay('daily-score', currentDayPoints);
+        // console.log("Today's data processed. Initial currentDayPoints global:", currentDayPoints);
+
+        // Determine activities already logged today by the household
+        const alreadyLoggedToday = new Set();
+        if (data.activities && data.activities.length > 0) {
+          data.activities.forEach(activity => {
+            if (activity && activity.name) alreadyLoggedToday.add(activity.name);
+          });
+           // console.log("Activities already logged today by household:", Array.from(alreadyLoggedToday));
+        }
+
+        // --- Render UI Components ---
+        // Render sections now that all data is confirmed loaded and processed
+        renderActivitySections(alreadyLoggedToday); // Uses globals activityData & appCategories
+
+        // Update totals based on the initial loaded state (no new selections yet)
+        updatePointTotals(); // Recalculates potential display based on globals
+
+        // Enable buttons now that rendering is complete and data is available
+        // Submit button state is handled dynamically by updateSubmitButtonState
+        // Ensure reset button is enabled if selectable chips exist
+        document.getElementById('reset-button').disabled = (document.querySelectorAll('.activity-chip:not(.logged)').length === 0);
+
+        // Re-check submit button state based on current selections (should be empty initially)
+        updateSubmitButtonState();
+
+      }
+
+
+      /**
+       * Renders activity chips grouped by category.
+       * Assumes `activityData`, `appCategories`, and `activityState` globals are populated.
+       * @param {Set<string>} [alreadyLoggedToday=new Set()] - A set of activity names already logged today.
+       */
+      function renderActivitySections(alreadyLoggedToday = new Set()) {
+          const container = document.getElementById('activity-container');
+          container.innerHTML = ''; // Clear loading message or previous render
+
+          // Check if activity definitions are loaded
+          if (!activityData || !activityData.pointValues || Object.keys(activityData.pointValues).length === 0) {
+              container.innerHTML = '<p class="error-message">No activities defined. Please configure activities in the Admin panel.</p>';
+              console.error("RenderSections called but activityData.pointValues is empty.");
+              toggleSubmitButtons(true); // Disable buttons
+              return;
+          }
+          // Check if categories are loaded
+          if (!appCategories || appCategories.length === 0) {
+              container.innerHTML = '<p class="error-message">Error loading activity categories.</p>';
+               console.error("RenderSections called but appCategories is empty.");
+              toggleSubmitButtons(true); // Disable buttons
+              return;
+          }
+
+          // Group activities by category
+          const categories = {};
+          appCategories.forEach(cat => categories[cat] = []);
+
+          // Populate categories, ensuring all activities have state
+          for (const activityName in activityData.pointValues) {
+              // Make sure activity exists in state (might have been added server-side since last fetch)
+              if (!activityState[activityName]) {
+                  activityState[activityName] = { selected: false, count: 0 };
+                  // console.log(`Initialized state for newly found activity: ${activityName}`);
+              }
+              const category = activityData.categories[activityName] || 'Uncategorized';
+              if (!categories[category]) {
+                  // console.warn(`Activity "${activityName}" has category "${category}" not in main list. Creating section.`);
+                  categories[category] = [];
+              }
+              categories[category].push({ name: activityName, points: activityData.pointValues[activityName] });
+          }
+          // Sort activities within each category alphabetically
+          for (const category in categories) {
+              categories[category].sort((a, b) => a.name.localeCompare(b.name));
+          }
+
+          // Create a section for each category based on appCategories order
+          let hasSelectableActivities = false; // Flag to see if ANY chip is clickable
+          appCategories.forEach(categoryName => {
+              if (categories[categoryName] && categories[categoryName].length > 0) {
+                  const { sectionElement, hasSelectable } = createSectionElement(categoryName, categories[categoryName], alreadyLoggedToday);
+                  container.appendChild(sectionElement);
+                  if (hasSelectable) hasSelectableActivities = true;
+              }
+          });
+
+          // Add 'Uncategorized' section if necessary and it wasn't in the main list
+          if (categories['Uncategorized'] && categories['Uncategorized'].length > 0 && !appCategories.includes('Uncategorized')) {
+              const { sectionElement, hasSelectable } = createSectionElement('Uncategorized', categories['Uncategorized'], alreadyLoggedToday);
+              container.appendChild(sectionElement);
+              if (hasSelectable) hasSelectableActivities = true;
+          }
+
+           // If absolutely no activities are selectable (all logged or none defined)
+          if (!hasSelectableActivities && Object.keys(activityData.pointValues).length > 0) {
+              if (container.innerHTML.trim() === '') {
+                  // This case happens if ALL activities are logged
+                  container.innerHTML = '<div class="info-message"><p>All available activities have been logged for today by your household.</p></div>';
+              } else {
+                  // This case means sections were rendered, but every chip within them was logged
+                  console.log("All rendered activities are already logged by the household.");
+                  // Optionally add a message at the bottom or top?
+                  // const infoMsg = document.createElement('p'); infoMsg.className = 'info-message'; infoMsg.textContent = 'All activities logged for today.'; container.appendChild(infoMsg);
+              }
+              document.getElementById('submit-button').disabled = true;
+              document.getElementById('reset-button').disabled = true;
+          } else if (!hasSelectableActivities && Object.keys(activityData.pointValues).length === 0) {
+               // Case where no activities are defined at all
+               container.innerHTML = '<p class="error-message">No activities defined. Please configure activities in the Admin panel.</p>';
+               document.getElementById('submit-button').disabled = true;
+               document.getElementById('reset-button').disabled = true;
+          } else if (!hasSelectableActivities) {
+              // Case where activities exist but maybe categories caused issues or some other edge case
+               if (container.innerHTML.trim() === '') {
+                  container.innerHTML = '<p class="info-message">No activities available to log.</p>';
+               }
+              document.getElementById('submit-button').disabled = true;
+              document.getElementById('reset-button').disabled = true;
+          } else {
+              // Ensure reset button is enabled if there are selectable activities
+              document.getElementById('reset-button').disabled = false;
+          }
+      }
+
+
+       /**
+        * Helper function to create a category section element with activity chips.
+        * Creates the HTML structure for chips but defers event listener attachment.
+        * Relies on global `activityState` to set initial visual state.
+        * @param {string} categoryName - The name of the category.
+        * @param {Array<object>} activitiesInCategory - Array of activity objects {name, points}.
+        * @param {Set<string>} alreadyLoggedToday - Set of activities already logged today.
+        * @returns {object} { sectionElement: HTMLElement, hasSelectable: boolean }
+        */
+       function createSectionElement(categoryName, activitiesInCategory, alreadyLoggedToday) {
+            const section = document.createElement('div');
+            section.className = 'section';
+            const header = document.createElement('div');
+            header.className = 'section-header';
+            header.innerHTML = `<span>${categoryName}</span><span class="chevron">▼</span>`;
+            header.addEventListener('click', toggleSection); // Keep header toggle listener
+
+            const content = document.createElement('div');
+            content.className = 'section-content'; // Content div to hold the chip container
+
+            const chipContainer = document.createElement('div');
+            chipContainer.className = 'chip-container';
+            content.appendChild(chipContainer);
+
+            let hasSelectable = false; // Track if any chip in this section could be selected
+
+            activitiesInCategory.forEach(activity => {
+                const activityName = activity.name;
+                const chip = document.createElement('span');
+                chip.className = 'activity-chip';
+                chip.dataset.activity = activityName; // Use consistent dataset name
+
+                const points = activity.points;
+                const isPositive = points >= 0; // Treat 0 as positive for styling
+                chip.classList.add(isPositive ? 'positive' : 'negative');
+
+                const textSpan = document.createElement('span');
+                const pointsText = isPositive ? `+${points}` : points;
+                textSpan.textContent = `${activityName} (${pointsText})`;
+                textSpan.className = 'chip-text';
+                chip.appendChild(textSpan);
+
+                const countBadge = document.createElement('span');
+                countBadge.className = 'count-badge';
+                // Initial state determined later by updateChipUI or below
+                chip.appendChild(countBadge);
+
+                const resetButton = document.createElement('span');
+                resetButton.className = 'reset-chip';
+                resetButton.innerHTML = '×';
+                resetButton.title = `Reset ${activityName}`; // Add tooltip
+                // Initial state determined later by updateChipUI or below
+                chip.appendChild(resetButton);
+
+                // Determine initial state (logged or selectable) and apply base UI
+                if (alreadyLoggedToday.has(activityName)) {
+                    chip.classList.add('logged');
+                    chip.title = "Already logged today by household";
+                    countBadge.style.display = 'none'; // Ensure hidden if logged
+                    resetButton.style.display = 'none';// Ensure hidden if logged
+                    // Logged chips are NOT selectable
+                } else {
+                    // This chip is potentially selectable
+                    hasSelectable = true;
+                    // Check if it's currently selected in our state (e.g., after a reset but before full submit)
+                    // Ensure state exists for this activity
+                    if (activityState[activityName] && activityState[activityName].selected) {
+                         updateChipUI(chip, activityName, true); // Update to selected state
+                    } else {
+                         updateChipUI(chip, activityName, false); // Update to default state
+                    }
+                }
+
+                chipContainer.appendChild(chip);
+            });
+
+            section.appendChild(header);
+            section.appendChild(content);
+            return { sectionElement: section, hasSelectable: hasSelectable };
+       }
+
+
+      /**
+       * Toggles the visibility of an activity section.
+       * @param {Event} event - The click event from the section header.
+       */
+      function toggleSection(event) {
+        const section = event.currentTarget.parentElement;
+        const content = section.querySelector('.section-content');
+        const chevron = event.currentTarget.querySelector('.chevron');
+        const isCollapsed = content.classList.toggle('collapsed'); // Toggle returns true if class was added
+        chevron.textContent = isCollapsed ? '▶' : '▼'; // Update chevron based on new state
+      }
+
+      /**
+       * Central event handler for clicks within the activity container.
+       * Handles clicks on chips and reset buttons using event delegation.
+       * @param {Event} event - The click event.
+       */
+      function handleActivityClick(event) {
+          const target = event.target;
+          const chip = target.closest('.activity-chip');
+
+          if (!chip || chip.classList.contains('logged')) {
+              // Click wasn't on a chip or the chip is logged - do nothing
+              return;
+          }
+
+          const activityName = chip.dataset.activity;
+          if (!activityState[activityName]) {
+              console.error("Clicked chip for unknown activity:", activityName);
+              return;
+          }
+
+          if (target.classList.contains('reset-chip')) {
+              // --- Handle Reset Button Click ---
+              event.stopPropagation(); // Prevent chip click handler from firing too
+              if (activityState[activityName].selected) {
+                  activityState[activityName].selected = false;
+                  activityState[activityName].count = 0;
+                  updateChipUI(chip, activityName, false); // Update UI to deselected state
+                  // console.log(`Reset ${activityName}`);
+                  updatePointTotals(); // Update totals display
+                  updateSubmitButtonState(); // Update submit button enable/disable
+              }
+          } else {
+              // --- Handle Chip Click (Select/Increment) ---
+              if (!activityState[activityName].selected) {
+                  // First click - Select
+                  activityState[activityName].selected = true;
+                  activityState[activityName].count = 1;
+                  updateChipUI(chip, activityName, true); // Update UI to selected state
+                  // console.log(`Selected ${activityName}, count: 1`);
+              } else {
+                  // Subsequent clicks - Increment count
+                  activityState[activityName].count++;
+                  updateChipUI(chip, activityName, true); // Update UI (updates badge text)
+                  // console.log(`Incremented ${activityName}, count: ${activityState[activityName].count}`);
+              }
+              updatePointTotals(); // Update totals display
+              updateSubmitButtonState(); // Update submit button enable/disable
+          }
+      }
+
+
+       /**
+        * Updates the visual state of a single activity chip based on its state.
+        * @param {HTMLElement} chipElement - The DOM element for the chip.
+        * @param {string} activityName - The name of the activity.
+        * @param {boolean} isSelected - Whether the activity is currently selected.
+        */
+       function updateChipUI(chipElement, activityName, isSelected) {
+           if (!chipElement) return; // Guard against null elements
+           const countBadge = chipElement.querySelector('.count-badge');
+           const resetButton = chipElement.querySelector('.reset-chip');
+           const state = activityState[activityName];
+
+           if (!state) {
+               console.warn(`No state found for ${activityName} during UI update.`);
+               return;
+           }
+
+           if (isSelected) {
+               chipElement.classList.add('selected');
+               if (countBadge) {
+                   countBadge.textContent = `x${state.count}`;
+                   countBadge.style.display = 'inline-block';
+               }
+               if (resetButton) resetButton.style.display = 'inline-block';
+           } else {
+               chipElement.classList.remove('selected');
+               if (countBadge) countBadge.style.display = 'none';
+               if (resetButton) resetButton.style.display = 'none';
+           }
+       }
+
+
+      /**
+       * Updates the displayed daily and weekly scores based on already logged points
+       * PLUS the points from the currently selected (but not submitted) activities and their counts.
+       */
+      function updatePointTotals() {
+        let pointsFromSelection = 0;
+        // Iterate through activityState
+        for (const activityName in activityState) {
+            if (activityState[activityName]?.selected) { // Check state exists and is selected
+                // Use base points from activityData for calculation before potential streak changes
+                const basePoints = activityData?.pointValues?.[activityName] ?? 0;
+                pointsFromSelection += basePoints * activityState[activityName].count;
+            }
+        }
+        const potentialDailyTotal = currentDayPoints + pointsFromSelection;
+        const potentialWeeklyTotal = weeklyPoints + pointsFromSelection;
+        updateScoreDisplay('daily-score', potentialDailyTotal);
+        updateScoreDisplay('weekly-score', potentialWeeklyTotal);
+      }
+
+
+      /**
+       * Updates the enabled/disabled state of the main Submit button
+       * based on whether any activities are currently selected.
+       */
+      function updateSubmitButtonState() {
+           let anySelected = false;
+           for (const activityName in activityState) {
+               if (activityState[activityName]?.selected) { // Check state exists
+                   anySelected = true;
+                   break;
+               }
+           }
+           // Also check if there are any selectable chips at all
+           const hasSelectableChips = document.querySelectorAll('.activity-chip:not(.logged)').length > 0;
+           const submitBtn = document.getElementById('submit-button');
+           if (submitBtn) {
+               submitBtn.disabled = !anySelected || !hasSelectableChips;
+           }
+      }
+
+
+      /**
+       * Updates a score display element (text and class).
+       * @param {string} elementId - The ID of the score element.
+       * @param {number} points - The points value to display.
+       */
+      function updateScoreDisplay(elementId, points) {
+        const element = document.getElementById(elementId);
+        if (!element) return;
+        element.textContent = points >= 0 ? `+${points}` : points;
+        element.classList.remove('positive', 'negative');
+        if (points > 0) element.classList.add('positive');
+        else if (points < 0) element.classList.add('negative');
+      }
+
+      /**
+       * Submits the currently selected activities to the server.
+       * Builds the submission array based on counts in activityState.
+       */
+      function submitActivities() {
+        const activitiesToSubmit = [];
+        // Build array based on counts
+        for (const activityName in activityState) {
+            if (activityState[activityName]?.selected) { // Check state exists
+                for (let i = 0; i < activityState[activityName].count; i++) {
+                    activitiesToSubmit.push(activityName); // Send only the name
+                }
+            }
+        }
+
+        if (activitiesToSubmit.length === 0) {
+          showNotification('Please select at least one activity', true);
+          return;
+        }
+
+        console.log("Submitting activities:", activitiesToSubmit); // Log the array being sent
+
+        const submitBtn = document.getElementById('submit-button');
+        if (submitBtn) {
+          submitBtn.textContent = 'Submitting...';
+          submitBtn.disabled = true; // Disable immediately
+        }
+        const resetBtn = document.getElementById('reset-button');
+        if (resetBtn) resetBtn.disabled = true; // Disable reset during submit
+
+        google.script.run
+          .withSuccessHandler(handleSubmitSuccess)
+          .withFailureHandler(handleSubmitError)
+          .processWebAppSubmission(activitiesToSubmit); // Send the flattened array of names
+      }
+
+      /**
+       * Handles the successful response after submitting activities.
+       * Updates global points state and UI based on server response.
+       * Resets activityState and chip UI.
+       * Resets button text.
+       * @param {Object} result - Server response { success, points, weeklyTotal, message, goalsUpdated?, activities? }.
+       */
+      function handleSubmitSuccess(result) {
+          console.log("Submit Success Response:", result);
+          const submitBtn = document.getElementById('submit-button');
+          if (submitBtn) submitBtn.textContent = 'Submit Activities'; // Reset button text
+
+          if (result.success) {
+              // Store submitted state BEFORE resetting, for reliable calculation
+              const submittedState = JSON.parse(JSON.stringify(activityState));
+
+              // --- Reset UI and State FIRST ---
+              // This clears selections visually and prepares for potential re-render
+              resetSelections();
+
+              // --- Update Scores Based on Server Response ---
+              // Use the more accurate weekly total from the server response if available
+              if (result.weeklyTotal !== undefined && result.weeklyTotal !== null) {
+                   weeklyPoints = result.weeklyTotal;
+              } else {
+                  // Fallback: Calculate points from this submission if server didn't provide total
+                  let pointsAddedThisSubmission = 0;
+                  if (result.activities && Array.isArray(result.activities)) {
+                       // Best case: use detailed points from server response
+                       result.activities.forEach(act => { pointsAddedThisSubmission += act.points || 0; });
+                  } else {
+                       // Fallback: use points from the *stored* submitted state
+                       console.warn("Submission response did not include detailed activities array or weekly total. Calculating points added based on client state BEFORE reset.");
+                       for (const activityName in submittedState) {
+                           if (submittedState[activityName]?.selected) {
+                               const basePoints = activityData?.pointValues?.[activityName] ?? 0;
+                               // WARNING: This fallback doesn't account for server-side streak calculations!
+                               // It's less accurate than the server providing the result.
+                               pointsAddedThisSubmission += basePoints * submittedState[activityName].count;
+                           }
+                       }
+                  }
+                  // Update global totals based on calculated delta
+                  currentDayPoints += pointsAddedThisSubmission;
+                  weeklyPoints += pointsAddedThisSubmission;
+              }
+
+              // Ensure currentDayPoints is updated based on the actual points processed by server if available
+              if (result.points !== undefined && result.points !== null) {
+                 // This assumes result.points is the DELTA from *this* submission
+                 // Re-calculating the total day points based on server delta might be safer
+                 // currentDayPoints += result.points; // This might double-add if weeklyTotal wasn't provided
+                 // Safer approach: Refetch today's data (done below) which gives the absolute total.
+              }
+
+
+              // Update displays with final totals AFTER processing server response
+              // Note: Scores will be fully accurate after the refresh below completes
+              updateScoreDisplay('daily-score', currentDayPoints);
+              updateScoreDisplay('weekly-score', weeklyPoints);
+              // --- End Score Update ---
+
+              // --- Handle Goals Update Flag ---
+              if (result.goalsUpdated) {
+                  console.log("Goals updated flag received. Setting localStorage.");
+                  try { localStorage.setItem('refreshGoals', 'true'); localStorage.setItem('goalsUpdateTime', Date.now().toString()); } catch (e) { console.error("Error setting localStorage:", e); }
+              }
+
+              // --- Refresh Logged Status and Scores ---
+              // Re-fetch today's data to get updated list of logged activities & accurate totals, then re-render sections
+              isTodayDataLoaded = false; // Reset flag to allow re-rendering by tryRenderPage
+              isWeekDataLoaded = false; // Also refresh week data for scores
+              console.log("Refreshing page data after successful submission...");
+              // Re-fetch all initial data to ensure consistency
+              initializeApp(); // Re-run the full initialization
+
+              showNotification(result.message || 'Activities submitted successfully!');
+          } else {
+              showNotification('Error: ' + (result.message || 'Unknown error during submission'), true);
+              console.error('Submission error from server:', result);
+              // Re-enable buttons on server-side failure (reset only if selectable chips exist)
+              if (submitBtn) submitBtn.disabled = (document.querySelectorAll('.activity-chip:not(.logged)').length === 0);
+              const resetBtn = document.getElementById('reset-button');
+              if (resetBtn) resetBtn.disabled = (document.querySelectorAll('.activity-chip:not(.logged)').length === 0);
+          }
+      }
+
+      /**
+       * Handles errors during the submission process.
+       * Resets button text and re-enables buttons.
+       * @param {Error} error - The error object from Apps Script.
+       */
+      function handleSubmitError(error) {
+        console.error('Submission error:', error);
+        const submitBtn = document.getElementById('submit-button');
+        if (submitBtn) submitBtn.textContent = 'Submit Activities'; // Reset button text
+
+        // Re-enable buttons on client-side/network failure
+        toggleSubmitButtons(false); // Re-enable submit and potentially reset
+
+        showNotification('Error submitting: ' + error.message, true);
+      }
+
+      /**
+       * Handles generic errors from server calls during initialization or digests.
+       * @param {Error} error - The error object.
+       */
+      function handleError(error) {
+        console.error('Server Error:', error);
+        showNotification('Error loading data: ' + (error.message || 'Unknown error'), true);
+        toggleSubmitButtons(false); // Re-enable buttons if a fetch failed during init
+        const container = document.getElementById('activity-container');
+        if(container) container.innerHTML = `<p class="error-message">Failed to load data: ${error.message || 'Unknown error'}</p>`;
+      }
+
+      /**
+       * Resets the current activity selections in the UI and internal state.
+       * Updates chip UI and button states.
+       */
+      function resetSelections() {
+          let hadSelection = false;
+          // Reset internal state
+          for (const activityName in activityState) {
+              if (activityState[activityName]?.selected) { // Check state exists
+                  hadSelection = true;
+                  activityState[activityName].selected = false;
+                  activityState[activityName].count = 0;
+              }
+          }
+
+          // Update UI for all potentially selectable chips
+          const chips = document.querySelectorAll('.activity-chip:not(.logged)');
+          chips.forEach(chip => {
+              const activityName = chip.dataset.activity;
+              if (activityState[activityName]) { // Check state exists
+                   updateChipUI(chip, activityName, false); // Reset UI to deselected
+              } else {
+                   // This might happen if activities were added/removed server-side since last full load
+                   // console.warn("Chip found for unknown/missing activity state during reset:", activityName);
+              }
+          });
+
+          if (hadSelection) {
+              // console.log("Selections cleared.");
+              showNotification('Selections cleared.');
+          }
+
+          updatePointTotals(); // Update scores back to pre-selection state
+          updateSubmitButtonState(); // Disable submit button as nothing is selected
+          // Re-enable reset button only if there are selectable chips
+          document.getElementById('reset-button').disabled = (document.querySelectorAll('.activity-chip:not(.logged)').length === 0);
+      }
+
+
+      /**
+       * Enables or disables the Submit and Reset buttons based on the 'disabled' flag.
+       * Separated from updateSubmitButtonState which checks selection state.
+       * @param {boolean} disabled - True to disable, false to enable.
+       */
+      function toggleSubmitButtons(disabled) {
+        const submitBtn = document.getElementById('submit-button');
+        const resetBtn = document.getElementById('reset-button');
+        if (submitBtn) submitBtn.disabled = disabled;
+        if (resetBtn) resetBtn.disabled = disabled;
+
+        // If enabling, immediately check the actual selection state for submit button
+        if (!disabled) {
+           updateSubmitButtonState();
+           // Reset button enabled only if selectable chips exist
+           resetBtn.disabled = (document.querySelectorAll('.activity-chip:not(.logged)').length === 0);
+        }
+      }
+
+      /**
+       * Shows a temporary notification message at the bottom of the screen.
+       * @param {string} message - The message to display.
+       * @param {boolean} [isError=false] - If true, displays the message with an error style.
+       */
+      function showNotification(message, isError = false) {
+        const notification = document.getElementById('notification');
+        if (!notification) return; // Exit if notification element not found
+        notification.textContent = message;
+        notification.style.backgroundColor = isError ? 'var(--negative-color)' : '#323232';
+        notification.classList.remove('hidden');
+        // Ensure previous timeouts are cleared if notifications happen quickly
+        if (notification.timer) clearTimeout(notification.timer);
+        notification.timer = setTimeout(() => { notification.classList.add('hidden'); }, 3000);
+      }
+
+      /**
+       * Sends the daily digest email via server call.
+       */
+      function sendDailyDigest() {
+         const emailBtn = document.getElementById('email-button');
+         const mobileEmailBtn = document.getElementById('mobile-email-button');
+         if(emailBtn) { emailBtn.disabled = true; emailBtn.textContent = 'Sending...'; }
+         if(mobileEmailBtn) { mobileEmailBtn.disabled = true; mobileEmailBtn.textContent = 'Sending...'; }
+
+         google.script.run
+           .withSuccessHandler(function(result) {
+             if(emailBtn) { emailBtn.disabled = false; emailBtn.textContent = 'Send Daily Digest'; }
+             if(mobileEmailBtn) { mobileEmailBtn.disabled = false; mobileEmailBtn.textContent = 'Send Daily Digest'; }
+             showNotification(result.message || (result.success ? 'Digest sent.' : 'Failed to send.'), !result.success);
+           })
+           .withFailureHandler(function(error) {
+             if(emailBtn) { emailBtn.disabled = false; emailBtn.textContent = 'Send Daily Digest'; }
+             if(mobileEmailBtn) { mobileEmailBtn.disabled = false; mobileEmailBtn.textContent = 'Send Daily Digest'; }
+             handleError(error); // Use generic handler
+           })
+           .forceSendDailyDigest(); // Calls WebApp.gs function
+       }
+
+      /**
+       * Displays household information at the top of the page.
+       * Uses a placeholder div to insert the info.
+       * @param {Object} data - Data object containing householdId, householdName, members.
+       */
+      function displayHouseholdInfo(data) {
+          if (!data || !data.householdId || !data.householdName) {
+              clearHouseholdInfo(); // Clear if data is missing
+              return;
+          }
+          const placeholder = document.getElementById('household-info-placeholder');
+          if (!placeholder) { console.error("Household info placeholder not found!"); return; }
+
+          // Create or get the info div
+          let householdInfo = document.getElementById('household-info');
+          if (!householdInfo) {
+              householdInfo = document.createElement('div');
+              householdInfo.id = 'household-info';
+              householdInfo.className = 'household-info'; // Apply CSS class
+              placeholder.appendChild(householdInfo); // Add inside placeholder
+          }
+
+          // Format members string, limiting display if too many
+          let membersText = '';
+          if (data.members && data.members.length > 0) {
+              const maxMembersToShow = 5;
+              let displayMembers = data.members;
+              if (data.members.length > maxMembersToShow) {
+                  displayMembers = data.members.slice(0, maxMembersToShow);
+                  membersText = `<div class="household-members">Members: ${displayMembers.join(', ')}... (+${data.members.length - maxMembersToShow} more)</div>`;
+              } else {
+                   membersText = `<div class="household-members">Members: ${displayMembers.join(', ')}</div>`;
+              }
+          }
+          // Update content
+          householdInfo.innerHTML = `<div class="household-name"><span class="household-icon">🏠</span> ${data.householdName}</div>${membersText}`;
+          placeholder.style.display = 'block'; // Ensure placeholder is visible
+      }
+
+      /** Clears the household information display */
+      function clearHouseholdInfo() {
+          const placeholder = document.getElementById('household-info-placeholder');
+          if (placeholder) {
+             placeholder.innerHTML = ''; // Clear content
+             placeholder.style.display = 'none'; // Hide placeholder
+          }
+      }
+
+
+      /** Renders an error message when the user has no household (if required). */
+      function displayNoHouseholdError() {
+          const placeholder = document.getElementById('household-info-placeholder');
+           if (!placeholder) return;
+           placeholder.innerHTML = `
+               <div class="no-household-error">
+                   <span class="error-icon">⚠️</span>
+                   <h3>Household Not Assigned</h3>
+                   <p>Your account is not currently assigned to a household. Please contact an administrator.</p>
+               </div>`;
+           placeholder.style.display = 'block'; // Ensure placeholder is visible
+
+           // Disable activity submission if no household assigned
+           document.getElementById('submit-button').disabled = true;
+           document.getElementById('reset-button').disabled = true;
+      }
+
+
+      /**
+       * Initializes the Activity Tracker application. Fetches necessary data from the server.
+       */
+      function initializeApp() {
+        console.log("Initializing app...");
+        toggleSubmitButtons(true); // Disable submit initially
+        // Reset flags
+        isActivityDataLoaded = false; isTodayDataLoaded = false; isWeekDataLoaded = false;
+        todayDataInternal = null; weekDataInternal = null;
+        activityState = {}; // Clear state on full init
+
+        // Fetch data in parallel - handlers will call tryRenderPage
+        google.script.run.withSuccessHandler(handleWeekData).withFailureHandler(handleError).getWeekData();
+        google.script.run.withSuccessHandler(handleActivityData).withFailureHandler(handleError).getWebAppActivityData();
+        google.script.run.withSuccessHandler(handleTodayData).withFailureHandler(handleError).getTodayData();
+
+        // --- Set up event listeners ---
+        // Static buttons
+        const submitBtn = document.getElementById('submit-button');
+        const resetBtn = document.getElementById('reset-button');
+        const emailBtn = document.getElementById('email-button');
+        const mobileEmailBtn = document.getElementById('mobile-email-button');
+
+        if (submitBtn) submitBtn.addEventListener('click', submitActivities);
+        if (resetBtn) resetBtn.addEventListener('click', resetSelections);
+        if (emailBtn) emailBtn.addEventListener('click', sendDailyDigest);
+        if (mobileEmailBtn) mobileEmailBtn.addEventListener('click', sendDailyDigest);
+
+        // Delegated event listener for activity chips/resets
+        const activityContainer = document.getElementById('activity-container');
+        if (activityContainer) {
+           // Remove previous listener if re-initializing to prevent duplicates
+           activityContainer.removeEventListener('click', handleActivityClick);
+           activityContainer.addEventListener('click', handleActivityClick);
+        } else {
+           console.error("Activity container not found! Clicks won't work.");
+        }
+
+        // Cleanup removed selected-activities list if it exists from old code
+        const selectedListContainer = document.getElementById('selected-activities-list');
+        if (selectedListContainer) {
+            const parentDiv = selectedListContainer.parentElement;
+            if (parentDiv && parentDiv.classList.contains('selected-activities')) {
+                parentDiv.remove();
+            } else {
+                 selectedListContainer.remove();
+            }
+        }
+        // --- End Event Listeners ---
+      }
+
+      // Initialize the app when the page loads
+      document.addEventListener('DOMContentLoaded', initializeApp);
+    </script>
+  </body>
+</html>

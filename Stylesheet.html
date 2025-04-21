@@ -1,0 +1,609 @@
+<!-- Stylesheet.html (Updated for Grid Chips) -->
+<style>
+:root {
+  --positive-color: #34A853;
+  --negative-color: #EA4335;
+  --primary-color: #4285F4;
+  --primary-dark: #3367D6;
+  --accent-color: #FBBC05;
+  --surface-color: #FFFFFF;
+  --background-color: #F8F9FA;
+  --border-color: #DADCE0;
+  --text-primary: #202124;
+  --text-secondary: #5F6368;
+  --shadow-1: 0 1px 2px 0 rgba(60, 64, 67, 0.3), 0 1px 3px 1px rgba(60, 64, 67, 0.15);
+  --shadow-2: 0 2px 4px -1px rgba(60, 64, 67, 0.2), 0 4px 5px 0 rgba(60, 64, 67, 0.14), 0 1px 10px 0 rgba(60, 64, 67, 0.12);
+  --header-height: 64px;
+  --transition-speed: 0.3s;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: 'Roboto', 'Google Sans', Arial, sans-serif;
+}
+
+body {
+  background-color: var(--background-color);
+  color: var(--text-primary);
+  line-height: 1.5;
+  margin: 0;
+  padding: 0;
+}
+
+.container {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 0;
+}
+
+/* Header & Navigation */
+.app-header {
+  background-color: var(--surface-color);
+  box-shadow: var(--shadow-1);
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+}
+
+.header-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 0 16px;
+  height: var(--header-height);
+}
+
+.app-title {
+  font-size: 20px;
+  font-weight: 500;
+  color: var(--primary-color);
+  text-decoration: none;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 12px;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s, box-shadow 0.2s;
+  text-decoration: none;
+  border: none;
+  font-size: 14px;
+  height: 36px;
+}
+
+.btn:focus {
+  outline: none;
+}
+
+.btn-primary {
+  background-color: var(--primary-color);
+  color: white;
+}
+
+.btn-primary:hover {
+  background-color: var(--primary-dark);
+  box-shadow: var(--shadow-1);
+}
+
+.btn-outline {
+  background-color: transparent;
+  color: var(--primary-color);
+  border: 1px solid currentColor;
+}
+
+.btn-outline:hover {
+  background-color: rgba(66, 133, 244, 0.04);
+}
+
+.nav-container {
+  background-color: var(--surface-color);
+  border-bottom: 1px solid var(--border-color);
+  margin-top: var(--header-height);
+}
+
+.main-nav {
+  display: flex;
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 0 16px;
+}
+
+.nav-link {
+  padding: 16px 24px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-weight: 500;
+  position: relative;
+  transition: color var(--transition-speed);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.nav-link:hover {
+  color: var(--primary-color);
+}
+
+.nav-link.active {
+  color: var(--primary-color);
+}
+
+.nav-link.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  background-color: var(--primary-color);
+}
+
+.nav-icon {
+  width: 20px;
+  height: 20px;
+  fill: currentColor;
+}
+
+.main-content {
+  padding: 24px 16px;
+  margin-top: 24px; /* Adjust if nav container height changes */
+}
+
+/* Household Info Placeholder */
+#household-info-placeholder {
+   margin-bottom: 24px; /* Space below info */
+}
+
+/* Scoreboard */
+.scoreboard {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 24px;
+  gap: 24px;
+}
+
+.score-box {
+  flex: 1;
+  background-color: var(--surface-color);
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: var(--shadow-1);
+  text-align: center;
+  transition: box-shadow 0.3s;
+}
+
+.score-box:hover {
+  box-shadow: var(--shadow-2);
+}
+
+.score-box h2 {
+  font-size: 16px;
+  margin-bottom: 12px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.score {
+  font-size: 36px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  transition: color 0.3s;
+}
+
+.score.positive {
+  color: var(--positive-color);
+}
+
+.score.negative {
+  color: var(--negative-color);
+}
+
+.average {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+/* Activity sections */
+.activity-sections {
+  margin-bottom: 24px;
+}
+
+.section {
+  margin-bottom: 16px;
+  background-color: var(--surface-color);
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: var(--shadow-1);
+}
+
+.section-header {
+  padding: 16px 20px;
+  background-color: var(--surface-color);
+  border-bottom: 1px solid var(--border-color);
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: background-color 0.2s;
+}
+
+.section-header:hover {
+  background-color: rgba(0, 0, 0, 0.02);
+}
+
+.section-content {
+  padding: 16px 20px; /* Keep padding */
+  transition: max-height 0.3s ease-out, padding 0.3s ease-out, visibility 0.3s; /* Add visibility */
+  overflow: hidden; /* Keep overflow hidden for collapse */
+}
+
+.section-content.collapsed {
+    /* display: none; /* Replaced with max-height for animation */
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    visibility: hidden; /* Hide content completely when collapsed */
+}
+
+/* --- Grid Layout for Chips --- */
+.chip-container {
+  display: grid; /* CHANGE: Use grid */
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); /* CHANGE: Responsive columns */
+  gap: 10px; /* CHANGE: Slightly larger gap */
+  /* REMOVE flex-wrap */
+  padding: 5px 0;
+}
+
+/* --- Styles for Activity Chips (Grid Items) --- */
+.activity-chip {
+  /* display: inline-flex; */ /* REMOVE: Not needed for grid item */
+  display: flex; /* Keep flex for internal alignment */
+  align-items: flex-start; /* CHANGE: Align items top for better wrapping */
+  padding: 8px 12px; /* Adjust padding */
+  border: 1px solid #ccc;
+  border-radius: 8px; /* CHANGE: Slightly less rounded */
+  cursor: pointer;
+  transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  background-color: #f8f9fa;
+  font-size: 0.9rem;
+  user-select: none;
+  position: relative;
+  margin: 0;
+  /* REMOVE fixed height */
+  min-height: 40px; /* ADD: Ensure a minimum height */
+  overflow-wrap: break-word; /* ADD: Allow long words to break */
+  word-break: break-word; /* ADD: Alternative for breaking words */
+}
+
+.activity-chip:hover {
+  border-color: #adb5bd;
+  background-color: #e9ecef;
+}
+
+/* Color variation based on points */
+.activity-chip.positive { border-color: #abdda4; }
+.activity-chip.positive:hover { background-color: #cce8c9; border-color: #7cbd77; }
+.activity-chip.negative { border-color: #f1a7a7; }
+.activity-chip.negative:hover { background-color: #f8d7da; border-color: #e68383; }
+
+
+/* Selected State */
+.activity-chip.selected {
+  border-width: 2px;
+  padding: 7px 11px; /* Adjust padding slightly for border */
+  box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+}
+.activity-chip.selected.positive { background-color: #28a745; border-color: #1e7e34; color: white; }
+.activity-chip.selected.negative { background-color: #dc3545; border-color: #b02a37; color: white; }
+.activity-chip.selected.positive:hover { background-color: #218838; border-color: #1e7e34; }
+.activity-chip.selected.negative:hover { background-color: #c82333; border-color: #b02a37; }
+
+
+/* --- Chip Text (Allow Wrapping) --- */
+.chip-text {
+  /* REMOVE: white-space: nowrap; */
+  /* REMOVE: overflow: hidden; */
+  /* REMOVE: text-overflow: ellipsis; */
+  /* REMOVE: max-width: 250px; */
+  /* REMOVE: display: inline-block; */
+  /* REMOVE: vertical-align: middle; */
+  flex-grow: 1; /* Allow text to take available space */
+  margin-right: 8px; /* Space between text and controls */
+  line-height: 1.3; /* Adjust line height for wrapped text */
+}
+
+/* Count Badge & Reset Chip */
+/* Position controls together to the right */
+.count-badge, .reset-chip {
+    margin-left: 4px; /* Small space between badge and reset */
+    flex-shrink: 0; /* Prevent controls from shrinking */
+    line-height: 1; /* Align controls better */
+}
+
+.count-badge {
+  display: inline-block;
+  background-color: rgba(0, 0, 0, 0.6);
+  color: white; /* Keep white on dark badge */
+  font-size: 0.75rem;
+  font-weight: bold;
+  padding: 2px 5px;
+  border-radius: 4px;
+  vertical-align: baseline; /* Adjust alignment */
+}
+
+.activity-chip.selected .count-badge {
+   background-color: rgba(255, 255, 255, 0.3);
+   color: white; /* Ensure readable on colored selected chip */
+}
+
+.reset-chip {
+  display: inline-block;
+  font-weight: bold;
+  color: rgba(0, 0, 0, 0.4);
+  cursor: pointer;
+  font-size: 1.2rem;
+  padding: 0 2px;
+  vertical-align: baseline; /* Adjust alignment */
+  transition: color 0.2s ease;
+}
+
+.activity-chip.selected .reset-chip { color: rgba(255, 255, 255, 0.7); }
+.reset-chip:hover { color: #000; }
+.activity-chip.selected .reset-chip:hover { color: #fff; }
+
+/* Logged State */
+.activity-chip.logged {
+  cursor: not-allowed;
+  background-color: #e9ecef;
+  border-color: #ced4da;
+  color: #6c757d;
+  opacity: 0.7;
+}
+.activity-chip.logged:hover { /* No hover effect for logged */
+   background-color: #e9ecef; border-color: #ced4da; }
+.activity-chip.logged .count-badge,
+.activity-chip.logged .reset-chip { display: none !important; }
+
+
+/* Actions */
+.actions {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 24px; /* Keep spacing */
+  margin-top: 16px; /* Add space above buttons */
+}
+
+.submit-btn, .reset-btn {
+  padding: 12px 24px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  flex: 1;
+  height: 48px;
+}
+
+.submit-btn {
+  background-color: var(--primary-color);
+  color: white;
+  box-shadow: var(--shadow-1);
+}
+
+.submit-btn:hover:not(:disabled) { /* Add :not(:disabled) */
+  background-color: var(--primary-dark);
+  box-shadow: var(--shadow-2);
+}
+
+.submit-btn:disabled { /* Style disabled button */
+    background-color: #cccccc;
+    color: #666666;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+
+.reset-btn {
+  background-color: var(--surface-color);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+}
+
+.reset-btn:hover:not(:disabled) { /* Add :not(:disabled) */
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.reset-btn:disabled { /* Style disabled button */
+    background-color: #f8f9fa;
+    color: #aaaaaa;
+    cursor: not-allowed;
+    border-color: #eeeeee;
+}
+
+
+/* Dashboard */
+.dashboard-section {
+  background-color: var(--surface-color);
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 24px;
+  box-shadow: var(--shadow-1);
+}
+
+.dashboard-section h3 {
+  font-size: 18px;
+  margin-bottom: 16px;
+  color: var(--text-primary);
+  font-weight: 500;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.dashboard-row {
+  display: flex;
+  gap: 24px;
+  margin-bottom: 0; /* Removed bottom margin here */
+}
+/* Add margin back to individual sections within the row if needed, or adjust container padding */
+.dashboard-row .dashboard-section {
+    margin-bottom: 24px; /* Add margin back to sections in row */
+}
+
+
+.dashboard-section.half {
+  flex: 1;
+}
+
+.chart-container {
+  position: relative;
+  /* height: 300px; */ /* Let chart determine height, or set min-height */
+  min-height: 250px; /* Ensure minimum height */
+  width: 100%;
+}
+
+/* Streaks Container */
+.streaks-container {
+  display: grid; /* Use grid for streaks too */
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); /* Responsive columns */
+  gap: 16px;
+}
+
+.streak-card {
+  background-color: var(--surface-color);
+  border-radius: 8px;
+  padding: 16px;
+  box-shadow: var(--shadow-1);
+  /* flex: 1; REMOVE: Not needed for grid */
+  /* min-width: 200px; REMOVE: Grid handles min width */
+  border-left: 4px solid var(--primary-color);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.streak-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-2);
+}
+.streak-card.building { border-left-color: #757575; /* Grey for building */}
+.streak-card.bonus1 { border-left-color: var(--accent-color); }
+.streak-card.bonus2 { border-left-color: #FF9800; } /* Orange */
+.streak-card.multiplier { border-left-color: #FF5722; } /* Deep Orange */
+
+.streak-days { font-size: 24px; font-weight: bold; margin-right: 8px; }
+.streak-emoji { font-size: 20px; }
+.streak-activity { margin-top: 8px; font-weight: 500; }
+.streak-bonus { margin-top: 4px; color: var(--text-secondary); font-size: 14px; }
+
+/* Weekly Goals Styles */
+/* ... (goal styles remain largely the same) ... */
+.goals-summary { margin-bottom: 20px; padding: 10px 15px; background-color: rgba(0, 0, 0, 0.03); border-radius: 6px; line-height: 1.5; }
+.goals-list { display: flex; flex-direction: column; gap: 16px; }
+.goal-card { background-color: var(--surface-color); border-radius: 8px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12); overflow: hidden; border-left: 4px solid var(--primary-color); padding: 16px; transition: transform 0.2s, box-shadow 0.2s; }
+.goal-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-2); }
+.goal-card.achieved { border-left-color: var(--positive-color); }
+.goal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.goal-header h4 { margin: 0; font-size: 16px; font-weight: 500; }
+.goal-status { font-size: 14px; padding: 4px 8px; border-radius: 12px; }
+.status-pending { background-color: rgba(251, 188, 5, 0.15); color: #F57C00; }
+.status-achieved { background-color: rgba(52, 168, 83, 0.15); color: var(--positive-color); }
+.goal-details { display: flex; justify-content: space-between; margin-bottom: 12px; font-size: 14px; color: var(--text-secondary); }
+.goal-details p { margin: 0; }
+.goal-progress { margin-top: 10px; }
+.progress-bar { width: 100%; height: 10px; background-color: rgba(0, 0, 0, 0.1); border-radius: 5px; overflow: hidden; margin-bottom: 6px; }
+.progress-fill { height: 100%; background-color: var(--primary-color); border-radius: 5px; transition: width 0.3s ease; }
+.goal-card.achieved .progress-fill { background-color: var(--positive-color); }
+.progress-text { font-size: 12px; color: var(--text-secondary); }
+.info-message { padding: 16px; border-radius: 6px; background-color: rgba(66, 133, 244, 0.1); color: var(--text-primary); border: 1px solid rgba(66, 133, 244, 0.2); margin-bottom: 16px; line-height: 1.5; }
+
+/* Goal Achievement History Styles */
+/* ... (goal history styles remain largely the same) ... */
+.achievement-summary { display: flex; gap: 20px; justify-content: center; margin-bottom: 24px; }
+.achievement-card { flex: 1; max-width: 200px; background-color: var(--surface-color); border-radius: 8px; box-shadow: var(--shadow-1); padding: 16px; text-align: center; transition: transform 0.2s; }
+.achievement-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-2); }
+.achievement-card h4 { margin: 0 0 12px 0; color: var(--text-primary); font-size: 16px; font-weight: 500; }
+.achievement-count { font-size: 36px; font-weight: 600; color: var(--primary-color); margin-bottom: 4px; }
+.achievement-card:first-child .achievement-count { color: var(--positive-color); }
+.achievement-card:last-child .achievement-count { color: #FF9800; }
+.achievement-details { margin-top: 24px; display: flex; flex-wrap: wrap; gap: 24px; }
+.goal-details-section { flex: 1; min-width: 280px; }
+.goal-details-section h4 { margin: 0 0 12px 0; padding-bottom: 8px; border-bottom: 1px solid var(--border-color); font-size: 16px; font-weight: 500; }
+.achievement-weeks { display: flex; flex-direction: column; gap: 12px; }
+.achievement-week { display: flex; flex-wrap: wrap; align-items: center; padding: 10px; background-color: rgba(0, 0, 0, 0.02); border-radius: 6px; }
+.week-name { flex: 1; font-weight: 500; min-width: 100px; margin-right: 10px;} /* Added margin */
+.week-improvement { padding: 4px 8px; border-radius: 4px; margin-right: 12px; font-weight: 500; color: white; }
+.goal-details-section:first-child .week-improvement { background-color: var(--positive-color); }
+.goal-details-section:last-child .week-improvement { background-color: #FF9800; }
+.week-comparison { font-size: 14px; color: var(--text-secondary); }
+
+/* Styles for simple goal list in dashboard */
+.goals-list.simple{display:flex;gap:16px;flex-wrap:wrap;}
+.goal-card.simple{flex:1;min-width:250px;padding:12px 16px;border-left-width:4px; display: flex; flex-direction: column;}
+.goal-card.simple .goal-header{margin-bottom: 8px;}
+.goal-card.simple .goal-header h4{font-size:1em;margin-bottom:4px;}
+.goal-card.simple .goal-status{font-size:.8em;padding:3px 6px;}
+.goal-details.simple{font-size:.9em;display:flex;justify-content:space-between;color:var(--text-secondary); margin-bottom: 10px;}
+.goal-card.simple.pending{border-left-color:var(--accent-color);}
+.goal-card.simple.achieved{border-left-color:var(--positive-color);}
+.goal-card.simple.pending .status-pending{background-color:rgba(251,188,5,.1);color:#F57C00;}
+.goal-card.simple.achieved .status-achieved{background-color:rgba(52,168,83,.1);color:var(--positive-color);}
+.goal-card.simple .goal-progress { margin-top: auto; } /* Push progress bar to bottom */
+
+@media (max-width: 768px) {
+  .achievement-summary { flex-direction: column; align-items: center; }
+  .achievement-card { width: 100%; max-width: 100%; }
+  .dashboard-row { flex-direction: column; gap: 0; } /* Remove gap for closer sections */
+}
+
+/* Household styles for both ActivityTracker and Dashboard */
+.household-info { background-color: #E8F5E9; border: 1px solid #C8E6C9; border-radius: 8px; padding: 16px; display: flex; flex-direction: column; gap: 8px; }
+.household-name { font-size: 18px; font-weight: 500; color: #2E7D32; display: flex; align-items: center; gap: 8px; }
+.household-icon { font-size: 20px; }
+.household-members { color: #5f6368; font-size: 14px; }
+
+.no-household-error { background-color: #FFEBEE; border: 1px solid #FFCDD2; border-radius: 8px; padding: 24px; margin: 0 auto 20px auto; max-width: 600px; text-align: center; }
+.error-icon { font-size: 36px; margin-bottom: 16px; color: #C62828; }
+.no-household-error h3 { color: #C62828; margin-bottom: 16px; }
+.no-household-error p { color: #5f6368; }
+
+/* Utility classes */
+.hidden { display: none !important; }
+.loading { text-align: center; padding: 24px; color: var(--text-secondary); }
+.notification { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); padding: 12px 24px; background-color: #323232; color: white; border-radius: 4px; box-shadow: var(--shadow-2); transition: opacity 0.3s, visibility 0.3s; z-index: 1000; }
+.notification.hidden { opacity: 0; visibility: hidden; }
+.chevron { transition: transform 0.3s; display: inline-block; } /* Add display inline-block */
+.error-message { color: var(--negative-color); padding: 16px; text-align: center; border: 1px solid rgba(234, 67, 53, 0.2); border-radius: 4px; background-color: rgba(234, 67, 53, 0.05); margin: 16px 0; }
+
+/* Responsive */
+@media (max-width: 768px) {
+  .scoreboard { flex-direction: column; }
+  /* .dashboard-row handled above */
+  .actions { flex-direction: column; }
+  .action-buttons { display: none; } /* Hide desktop buttons */
+  .mobile-actions { display: flex; margin-top: 16px; justify-content: center; gap: 16px; padding-bottom: 16px; } /* Make visible */
+  .streaks-container { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); } /* Adjust min streak card width */
+  .chip-container { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); } /* Adjust min chip width */
+
+}
+
+/* Hide mobile actions on larger screens */
+@media (min-width: 769px) {
+    .mobile-actions {
+        display: none;
+    }
+}
+
+</style>

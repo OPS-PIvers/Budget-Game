@@ -1,0 +1,1011 @@
+<!-- Admin.html -->
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <style>
+      /* Common styles shared with main app */
+      :root {
+        --positive-color: #34A853;
+        --negative-color: #EA4335;
+        --primary-color: #4285F4;
+        --section-bg: #f8f9fa;
+        --border-color: #dadce0;
+        --header-bg: #4285F4;
+        --header-fg: white;
+        --text-secondary: #5f6368; /* Added */
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        font-family: 'Roboto', Arial, sans-serif;
+      }
+
+      body {
+        background-color: #f1f3f4;
+        color: #202124;
+        line-height: 1.5;
+      }
+
+      .container {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 16px;
+      }
+
+      header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+      }
+
+      header h1 {
+        color: var(--primary-color);
+      }
+
+      .back-btn {
+        padding: 8px 16px;
+        background-color: #f1f3f4;
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        cursor: pointer;
+        color: #5f6368;
+        text-decoration: none;
+        display: inline-block;
+      }
+
+      .admin-section {
+        background-color: white;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 24px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+      }
+
+      .section-title {
+        font-size: 18px;
+        margin-bottom: 16px;
+        color: #202124;
+        border-bottom: 1px solid var(--border-color);
+        padding-bottom: 8px;
+      }
+
+      /* Activity Table */
+      .activities-table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+      .activities-table th { text-align: left; background-color: var(--section-bg); padding: 10px; border-bottom: 2px solid var(--border-color); }
+      .activities-table td { padding: 10px; border-bottom: 1px solid var(--border-color); }
+      .activities-table input, .activities-table select { width: 100%; padding: 8px; border: 1px solid var(--border-color); border-radius: 4px; }
+      .activities-table input[type="number"] { text-align: right; }
+
+      /* Form Actions */
+      .form-actions { margin-top: 16px; display: flex; gap: 12px; justify-content: flex-end; }
+
+      .btn { padding: 10px 20px; border-radius: 4px; cursor: pointer; font-weight: bold; border: none; } /* Simplified base */
+      .btn-primary { background-color: var(--primary-color); color: white; }
+      .btn-primary:hover:not(:disabled) { background-color: var(--primary-dark); }
+      .btn-secondary { background-color: #f1f3f4; color: #5f6368; border: 1px solid var(--border-color); }
+      .btn-secondary:hover:not(:disabled) { background-color: #e8eaed; }
+      .btn-danger { background-color: var(--negative-color); color: white; }
+      .btn-danger:hover:not(:disabled) { background-color: #d93025; }
+      .btn:disabled { opacity: 0.65; cursor: not-allowed; } /* General disabled style */
+      .btn-sm { padding: 4px 8px; font-size: 12px; height: auto; }
+
+
+      /* Settings Form */
+      .settings-form { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+      .form-group { margin-bottom: 16px; }
+      .form-group label { display: block; margin-bottom: 8px; font-weight: bold; color: #5f6368; }
+      .form-group input { width: 100%; padding: 8px; border: 1px solid var(--border-color); border-radius: 4px; }
+
+      .notification { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); padding: 12px 24px; background-color: #323232; color: white; border-radius: 4px; box-shadow: 0 3px 5px rgba(0,0,0,0.2); transition: opacity 0.3s, visibility 0.3s; z-index: 1000; }
+      .notification.hidden { opacity: 0; visibility: hidden; }
+
+      /* Activity Controls */
+      .activity-controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+
+      /* Household Management Styles */
+      .household-controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+      .household-controls input { width: 250px; padding: 8px 12px; border: 1px solid var(--border-color); border-radius: 4px; }
+      .household-list { margin-top: 20px; }
+      .household-card { background-color: white; border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 16px; overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+      .household-header { padding: 16px; background-color: var(--section-bg); border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; }
+      .household-name { margin: 0; font-size: 18px; font-weight: 500; color: var(--primary-color); }
+      .household-actions { display: flex; gap: 8px; }
+      .household-members { padding: 16px; }
+      .household-members h4 { margin-top: 0; margin-bottom: 12px; font-size: 14px; color: var(--text-secondary); border-bottom: 1px solid #f0f0f0; padding-bottom: 8px; }
+      .household-member { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #f8f8f8; }
+      .member-email { font-weight: 500; }
+      .member-date { color: var(--text-secondary); font-size: 12px; }
+      .empty-state { text-align: center; padding: 30px; color: var(--text-secondary); background-color: #f9f9f9; border-radius: 8px; }
+
+      /* --- Category Order Styles --- */
+      #category-order-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        max-height: 400px; /* Limit height */
+        overflow-y: auto; /* Enable scrolling */
+      }
+      .category-order-item {
+        padding: 10px 15px;
+        border-bottom: 1px solid var(--border-color);
+        background-color: white;
+        cursor: grab;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: 500;
+      }
+      .category-order-item:last-child { border-bottom: none; }
+      .category-order-item:active { cursor: grabbing; background-color: #e8f0fe; } /* Feedback while dragging */
+      .drag-handle { /* Simple drag handle icon */
+         display: inline-block;
+         width: 16px;
+         height: 16px;
+         cursor: grab;
+         background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-grip-vertical" viewBox="0 0 16 16"><path d="M7 2a1 1 0 1 1-2 0 1 1 0 0 1 2 0m3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0M7 5a1 1 0 1 1-2 0 1 1 0 0 1 2 0m3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0M7 8a1 1 0 1 1-2 0 1 1 0 0 1 2 0m3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0m-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0m3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0m-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0m3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0"/></svg>');
+         background-repeat: no-repeat;
+         background-position: center;
+         opacity: 0.5;
+      }
+      .category-order-item.dragging { /* Style for the item being dragged */
+        opacity: 0.5;
+        background: #f0f0f0;
+      }
+      .drag-over { /* Style for potential drop target */
+          border-top: 2px dashed var(--primary-color);
+          background-color: rgba(66, 133, 244, 0.05);
+      }
+      /* --- End Category Order Styles --- */
+
+      /* Responsive adjustments */
+      @media (max-width: 600px) {
+        .settings-form { grid-template-columns: 1fr; }
+        .household-controls { flex-direction: column; gap: 10px; align-items: stretch;}
+        .household-controls input { width: 100%; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1>Budget Game Admin</h1>
+        <a href="#" class="back-btn" id="back-button">Return to App</a>
+      </header>
+
+      <!-- Activity Configuration -->
+      <div class="admin-section">
+        <h2 class="section-title">Activity Configuration</h2>
+        <div class="activity-controls">
+          <input type="text" id="search-activities" placeholder="Search activities...">
+          <button class="btn btn-secondary" id="add-activity-btn">Add New Activity</button>
+        </div>
+        <div style="max-height: 400px; overflow-y: auto;">
+          <table class="activities-table" id="activities-table">
+            <thead>
+              <tr>
+                <th style="width: 50%;">Activity</th>
+                <th style="width: 15%;">Points</th>
+                <th style="width: 25%;">Category</th>
+                <th style="width: 10%;">Action</th>
+              </tr>
+            </thead>
+            <tbody id="activities-body"><tr><td colspan="4">Loading activities...</td></tr></tbody>
+          </table>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-secondary" id="reset-activities-btn">Reset Changes</button>
+          <button class="btn btn-primary" id="save-activities-btn">Save Activities</button>
+        </div>
+      </div>
+
+      <!-- Streak Settings -->
+      <div class="admin-section">
+        <h2 class="section-title">Streak Settings</h2>
+        <div class="settings-form">
+          <div class="form-group"><label for="threshold-bonus1">Days for Bonus 1:</label><input type="number" id="threshold-bonus1" min="2" max="30"></div>
+          <div class="form-group"><label for="bonus-points1">Bonus 1 Points:</label><input type="number" id="bonus-points1" min="1" max="10"></div>
+          <div class="form-group"><label for="threshold-bonus2">Days for Bonus 2:</label><input type="number" id="threshold-bonus2" min="3" max="30"></div>
+          <div class="form-group"><label for="bonus-points2">Bonus 2 Points:</label><input type="number" id="bonus-points2" min="1" max="10"></div>
+          <div class="form-group"><label for="threshold-multiplier">Days for Multiplier:</label><input type="number" id="threshold-multiplier" min="5" max="60"></div>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-secondary" id="reset-streak-btn">Reset Changes</button>
+          <button class="btn btn-primary" id="save-streak-btn">Save Streak Settings</button>
+        </div>
+      </div>
+
+      <!-- NEW: Category Order Section -->
+      <div class="admin-section">
+        <h2 class="section-title">Category Order</h2>
+        <p style="color: var(--text-secondary); font-size: 0.9em; margin-bottom: 16px;">Drag and drop categories to change their display order in the Activity Tracker view.</p>
+        <ul id="category-order-list">
+            <!-- Categories will be populated here -->
+            <li class="loading">Loading categories...</li>
+        </ul>
+        <div class="form-actions">
+          <button class="btn btn-secondary" id="reset-category-order-btn">Reset Order</button>
+          <button class="btn btn-primary" id="save-category-order-btn">Save Order</button>
+        </div>
+      </div>
+      <!-- END: Category Order Section -->
+
+      <!-- NEW: Category Management Section -->
+      <div class="admin-section">
+        <h2 class="section-title">Category Management</h2>
+        <div class="activity-controls">
+          <input type="text" id="search-categories" placeholder="Search categories...">
+          <button class="btn btn-secondary" id="add-category-btn">Add New Category</button>
+        </div>
+        <div style="max-height: 400px; overflow-y: auto;">
+          <table class="activities-table" id="categories-table">
+            <thead>
+              <tr>
+                <th style="width: 70%;">Category Name</th>
+                <th style="width: 30%;">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="categories-body"><tr><td colspan="2">Loading categories...</td></tr></tbody>
+          </table>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-secondary" id="reset-categories-btn">Reset Changes</button>
+          <button class="btn btn-primary" id="save-categories-btn">Save Categories</button>
+        </div>
+      </div>
+      <!-- END: Category Management Section -->
+
+      <!-- Household Management -->
+      <div class="admin-section">
+        <h2 class="section-title">Household Management</h2>
+        <div class="household-controls">
+          <button class="btn btn-primary" id="add-household-btn">Add New Household</button>
+          <input type="text" id="search-households" placeholder="Search households...">
+        </div>
+        <div id="household-list" class="household-list"><p class="loading">Loading households...</p></div>
+      </div>
+    </div>
+
+    <div id="notification" class="notification hidden"></div>
+
+    <script>
+      // Global state
+      let activitiesData = [];
+      let originalActivitiesData = [];
+      let categoriesList = []; // This will store the ORDERED list
+      let originalCategoriesList = []; // Store the initially loaded order
+      let streakSettings = {};
+      let originalStreakSettings = {};
+
+      // Drag and Drop State
+      let draggedItem = null;
+
+      // Initialize on page load
+      document.addEventListener('DOMContentLoaded', initializeAdmin);
+
+      function initializeAdmin() {
+        // Set up event listeners
+        document.getElementById('back-button').addEventListener('click', navigateToApp);
+        document.getElementById('add-activity-btn').addEventListener('click', addNewActivity);
+        document.getElementById('reset-activities-btn').addEventListener('click', resetActivities);
+        document.getElementById('save-activities-btn').addEventListener('click', saveActivities);
+        document.getElementById('reset-streak-btn').addEventListener('click', resetStreakSettings);
+        document.getElementById('save-streak-btn').addEventListener('click', saveStreakSettings);
+        document.getElementById('search-activities').addEventListener('input', filterActivities);
+
+        // Category Order Listeners
+        document.getElementById('reset-category-order-btn').addEventListener('click', resetCategoryOrder);
+        document.getElementById('save-category-order-btn').addEventListener('click', saveCategoryOrder);
+        
+        // NEW: Category Management Listeners
+        document.getElementById('add-category-btn').addEventListener('click', addNewCategory);
+        document.getElementById('reset-categories-btn').addEventListener('click', resetCategories);
+        document.getElementById('save-categories-btn').addEventListener('click', saveCategories);
+        document.getElementById('search-categories').addEventListener('input', filterCategories);
+
+        // Event listeners for household management
+        document.getElementById('add-household-btn').addEventListener('click', addHouseholdHandler);
+        document.getElementById('search-households').addEventListener('input', filterHouseholds);
+
+        // Load configuration data
+        google.script.run
+          .withSuccessHandler(handleConfigData)
+          .withFailureHandler(handleError)
+          .getAdminConfigData(); // Calls the function in WebApp.gs
+
+        // Load households when the admin page is initialized
+        loadHouseholds(); // Calls the function below
+      }
+
+      /**
+       * Processes the config data received from the server for Admin UI
+       * Handles potential inconsistencies in streak settings structure
+       */
+      function handleConfigData(data) {
+        console.log("Admin Config Data Received:", data);
+        // Use the ORDERED category list from the server
+        categoriesList = data.categoryOrder || data.categories || []; // Use categoryOrder first
+        originalCategoriesList = JSON.parse(JSON.stringify(categoriesList)); // Store original order
+
+        activitiesData = data.pointsReference || [];
+        originalActivitiesData = JSON.parse(JSON.stringify(activitiesData));
+
+        // --- Process Streak Settings (Handle potential case difference) ---
+        // ... (streak settings processing remains the same) ...
+        const rawStreakSettings = data.streakSettings || {};
+        streakSettings = { thresholds: { bonus1: 0, bonus2: 0, multiplier: 0 }, bonusPoints: { bonus1: 0, bonus2: 0 } };
+        streakSettings.thresholds.bonus1 = rawStreakSettings.thresholds?.bonus1 ?? rawStreakSettings.thresholds?.BONUS_1 ?? 3;
+        streakSettings.thresholds.bonus2 = rawStreakSettings.thresholds?.bonus2 ?? rawStreakSettings.thresholds?.BONUS_2 ?? 7;
+        streakSettings.thresholds.multiplier = rawStreakSettings.thresholds?.multiplier ?? rawStreakSettings.thresholds?.MULTIPLIER ?? 14;
+        streakSettings.bonusPoints.bonus1 = rawStreakSettings.bonusPoints?.bonus1 ?? rawStreakSettings.bonusPoints?.BONUS_1 ?? 1;
+        streakSettings.bonusPoints.bonus2 = rawStreakSettings.bonusPoints?.bonus2 ?? rawStreakSettings.bonusPoints?.BONUS_2 ?? 2;
+        originalStreakSettings = JSON.parse(JSON.stringify(streakSettings));
+        // console.log("Processed Streak Settings:", streakSettings);
+
+        // Render UI
+        renderActivitiesTable(); // Uses ORDERED categoriesList for dropdowns now
+        populateStreakSettings();
+        renderCategoryOrderList(); // Render the sortable list
+        renderCategoriesTable(); // NEW: Render the categories management table
+      }
+
+      // --- Category Order Functions ---
+
+      function renderCategoryOrderList() {
+          const listElement = document.getElementById('category-order-list');
+          listElement.innerHTML = ''; // Clear loading/previous
+
+          if (!categoriesList || categoriesList.length === 0) {
+              listElement.innerHTML = '<li class="info-message">No categories found.</li>';
+              return;
+          }
+
+          categoriesList.forEach((category, index) => {
+              const listItem = document.createElement('li');
+              listItem.className = 'category-order-item';
+              listItem.setAttribute('draggable', 'true');
+              listItem.dataset.index = index; // Store original index if needed? Or just rely on order
+              listItem.dataset.category = category; // Store category name
+
+              listItem.innerHTML = `
+                  <span class="drag-handle" title="Drag to reorder"></span>
+                  <span class="category-name">${category}</span>
+              `;
+
+              // Add drag-and-drop event listeners
+              listItem.addEventListener('dragstart', handleDragStart);
+              listItem.addEventListener('dragover', handleDragOver);
+              listItem.addEventListener('dragenter', handleDragEnter);
+              listItem.addEventListener('dragleave', handleDragLeave);
+              listItem.addEventListener('drop', handleDrop);
+              listItem.addEventListener('dragend', handleDragEnd);
+
+              listElement.appendChild(listItem);
+          });
+      }
+
+      function handleDragStart(e) {
+          draggedItem = this;
+          e.dataTransfer.effectAllowed = 'move';
+          e.dataTransfer.setData('text/html', this.innerHTML); // Optional: for visual feedback
+          setTimeout(() => this.classList.add('dragging'), 0); // Make original item semi-transparent
+      }
+
+      function handleDragEnd(e) {
+          this.classList.remove('dragging');
+          // Clean up any remaining drag-over styles
+          document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+          draggedItem = null;
+      }
+
+      function handleDragOver(e) {
+          e.preventDefault(); // Necessary to allow dropping
+          e.dataTransfer.dropEffect = 'move';
+          return false;
+      }
+
+      function handleDragEnter(e) {
+          e.preventDefault();
+          // Add visual indicator only if dropping onto a different item
+          if (draggedItem && this !== draggedItem) {
+              this.classList.add('drag-over');
+          }
+      }
+
+      function handleDragLeave(e) {
+          this.classList.remove('drag-over');
+      }
+
+      function handleDrop(e) {
+          e.stopPropagation(); // Prevent event bubbling
+
+          if (draggedItem && this !== draggedItem) {
+              // Get the current order from the DOM list items
+              const list = document.getElementById('category-order-list');
+              const items = Array.from(list.children);
+              const draggedIndex = items.indexOf(draggedItem);
+              const targetIndex = items.indexOf(this);
+
+              // Reorder the DOM elements
+              if (draggedIndex < targetIndex) {
+                  list.insertBefore(draggedItem, this.nextSibling);
+              } else {
+                  list.insertBefore(draggedItem, this);
+              }
+
+              // Update the global categoriesList array based on the new DOM order
+              updateCategoriesListFromDOM();
+          }
+          this.classList.remove('drag-over'); // Ensure indicator is removed
+          return false;
+      }
+
+      function updateCategoriesListFromDOM() {
+          const listElement = document.getElementById('category-order-list');
+          const items = listElement.querySelectorAll('.category-order-item');
+          categoriesList = Array.from(items).map(item => item.dataset.category);
+          console.log("Updated categoriesList order:", categoriesList);
+          // After reordering, might need to update activity dropdowns if you allow category changes
+          // For now, just updating the order state.
+      }
+
+
+      function resetCategoryOrder() {
+          if (confirm("Reset category order back to the last saved state?")) {
+              categoriesList = JSON.parse(JSON.stringify(originalCategoriesList));
+              renderCategoryOrderList();
+              showNotification('Category order reset.');
+          }
+      }
+
+      function saveCategoryOrder() {
+          // Disable buttons during save
+          toggleSaveButtons(true, 'category');
+
+          console.log("Saving category order:", categoriesList);
+          google.script.run
+              .withSuccessHandler(handleCategoryOrderSaved)
+              .withFailureHandler((err) => handleError(err, 'category'))
+              .saveCategoryOrder(categoriesList); // New server function
+      }
+
+      function handleCategoryOrderSaved(result) {
+          toggleSaveButtons(false, 'category');
+          if (result.success) {
+              showNotification(result.message);
+              // Update original order to reflect the save
+              originalCategoriesList = JSON.parse(JSON.stringify(categoriesList));
+          } else {
+              showNotification('Error: ' + result.message, true);
+              // Optionally reset UI if save failed?
+              // resetCategoryOrder();
+          }
+      }
+
+
+      // --- End Category Order Functions ---
+
+      function renderActivitiesTable() {
+        const tbody = document.getElementById('activities-body');
+        tbody.innerHTML = ''; // Clear loading/previous
+
+        if (!activitiesData || activitiesData.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="4">No activities found. Add your first activity!</td></tr>';
+          return;
+        }
+
+        activitiesData.forEach((activity, index) => {
+          const tr = document.createElement('tr');
+          tr.dataset.index = index;
+
+          // Activity name cell
+          const nameCell = document.createElement('td');
+          const nameInput = document.createElement('input');
+          nameInput.type = 'text'; nameInput.value = activity.activity || '';
+          nameInput.dataset.field = 'activity'; nameInput.addEventListener('change', updateActivity);
+          nameCell.appendChild(nameInput);
+
+          // Points cell
+          const pointsCell = document.createElement('td');
+          const pointsInput = document.createElement('input');
+          pointsInput.type = 'number'; pointsInput.value = activity.points ?? 0;
+          pointsInput.dataset.field = 'points'; pointsInput.addEventListener('change', updateActivity);
+          pointsCell.appendChild(pointsInput);
+
+          // Category cell - Dropdown uses the potentially REORDERED categoriesList
+          const categoryCell = document.createElement('td');
+          const categorySelect = document.createElement('select');
+          categorySelect.dataset.field = 'category'; categorySelect.addEventListener('change', updateActivity);
+          // Ensure categoriesList is an array
+          const currentCategories = Array.isArray(categoriesList) ? categoriesList : [];
+          currentCategories.forEach(category => { // Use the (potentially reordered) global list
+            const option = document.createElement('option');
+            option.value = category; option.textContent = category;
+            option.selected = category === String(activity.category || '');
+            categorySelect.appendChild(option);
+          });
+          // Add current category if it's somehow not in the main list anymore
+          const currentActivityCategory = String(activity.category || '');
+          if (currentActivityCategory && !currentCategories.includes(currentActivityCategory)) {
+              const currentOption = document.createElement('option');
+              currentOption.value = currentActivityCategory;
+              currentOption.textContent = currentActivityCategory + " (current)";
+              currentOption.selected = true;
+              categorySelect.appendChild(currentOption);
+              console.warn(`Activity "${activity.activity}" has category "${currentActivityCategory}" not in current list.`);
+          }
+          categoryCell.appendChild(categorySelect);
+
+          // Action cell
+          const actionCell = document.createElement('td');
+          const deleteBtn = document.createElement('button');
+          deleteBtn.className = 'btn btn-danger btn-sm'; deleteBtn.innerHTML = '×'; deleteBtn.title = 'Delete Activity';
+          deleteBtn.addEventListener('click', deleteActivity);
+          actionCell.appendChild(deleteBtn);
+
+          tr.appendChild(nameCell); tr.appendChild(pointsCell); tr.appendChild(categoryCell); tr.appendChild(actionCell);
+          applyRowStyling(tr, parseFloat(activity.points || 0));
+          tbody.appendChild(tr);
+        });
+      }
+
+      function applyRowStyling(rowElement, points) {
+          // ... (styling function remains the same) ...
+          if (points > 0) { rowElement.style.backgroundColor = 'rgba(52, 168, 83, 0.05)'; }
+          else if (points < 0) { rowElement.style.backgroundColor = 'rgba(234, 67, 53, 0.05)'; }
+          else { rowElement.style.backgroundColor = ''; }
+      }
+
+
+      function populateStreakSettings() {
+        // ... (remains the same) ...
+        document.getElementById('threshold-bonus1').value = streakSettings.thresholds?.bonus1 ?? '';
+        document.getElementById('threshold-bonus2').value = streakSettings.thresholds?.bonus2 ?? '';
+        document.getElementById('threshold-multiplier').value = streakSettings.thresholds?.multiplier ?? '';
+        document.getElementById('bonus-points1').value = streakSettings.bonusPoints?.bonus1 ?? '';
+        document.getElementById('bonus-points2').value = streakSettings.bonusPoints?.bonus2 ?? '';
+      }
+
+      function updateActivity(event) {
+        // ... (remains the same) ...
+        const inputElement = event.target;
+        const tr = inputElement.closest('tr'); const index = parseInt(tr.dataset.index); const field = inputElement.dataset.field;
+        let value = inputElement.value;
+        if (isNaN(index) || !field) { console.error("Could not find index or field for updated activity."); return; }
+        if (field === 'points') { value = parseFloat(value) || 0; }
+        if (activitiesData[index]) { activitiesData[index][field] = value; if (field === 'points') { applyRowStyling(tr, value); } }
+        else { console.error("Activity data not found for index:", index); }
+      }
+
+      function addNewActivity() {
+        // ... (remains the same) ...
+        const newActivity = { activity: 'New Activity', points: 1, category: categoriesList[0] || 'Uncategorized' };
+        activitiesData.push(newActivity); renderActivitiesTable();
+        const lastRow = document.querySelector('#activities-body tr:last-child');
+        if (lastRow) { const firstInput = lastRow.querySelector('input[type="text"]'); if (firstInput) { firstInput.focus(); firstInput.select(); } lastRow.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
+      }
+
+      function deleteActivity(event) {
+        // ... (remains the same) ...
+         const btn = event.target; const tr = btn.closest('tr'); const index = parseInt(tr.dataset.index);
+         if (isNaN(index)) { console.error("Could not find index for activity deletion."); return; }
+         const activityName = activitiesData[index]?.activity || 'this activity';
+         if (confirm(`Are you sure you want to delete "${activityName}"?`)) { activitiesData.splice(index, 1); renderActivitiesTable(); showNotification(`Deleted activity: "${activityName}"`); }
+      }
+
+      function resetActivities() {
+        // ... (remains the same) ...
+        if (confirm("Reset all activity changes back to the last saved state?")) { activitiesData = JSON.parse(JSON.stringify(originalActivitiesData)); renderActivitiesTable(); showNotification('Activities reset to last saved values'); }
+      }
+
+      function saveActivities() {
+        // ... (validation and call remain the same) ...
+        const invalidActivities = activitiesData.filter(activity => !activity.activity || activity.activity.trim() === '');
+        if (invalidActivities.length > 0) { showNotification('Error: All activities must have a name', true); return; }
+        toggleSaveButtons(true, 'activities');
+        google.script.run.withSuccessHandler(handleActivitiesSaved).withFailureHandler((err) => handleError(err, 'activities')).saveActivitiesData(activitiesData);
+      }
+
+      function handleActivitiesSaved(result) {
+        // ... (remains the same) ...
+        toggleSaveButtons(false, 'activities');
+        if (result.success) { showNotification(result.message); originalActivitiesData = JSON.parse(JSON.stringify(activitiesData)); }
+        else { showNotification('Error: ' + result.message, true); }
+      }
+
+      function resetStreakSettings() {
+        // ... (remains the same) ...
+         if (confirm("Reset streak settings back to the last saved state?")) { streakSettings = JSON.parse(JSON.stringify(originalStreakSettings)); populateStreakSettings(); showNotification('Streak settings reset to last saved values'); }
+      }
+
+      /** Saves updated streak settings - now saves only UPPERCASE */
+      function saveStreakSettings() {
+        // ... (validation remains the same) ...
+        const newSettings = { thresholds: { bonus1: parseInt(document.getElementById('threshold-bonus1').value) || 0, bonus2: parseInt(document.getElementById('threshold-bonus2').value) || 0, multiplier: parseInt(document.getElementById('threshold-multiplier').value) || 0 }, bonusPoints: { bonus1: parseInt(document.getElementById('bonus-points1').value) || 0, bonus2: parseInt(document.getElementById('bonus-points2').value) || 0 } };
+        if (newSettings.thresholds.bonus1 < 0 || newSettings.thresholds.bonus2 < 0 || newSettings.thresholds.multiplier < 0 || newSettings.bonusPoints.bonus1 < 0 || newSettings.bonusPoints.bonus2 < 0) { showNotification('Error: All streak values must be zero or positive.', true); return; }
+        if (newSettings.thresholds.bonus1 > 0 && newSettings.thresholds.bonus2 > 0 && newSettings.thresholds.bonus1 >= newSettings.thresholds.bonus2) { showNotification('Error: Bonus 1 threshold must be less than Bonus 2 threshold (if both > 0).', true); return; }
+        if (newSettings.thresholds.bonus2 > 0 && newSettings.thresholds.multiplier > 0 && newSettings.thresholds.bonus2 >= newSettings.thresholds.multiplier) { showNotification('Error: Bonus 2 threshold must be less than Multiplier threshold (if both > 0).', true); return; }
+
+        toggleSaveButtons(true, 'streak');
+        // Prepare settings with only UPPERCASE keys for saving
+        const serverSettings = {
+          thresholds: { BONUS_1: newSettings.thresholds.bonus1, BONUS_2: newSettings.thresholds.bonus2, MULTIPLIER: newSettings.thresholds.multiplier },
+          bonusPoints: { BONUS_1: newSettings.bonusPoints.bonus1, BONUS_2: newSettings.bonusPoints.bonus2 }
+        };
+        google.script.run.withSuccessHandler(handleStreakSettingsSaved).withFailureHandler((err) => handleError(err, 'streak')).saveStreakSettings(serverSettings);
+      }
+
+      function handleStreakSettingsSaved(result) {
+        // ... (remains the same, updates local lowercase state from UI) ...
+        toggleSaveButtons(false, 'streak');
+        if (result.success) {
+          showNotification(result.message);
+          streakSettings = { thresholds: { bonus1: parseInt(document.getElementById('threshold-bonus1').value) || 0, bonus2: parseInt(document.getElementById('threshold-bonus2').value) || 0, multiplier: parseInt(document.getElementById('threshold-multiplier').value) || 0 }, bonusPoints: { bonus1: parseInt(document.getElementById('bonus-points1').value) || 0, bonus2: parseInt(document.getElementById('bonus-points2').value) || 0 } };
+          originalStreakSettings = JSON.parse(JSON.stringify(streakSettings));
+        } else { showNotification('Error: ' + result.message, true); }
+      }
+
+      function filterActivities() {
+        // ... (remains the same) ...
+        const searchTerm = document.getElementById('search-activities').value.toLowerCase();
+        const rows = document.querySelectorAll('#activities-body tr');
+        rows.forEach(row => { const nameInput = row.querySelector('input[type="text"]'); const noDataCell = row.querySelector('td[colspan="4"]'); if (noDataCell) { row.style.display = 'none'; return; } if (!nameInput) return; const activityName = nameInput.value.toLowerCase(); row.style.display = activityName.includes(searchTerm) ? '' : 'none'; });
+      }
+
+      function toggleSaveButtons(disabled, type = 'all') {
+          // ADD 'category' type
+          if (type === 'all' || type === 'activities') {
+            document.getElementById('save-activities-btn').disabled = disabled;
+            document.getElementById('reset-activities-btn').disabled = disabled;
+          }
+          if (type === 'all' || type === 'streak') {
+            document.getElementById('save-streak-btn').disabled = disabled;
+            document.getElementById('reset-streak-btn').disabled = disabled;
+          }
+          if (type === 'all' || type === 'category') { // NEW
+            document.getElementById('save-category-order-btn').disabled = disabled;
+            document.getElementById('reset-category-order-btn').disabled = disabled;
+          }
+          // ... (optional add/delete button disabling) ...
+      }
+
+
+      function navigateToApp() {
+        google.script.run.withSuccessHandler(url => {
+            window.top.location.href = url; // Use window.top to escape iframe if necessary
+        }).getScriptUrl();
+      }
+
+      function showNotification(message, isError = false) {
+        const notification = document.getElementById('notification');
+        notification.textContent = message;
+        notification.style.backgroundColor = isError ? 'var(--negative-color)' : '#323232';
+        notification.classList.remove('hidden');
+
+        // Hide after 3 seconds
+        setTimeout(() => {
+          notification.classList.add('hidden');
+        }, 3000);
+      }
+
+      function handleError(error, buttonType = 'all') {
+        console.error('Error:', error);
+        showNotification('Error: ' + (error.message || 'Unknown server error'), true);
+        toggleSaveButtons(false, buttonType); // Re-enable relevant buttons
+        // Also re-enable household buttons on general error
+        if (document.getElementById('add-household-btn')) {
+            document.getElementById('add-household-btn').disabled = false;
+        }
+      }
+
+      // --- Household Management Functions ---
+
+      function loadHouseholds() {
+        const householdList = document.getElementById('household-list');
+        householdList.innerHTML = '<p class="loading">Loading households...</p>';
+
+        google.script.run
+          .withSuccessHandler(renderHouseholds)
+          .withFailureHandler(function(error) {
+            handleError(error); // Use generic error handler
+            householdList.innerHTML = `<div class="error-message">Failed to load households: ${error.message || 'Unknown error'}</div>`;
+          })
+          .getHouseholdAdminData(); // Calls WebApp.gs function
+      }
+
+      function renderHouseholds(households) {
+        const householdList = document.getElementById('household-list');
+        householdList.innerHTML = ''; // Clear previous content or loading message
+
+        if (!households || households.length === 0) {
+          householdList.innerHTML = `
+            <div class="empty-state">
+              <p>No households found. Create your first household!</p>
+            </div>
+          `;
+          return;
+        }
+
+        households.forEach(household => {
+          const householdCard = document.createElement('div');
+          householdCard.className = 'household-card';
+          householdCard.dataset.id = household.id; // Store ID on the element
+
+          const membersList = (household.members || []).map(member => `
+            <div class="household-member">
+              <span class="member-email">${member.email || 'N/A'}</span>
+              <span class="member-date">Added: ${member.dateAdded || 'N/A'}</span>
+              <button class="btn btn-danger btn-sm remove-member-btn"
+                      data-email="${member.email || ''}"
+                      data-household="${household.id}"
+                      title="Remove ${member.email || ''}">
+                ×
+              </button>
+            </div>
+          `).join('');
+
+          householdCard.innerHTML = `
+            <div class="household-header">
+              <h3 class="household-name">${household.name}</h3>
+              <div class="household-actions">
+                <button class="btn btn-secondary btn-sm add-user-btn" data-household="${household.id}" data-name="${household.name}">Add User</button>
+                <button class="btn btn-danger btn-sm delete-household-btn" data-household="${household.id}" data-name="${household.name}">Delete Household</button>
+              </div>
+            </div>
+            <div class="household-members">
+              <h4>Members (${(household.members || []).length})</h4>
+              ${membersList || '<p>No members found.</p>'}
+            </div>
+          `;
+
+          householdList.appendChild(householdCard);
+        });
+
+        // Re-attach event listeners after rendering
+        attachHouseholdEventListeners();
+      }
+
+      function attachHouseholdEventListeners() {
+          document.querySelectorAll('.add-user-btn').forEach(btn => {
+            // Remove existing listener before adding new one to prevent duplicates if re-rendering
+            btn.replaceWith(btn.cloneNode(true));
+            document.querySelector(`.add-user-btn[data-household="${btn.dataset.household}"]`).addEventListener('click', function() {
+                const householdId = this.dataset.household;
+                const householdName = this.dataset.name;
+                showAddUserDialog(householdId, householdName);
+            });
+        });
+
+        document.querySelectorAll('.remove-member-btn').forEach(btn => {
+            btn.replaceWith(btn.cloneNode(true));
+            document.querySelector(`.remove-member-btn[data-email="${btn.dataset.email}"][data-household="${btn.dataset.household}"]`).addEventListener('click', function() {
+                const email = this.dataset.email;
+                const householdId = this.dataset.household;
+                removeUserFromHouseholdHandler(householdId, email);
+            });
+        });
+
+        document.querySelectorAll('.delete-household-btn').forEach(btn => {
+             btn.replaceWith(btn.cloneNode(true));
+            document.querySelector(`.delete-household-btn[data-household="${btn.dataset.household}"]`).addEventListener('click', function() {
+                const householdId = this.dataset.household;
+                const householdName = this.dataset.name;
+                deleteHouseholdHandler(householdId, householdName);
+            });
+        });
+      }
+
+
+      function addHouseholdHandler() {
+        const name = prompt("Enter name for the new household:");
+        if (!name || name.trim() === '') return; // User cancelled or entered empty name
+
+        const email = prompt(`Enter email address for the first member of "${name}":`);
+        if (!email || email.trim() === '') return; // User cancelled or empty
+
+        // Basic email validation
+        if (!validateEmail(email)) {
+          showNotification('Please enter a valid email address', true);
+          return;
+        }
+
+        // Disable add button during operation
+        const addBtn = document.getElementById('add-household-btn');
+        if (addBtn) addBtn.disabled = true;
+
+        google.script.run
+          .withSuccessHandler(function(result) {
+            if (addBtn) addBtn.disabled = false;
+            if (result.success) {
+              showNotification(result.message);
+              loadHouseholds(); // Refresh the list
+            } else {
+              showNotification('Error: ' + result.message, true);
+            }
+          })
+          .withFailureHandler(function(error) {
+            if (addBtn) addBtn.disabled = false;
+            handleError(error); // Use generic handler
+          })
+          .addHousehold(name.trim(), email.trim()); // Calls WebApp.gs function
+      }
+
+      function showAddUserDialog(householdId, householdName) {
+        const email = prompt(`Enter email address to add to "${householdName}":`);
+        if (!email || email.trim() === '') return; // User cancelled or empty
+
+        if (!validateEmail(email)) {
+          showNotification('Please enter a valid email address', true);
+          return;
+        }
+
+        // Optionally disable the specific 'Add User' button during the request?
+        // Or just rely on the general error handling/success refresh.
+
+        google.script.run
+          .withSuccessHandler(function(result) {
+            if (result.success) {
+              showNotification(result.message);
+              loadHouseholds(); // Refresh the list
+            } else {
+              showNotification('Error: ' + result.message, true);
+            }
+          })
+          .withFailureHandler(handleError)
+          .addUserToHousehold(householdId, email.trim()); // Calls WebApp.gs function
+      }
+
+      function removeUserFromHouseholdHandler(householdId, email) {
+        if (!confirm(`Are you sure you want to remove ${email} from this household?`)) {
+          return; // User cancelled
+        }
+
+        // Disable button during removal? Could be complex to target specific button.
+        // Rely on visual refresh for now.
+
+        google.script.run
+          .withSuccessHandler(function(result) {
+            if (result.success) {
+              showNotification(result.message);
+              // Refresh the entire list to ensure counts etc. are correct
+              loadHouseholds();
+            } else {
+              showNotification('Error: ' + result.message, true);
+            }
+          })
+          .withFailureHandler(handleError)
+          .removeUserFromHousehold(householdId, email); // Calls WebApp.gs function
+      }
+
+      function deleteHouseholdHandler(householdId, householdName) {
+        if (!confirm(`Are you sure you want to delete the household "${householdName}"?\n\nThis will remove ALL users from this household and cannot be undone.`)) {
+          return; // User cancelled
+        }
+
+        // Disable button?
+
+        google.script.run
+          .withSuccessHandler(function(result) {
+            if (result.success) {
+              showNotification(result.message);
+              loadHouseholds(); // Refresh the list
+            } else {
+              showNotification('Error: ' + result.message, true);
+            }
+          })
+          .withFailureHandler(handleError)
+          .deleteHousehold(householdId); // Calls WebApp.gs function
+      }
+
+      function filterHouseholds() {
+        const searchTerm = document.getElementById('search-households').value.toLowerCase();
+        const households = document.querySelectorAll('.household-card');
+
+        households.forEach(household => {
+          const nameElement = household.querySelector('.household-name');
+          const memberElements = household.querySelectorAll('.member-email');
+
+          const name = nameElement ? nameElement.textContent.toLowerCase() : '';
+          const members = memberElements ? Array.from(memberElements).map(el => el.textContent.toLowerCase()) : [];
+
+          const nameMatch = name.includes(searchTerm);
+          const memberMatch = members.some(member => member.includes(searchTerm));
+
+          household.style.display = (nameMatch || memberMatch) ? '' : 'none';
+        });
+      }
+
+      function validateEmail(email) {
+          // Simple regex for basic email format check
+          const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+          return re.test(String(email).toLowerCase());
+      }
+
+      // --- Category Management Functions ---
+
+      function renderCategoriesTable() {
+        const tbody = document.getElementById('categories-body');
+        tbody.innerHTML = ''; // Clear loading/previous
+
+        if (!categoriesList || categoriesList.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="2">No categories found. Add your first category!</td></tr>';
+          return;
+        }
+
+        categoriesList.forEach((category, index) => {
+          const tr = document.createElement('tr');
+          tr.dataset.index = index;
+
+          // Category name cell
+          const nameCell = document.createElement('td');
+          const nameInput = document.createElement('input');
+          nameInput.type = 'text'; nameInput.value = category || '';
+          nameInput.dataset.field = 'category'; nameInput.addEventListener('change', updateCategory);
+          nameCell.appendChild(nameInput);
+
+          // Action cell
+          const actionCell = document.createElement('td');
+          const deleteBtn = document.createElement('button');
+          deleteBtn.className = 'btn btn-danger btn-sm'; deleteBtn.innerHTML = '×'; deleteBtn.title = 'Delete Category';
+          deleteBtn.addEventListener('click', deleteCategory);
+          actionCell.appendChild(deleteBtn);
+
+          tr.appendChild(nameCell); tr.appendChild(actionCell);
+          tbody.appendChild(tr);
+        });
+      }
+
+      function updateCategory(event) {
+        const inputElement = event.target;
+        const tr = inputElement.closest('tr'); const index = parseInt(tr.dataset.index); const field = inputElement.dataset.field;
+        let value = inputElement.value;
+        if (isNaN(index) || !field) { console.error("Could not find index or field for updated category."); return; }
+        if (categoriesList[index]) { categoriesList[index] = value; }
+        else { console.error("Category data not found for index:", index); }
+      }
+
+      function addNewCategory() {
+        const newCategory = 'New Category';
+        categoriesList.push(newCategory); renderCategoriesTable();
+        const lastRow = document.querySelector('#categories-body tr:last-child');
+        if (lastRow) { const firstInput = lastRow.querySelector('input[type="text"]'); if (firstInput) { firstInput.focus(); firstInput.select(); } lastRow.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
+      }
+
+      function deleteCategory(event) {
+        const btn = event.target; const tr = btn.closest('tr'); const index = parseInt(tr.dataset.index);
+        if (isNaN(index)) { console.error("Could not find index for category deletion."); return; }
+        const categoryName = categoriesList[index] || 'this category';
+        if (confirm(`Are you sure you want to delete "${categoryName}"?`)) { categoriesList.splice(index, 1); renderCategoriesTable(); showNotification(`Deleted category: "${categoryName}"`); }
+      }
+
+      function resetCategories() {
+        if (confirm("Reset all category changes back to the last saved state?")) { categoriesList = JSON.parse(JSON.stringify(originalCategoriesList)); renderCategoriesTable(); showNotification('Categories reset to last saved values'); }
+      }
+
+      function saveCategories() {
+        const invalidCategories = categoriesList.filter(category => !category || category.trim() === '');
+        if (invalidCategories.length > 0) { showNotification('Error: All categories must have a name', true); return; }
+        toggleSaveButtons(true, 'category');
+        google.script.run.withSuccessHandler(handleCategoriesSaved).withFailureHandler((err) => handleError(err, 'category')).saveCategoriesData(categoriesList);
+      }
+
+      function handleCategoriesSaved(result) {
+        toggleSaveButtons(false, 'category');
+        if (result.success) { showNotification(result.message); originalCategoriesList = JSON.parse(JSON.stringify(categoriesList)); }
+        else { showNotification('Error: ' + result.message, true); }
+      }
+
+      function filterCategories() {
+        const searchTerm = document.getElementById('search-categories').value.toLowerCase();
+        const rows = document.querySelectorAll('#categories-body tr');
+        rows.forEach(row => { const nameInput = row.querySelector('input[type="text"]'); const noDataCell = row.querySelector('td[colspan="2"]'); if (noDataCell) { row.style.display = 'none'; return; } if (!nameInput) return; const categoryName = nameInput.value.toLowerCase(); row.style.display = categoryName.includes(searchTerm) ? '' : 'none'; });
+      }
+
+    </script>
+  </body>
+</html>
