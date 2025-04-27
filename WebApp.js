@@ -1034,3 +1034,144 @@ function saveCategoriesData(categories) {
     return { success: false, message: `Error saving: ${error.message}` };
   }
 }
+
+/**
+ * Fetches the recent activity log data (last 7 days).
+ * Callable from client-side (admin only).
+ * @return {Object} Result object with log entries or error.
+ */
+function getRecentActivityLog() {
+  // Check for admin privileges
+  if (!isCurrentUserAdmin()) {
+    return { 
+      success: false, 
+      message: "Admin privileges required." 
+    };
+  }
+  
+  try {
+    // Calculate date range (last 7 days)
+    const endDate = new Date();
+    const startDate = new Date(endDate);
+    startDate.setDate(startDate.getDate() - 7); // Go back 7 days
+    
+    // Get data from DataProcessing.js function
+    const logEntries = getActivityLogData(startDate, endDate);
+    
+    return {
+      success: true,
+      log: logEntries
+    };
+  } catch (error) {
+    Logger.log(`Error in getRecentActivityLog: ${error}\nStack: ${error.stack}`);
+    return {
+      success: false,
+      message: `Error retrieving activity log: ${error.message}`
+    };
+  }
+}
+
+/**
+ * Deletes a specific activity log entry.
+ * Callable from client-side (admin only).
+ * @param {number} rowIndex The sheet row index to delete.
+ * @param {string} date The date in YYYY-MM-DD format for verification.
+ * @param {string} email The email for verification.
+ * @return {Object} Result object with success status and message.
+ */
+function deleteActivityLogEntry(rowIndex, date, email) {
+  // Check for admin privileges
+  if (!isCurrentUserAdmin()) {
+    return { 
+      success: false, 
+      message: "Admin privileges required." 
+    };
+  }
+  
+  // Validate inputs
+  if (!rowIndex || !date || !email) {
+    return {
+      success: false,
+      message: "Missing required parameters: rowIndex, date, and email are required."
+    };
+  }
+  
+  if (typeof rowIndex !== 'number' || isNaN(rowIndex)) {
+    return {
+      success: false,
+      message: "Row index must be a valid number."
+    };
+  }
+  
+  // Call DataProcessing.js function to safely delete the row
+  return deleteDashboardRow(rowIndex, date, email);
+}
+
+/**
+ * Adds a manual activity log entry.
+ * Callable from client-side (admin only).
+ * @param {string} dateString The date string in YYYY-MM-DD format.
+ * @param {string} email The email to associate with the entry.
+ * @param {string} activityName The name of the activity from reference.
+ * @return {Object} Result object with success status and message.
+ */
+function addActivityLogEntry(dateString, email, activityName) {
+  // Check for admin privileges
+  if (!isCurrentUserAdmin()) {
+    return { 
+      success: false, 
+      message: "Admin privileges required." 
+    };
+  }
+  
+  try {
+    // Validate inputs
+    if (!dateString || !email || !activityName) {
+      return {
+        success: false,
+        message: "Missing required parameters: dateString, email, and activityName are required."
+      };
+    }
+    
+    // Parse date string - handle YYYY-MM-DD format
+    const dateParts = dateString.split('-');
+    if (dateParts.length !== 3) {
+      return {
+        success: false,
+        message: "Invalid date format. Please use YYYY-MM-DD format."
+      };
+    }
+    
+    // JavaScript months are 0-based, so subtract 1 from month
+    const timestamp = new Date(
+      parseInt(dateParts[0]), 
+      parseInt(dateParts[1]) - 1, 
+      parseInt(dateParts[2])
+    );
+    
+    // Basic validation of the date
+    if (isNaN(timestamp.getTime())) {
+      return {
+        success: false,
+        message: "Invalid date."
+      };
+    }
+    
+    // Validate email format
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return {
+        success: false,
+        message: "Invalid email format."
+      };
+    }
+    
+    // Call DataProcessing.js function to add the entry
+    return addManualActivityLogEntry(timestamp, email, activityName);
+  } catch (error) {
+    Logger.log(`Error in addActivityLogEntry: ${error}\nStack: ${error.stack}`);
+    return {
+      success: false,
+      message: `Error adding activity log entry: ${error.message}`
+    };
+  }
+}

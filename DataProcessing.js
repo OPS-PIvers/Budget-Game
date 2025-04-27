@@ -1100,3 +1100,183 @@ function calculateMovingAverages(dailyData, window) {
 
   return movingAverages;
 }
+
+/**
+ * Reads the Dashboard sheet and returns entries within the specified date range.
+ * @param {Date} startDate The start date of the range (inclusive).
+ * @param {Date} endDate The end date of the range (inclusive).
+ * @return {Array<object>} Array of log entry objects.
+ */
+function getActivityLogData(startDate, endDate) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const dashboardSheet = ss.getSheetByName(CONFIG.SHEET_NAMES.DASHBOARD);
+  
+  // Return empty array if sheet doesn't exist
+  if (!dashboardSheet) {
+    Logger.log("Dashboard sheet not found in getActivityLogData.");
+    return [];
+  }
+  
+  const lastRow = dashboardSheet.getLastRow();
+  if (lastRow <= 1) {
+    // Only header row exists, no data
+    return [];
+  }
+  
+  // Format dates for comparison
+  const startDateStr = formatDateYMD(startDate);
+  const endDateStr = formatDateYMD(endDate);
+  
+  // Read relevant columns: Date (A), Points (B), Activities (C), Email (G)
+  const data = dashboardSheet.getRange(2, 1, lastRow - 1, 7).getValues();
+  const result = [];
+  
+  // Iterate through rows and filter by date range
+  for (let i = 0; i < data.length; i++) {
+    const rowDate = data[i][0]; // Date in column A
+    
+    // Skip if not a valid date
+    if (!(rowDate instanceof Date) || rowDate.getTime() === 0) continue;
+    
+    const rowDateStr = formatDateYMD(rowDate);
+    
+    // Check if date is within range (inclusive)
+    if (rowDateStr >= startDateStr && rowDateStr <= endDateStr) {
+      result.push({
+        rowIndex: i + 2, // Actual sheet row (add 2 since data starts at row 2, and i is 0-based)
+        date: rowDateStr,
+        email: data[i][6] || "", // Email from column G
+        points: Number(data[i][1]) || 0, // Points from column B
+        activitiesString: data[i][2] || "" // Activities from column C
+      });
+    }
+  }
+  
+  return result;
+}
+
+/**
+ * Safely deletes a specific row from the Dashboard sheet with verification.
+ * @param {number} rowIndex The actual row index in the sheet to delete.
+ * @param {string} expectedDate The expected date in YYYY-MM-DD format for verification.
+ * @param {string} expectedEmail The expected email for verification.
+ * @return {Object} Result object { success: boolean, message: string }.
+ */
+function deleteDashboardRow(rowIndex, expectedDate, expectedEmail) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const dashboardSheet = ss.getSheetByName(CONFIG.SHEET_NAMES.DASHBOARD);
+  
+  if (!dashboardSheet) {
+    return { 
+      success: false, 
+      message: "Dashboard sheet not found." 
+    };
+  }
+  
+  try {
+    // Verify the row exists
+    if (rowIndex < 2 || rowIndex > dashboardSheet.getLastRow()) {
+      return { 
+        success: false, 
+        message: "Invalid row index." 
+      };
+    }
+    
+    // Get the data for the specified row
+    const rowData = dashboardSheet.getRange(rowIndex, 1, 1, 7).getValues()[0];
+    const rowDate = rowData[0]; // Date in column A
+    const rowEmail = rowData[6] || ""; // Email in column G
+    
+    // Verify this is the correct row by checking date and email
+    if (!(rowDate instanceof Date) || formatDateYMD(rowDate) !== expectedDate || 
+        rowEmail.toLowerCase() !== expectedEmail.toLowerCase()) {
+      return { 
+        success: false, 
+        message: "Verification failed. The row's date or email doesn't match the expected values." 
+      };
+    }
+    
+    // All verifications passed, delete the row
+    dashboardSheet.deleteRow(rowIndex);
+    
+    // Calculate the impact on weekly totals
+    const deleteDate = new Date(expectedDate + "T00:00:00");
+    const deletedPoints = Number(rowData[1]) || 0;
+    
+    return { 
+      success: true, 
+      message: `Successfully deleted log entry for ${expectedEmail} on ${expectedDate}.`,
+      deletedPoints: deletedPoints,
+      date: expectedDate
+    };
+  } catch (error) {
+    Logger.log(`Error in deleteDashboardRow: ${error}\nStack: ${error.stack}`);
+    return { 
+      success: false, 
+      message: `Error deleting row: ${error.message}` 
+    };
+  }
+}
+
+/**
+ * Adds a manual activity log entry to the Dashboard sheet.
+ * @param {Date} timestamp The date for the entry.
+ * @param {string} email The email to associate with the entry.
+ * @param {string} activityName The name of the activity.
+ * @return {Object} Result object with success status and message.
+ */
+function addManualActivityLogEntry(timestamp, email, activityName) {
+  try {
+    // Validate inputs
+    if (!(timestamp instanceof Date) || !email || !activityName) {
+      return { 
+        success: false, 
+        message: "Invalid inputs. Date, email, and activity name are required." 
+      };
+    }
+    
+    // Get activity details from the Points Reference
+    const activityData = getActivityDataCached();
+    if (!activityData.pointValues.hasOwnProperty(activityName)) {
+      return { 
+        success: false, 
+        message: `Activity "${activityName}" not found in reference data.` 
+      };
+    }
+    
+    // Get the base points for this activity
+    const basePoints = activityData.pointValues[activityName];
+    const category = activityData.categories[activityName] || "Uncategorized";
+    
+    // For manual entries, we won't calculate streaks
+    // Create a processed activity object for updateDashboard
+    const processedActivity = {
+      name: activityName,
+      points: basePoints,
+      category: category,
+      streakInfo: {
+        originalPoints: basePoints,
+        bonusPoints: 0,
+        totalPoints: basePoints,
+        streakLength: 0,
+        multiplier: 1
+      }
+    };
+    
+    // Call updateDashboard with the single activity
+    updateDashboard(timestamp, email, [processedActivity], basePoints);
+    
+    return {
+      success: true,
+      message: `Successfully added manual entry: ${activityName} (${basePoints > 0 ? '+' : ''}${basePoints}) for ${email}`,
+      activity: processedActivity,
+      date: formatDateYMD(timestamp)
+    };
+  } catch (error) {
+    Logger.log(`Error in addManualActivityLogEntry: ${error}\nStack: ${error.stack}`);
+    return { 
+      success: false, 
+      message: `Error adding manual entry: ${error.message}` 
+    };
+  }
+}
