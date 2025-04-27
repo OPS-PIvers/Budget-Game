@@ -656,10 +656,6 @@ function calculateSummaryFromActivities(activities, activityData = null) {
   };
 }
 
-// REMOVED redundant getHistoricalData function definition
-
-// REMOVED obsolete getLifetimeActivityCounts function definition
-
 /**
  * Gets enhanced lifetime activity counts with household filtering.
  * Reads the Dashboard sheet (Cols C and G).
@@ -728,8 +724,6 @@ function getEnhancedLifetimeActivityCounts(householdEmails) {
   activityCounts._hasData = activityFound;
   return activityCounts;
 }
-
-// REMOVED obsolete getPreviousWeekActivityCounts function definition
 
 /**
  * Gets enhanced previous week activity counts with household filtering.
@@ -1101,11 +1095,63 @@ function calculateMovingAverages(dailyData, window) {
   return movingAverages;
 }
 
+// --- NEW FUNCTIONS FOR INDIVIDUAL ACTIVITY HANDLING ---
+
 /**
- * Reads the Dashboard sheet and returns entries within the specified date range.
+ * Parses an activity string from the Dashboard to extract individual activities.
+ * @param {string} activitiesString The combined string of activities from Dashboard Column C.
+ * @return {Array<object>} Array of parsed activity objects.
+ */
+function parseActivityString(activitiesString) {
+  if (!activitiesString) return [];
+  
+  const activities = [];
+  const activityEntries = activitiesString.split(", ");
+  
+  activityEntries.forEach((activityEntry, index) => {
+    // Match pattern: [Symbol] ActivityName [(FireEmoji)(StreakNumber)] (Points)
+    // Symbol: ➕ or ➖
+    // ActivityName: any text
+    // Optional streak info: (🔥n) where n is the streak count
+    // Points: (±n) where n is the numeric value
+    
+    // This regex captures four groups:
+    // 1. Symbol (➕ or ➖)
+    // 2. Activity name
+    // 3. Optional streak info (🔥n)
+    // 4. Points value with sign (+n or -n)
+    const regex = /([➕➖])\s(.+?)(?:\s\((🔥+\d+)\))?\s\(([+-]\d+)\)/;
+    
+    const match = activityEntry.match(regex);
+    if (match) {
+      const symbol = match[1];
+      const name = match[2].trim();
+      const streakInfo = match[3] || null;
+      const pointsStr = match[4];
+      const points = parseInt(pointsStr);
+      
+      activities.push({
+        id: `activity_${index}_${Date.now()}`, // Generate a unique ID for this activity instance
+        name: name,
+        points: points,
+        symbol: symbol,
+        streakInfo: streakInfo,
+        originalString: activityEntry,
+      });
+    } else {
+      Logger.log(`Failed to parse activity entry: ${activityEntry}`);
+    }
+  });
+  
+  return activities;
+}
+
+/**
+ * Reads the Dashboard sheet and returns entries within the specified date range,
+ * with individual activities parsed out for editing.
  * @param {Date} startDate The start date of the range (inclusive).
  * @param {Date} endDate The end date of the range (inclusive).
- * @return {Array<object>} Array of log entry objects.
+ * @return {Array<object>} Array of log entries with individual activities.
  */
 function getActivityLogData(startDate, endDate) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -1142,12 +1188,22 @@ function getActivityLogData(startDate, endDate) {
     
     // Check if date is within range (inclusive)
     if (rowDateStr >= startDateStr && rowDateStr <= endDateStr) {
+      const rowIndex = i + 2; // Actual sheet row (add 2 since data starts at row 2, and i is 0-based)
+      const totalRowPoints = Number(data[i][1]) || 0; // Points from column B
+      const activitiesString = data[i][2] || ""; // Activities from column C
+      const email = data[i][6] || ""; // Email from column G
+      
+      // Parse the activities string into individual activities
+      const individualActivities = parseActivityString(activitiesString);
+      
+      // Create an entry with the row data and individual activities
       result.push({
-        rowIndex: i + 2, // Actual sheet row (add 2 since data starts at row 2, and i is 0-based)
+        rowIndex: rowIndex,
         date: rowDateStr,
-        email: data[i][6] || "", // Email from column G
-        points: Number(data[i][1]) || 0, // Points from column B
-        activitiesString: data[i][2] || "" // Activities from column C
+        email: email,
+        totalPoints: totalRowPoints,
+        activitiesString: activitiesString,
+        activities: individualActivities
       });
     }
   }
@@ -1156,13 +1212,14 @@ function getActivityLogData(startDate, endDate) {
 }
 
 /**
- * Safely deletes a specific row from the Dashboard sheet with verification.
- * @param {number} rowIndex The actual row index in the sheet to delete.
- * @param {string} expectedDate The expected date in YYYY-MM-DD format for verification.
- * @param {string} expectedEmail The expected email for verification.
- * @return {Object} Result object { success: boolean, message: string }.
+ * Deletes a specific activity from a row in the Dashboard.
+ * @param {number} rowIndex The sheet row index.
+ * @param {string} activityId The unique ID of the activity to delete.
+ * @param {string} expectedDate The date in YYYY-MM-DD format for verification.
+ * @param {string} expectedEmail The email for verification.
+ * @return {Object} Result object with success status and message.
  */
-function deleteDashboardRow(rowIndex, expectedDate, expectedEmail) {
+function deleteIndividualActivity(rowIndex, activityId, expectedDate, expectedEmail) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const dashboardSheet = ss.getSheetByName(CONFIG.SHEET_NAMES.DASHBOARD);
   
@@ -1186,6 +1243,8 @@ function deleteDashboardRow(rowIndex, expectedDate, expectedEmail) {
     const rowData = dashboardSheet.getRange(rowIndex, 1, 1, 7).getValues()[0];
     const rowDate = rowData[0]; // Date in column A
     const rowEmail = rowData[6] || ""; // Email in column G
+    const totalRowPoints = Number(rowData[1]) || 0; // Current total points
+    const activitiesString = rowData[2] || ""; // Current activities string
     
     // Verify this is the correct row by checking date and email
     if (!(rowDate instanceof Date) || formatDateYMD(rowDate) !== expectedDate || 
@@ -1196,36 +1255,84 @@ function deleteDashboardRow(rowIndex, expectedDate, expectedEmail) {
       };
     }
     
-    // All verifications passed, delete the row
-    dashboardSheet.deleteRow(rowIndex);
+    // Parse the activities string into individual activities
+    const activities = parseActivityString(activitiesString);
     
-    // Calculate the impact on weekly totals
-    const deleteDate = new Date(expectedDate + "T00:00:00");
-    const deletedPoints = Number(rowData[1]) || 0;
+    // Find the activity to delete
+    const activityIndex = activities.findIndex(activity => activity.id === activityId);
+    if (activityIndex === -1) {
+      return {
+        success: false,
+        message: "Activity not found in this row."
+      };
+    }
     
-    return { 
-      success: true, 
-      message: `Successfully deleted log entry for ${expectedEmail} on ${expectedDate}.`,
-      deletedPoints: deletedPoints,
-      date: expectedDate
-    };
+    // Get the activity to delete
+    const activityToDelete = activities[activityIndex];
+    
+    // Calculate new total points
+    const newTotalPoints = totalRowPoints - activityToDelete.points;
+    
+    // Remove the activity from the array
+    activities.splice(activityIndex, 1);
+    
+    if (activities.length === 0) {
+      // If all activities are deleted, delete the entire row
+      dashboardSheet.deleteRow(rowIndex);
+      return {
+        success: true,
+        message: `Successfully deleted the last activity for ${expectedEmail} on ${expectedDate}. Row removed.`,
+        deletedPoints: activityToDelete.points,
+        date: expectedDate,
+        remainingActivities: []
+      };
+    } else {
+      // Recalculate positive and negative counts
+      let positiveCount = 0;
+      let negativeCount = 0;
+      activities.forEach(activity => {
+        if (activity.points > 0) {
+          positiveCount++;
+        } else if (activity.points < 0) {
+          negativeCount--;
+        }
+      });
+      
+      // Create new activities string
+      const newActivitiesString = activities.map(a => a.originalString).join(", ");
+      
+      // Update the row
+      dashboardSheet.getRange(rowIndex, 2).setValue(newTotalPoints); // Update points
+      dashboardSheet.getRange(rowIndex, 3).setValue(newActivitiesString); // Update activities string
+      dashboardSheet.getRange(rowIndex, 4).setValue(positiveCount); // Update positive count
+      dashboardSheet.getRange(rowIndex, 5).setValue(negativeCount); // Update negative count
+      
+      return {
+        success: true,
+        message: `Successfully deleted activity "${activityToDelete.name}" for ${expectedEmail} on ${expectedDate}.`,
+        deletedPoints: activityToDelete.points,
+        date: expectedDate,
+        newTotalPoints: newTotalPoints,
+        remainingActivities: activities
+      };
+    }
   } catch (error) {
-    Logger.log(`Error in deleteDashboardRow: ${error}\nStack: ${error.stack}`);
+    Logger.log(`Error in deleteIndividualActivity: ${error}\nStack: ${error.stack}`);
     return { 
       success: false, 
-      message: `Error deleting row: ${error.message}` 
+      message: `Error deleting activity: ${error.message}` 
     };
   }
 }
 
 /**
- * Adds a manual activity log entry to the Dashboard sheet.
- * @param {Date} timestamp The date for the entry.
- * @param {string} email The email to associate with the entry.
- * @param {string} activityName The name of the activity.
+ * Adds a new individual activity to a specific date/email.
+ * @param {Date} timestamp The date for the activity.
+ * @param {string} email The email address.
+ * @param {string} activityName The name of the activity from Points Reference.
  * @return {Object} Result object with success status and message.
  */
-function addManualActivityLogEntry(timestamp, email, activityName) {
+function addIndividualActivity(timestamp, email, activityName) {
   try {
     // Validate inputs
     if (!(timestamp instanceof Date) || !email || !activityName) {
@@ -1248,8 +1355,7 @@ function addManualActivityLogEntry(timestamp, email, activityName) {
     const basePoints = activityData.pointValues[activityName];
     const category = activityData.categories[activityName] || "Uncategorized";
     
-    // For manual entries, we won't calculate streaks
-    // Create a processed activity object for updateDashboard
+    // For manual entries, we'll use basic points without streak calculations
     const processedActivity = {
       name: activityName,
       points: basePoints,
@@ -1268,15 +1374,67 @@ function addManualActivityLogEntry(timestamp, email, activityName) {
     
     return {
       success: true,
-      message: `Successfully added manual entry: ${activityName} (${basePoints > 0 ? '+' : ''}${basePoints}) for ${email}`,
+      message: `Successfully added "${activityName}" (${basePoints > 0 ? '+' : ''}${basePoints}) for ${email}`,
       activity: processedActivity,
       date: formatDateYMD(timestamp)
     };
   } catch (error) {
-    Logger.log(`Error in addManualActivityLogEntry: ${error}\nStack: ${error.stack}`);
+    Logger.log(`Error in addIndividualActivity: ${error}\nStack: ${error.stack}`);
     return { 
       success: false, 
-      message: `Error adding manual entry: ${error.message}` 
+      message: `Error adding activity: ${error.message}` 
+    };
+  }
+}
+
+/**
+ * Edits an individual activity by deleting and replacing it.
+ * @param {number} rowIndex The sheet row index.
+ * @param {string} activityId The unique ID of the activity to edit.
+ * @param {string} expectedDate The date in YYYY-MM-DD format for verification.
+ * @param {string} expectedEmail The email for verification.
+ * @param {string} newActivityName The new activity name to replace with.
+ * @return {Object} Result object with success status and message.
+ */
+function editIndividualActivity(rowIndex, activityId, expectedDate, expectedEmail, newActivityName) {
+  try {
+    // First delete the existing activity
+    const deleteResult = deleteIndividualActivity(rowIndex, activityId, expectedDate, expectedEmail);
+    
+    if (!deleteResult.success) {
+      return deleteResult; // Return the delete error
+    }
+    
+    // If the delete was successful, add the new activity
+    // Parse the expected date string to a Date object
+    const dateParts = expectedDate.split('-');
+    const timestamp = new Date(
+      parseInt(dateParts[0]),
+      parseInt(dateParts[1]) - 1, // Month is 0-based in JavaScript
+      parseInt(dateParts[2])
+    );
+    
+    // Add the new activity
+    const addResult = addIndividualActivity(timestamp, expectedEmail, newActivityName);
+    
+    if (!addResult.success) {
+      return {
+        success: false,
+        message: `Successfully deleted the original activity, but failed to add the new one: ${addResult.message}`
+      };
+    }
+    
+    return {
+      success: true,
+      message: `Successfully replaced activity with "${newActivityName}" for ${expectedEmail} on ${expectedDate}.`,
+      date: expectedDate,
+      newActivity: addResult.activity
+    };
+  } catch (error) {
+    Logger.log(`Error in editIndividualActivity: ${error}\nStack: ${error.stack}`);
+    return { 
+      success: false, 
+      message: `Error editing activity: ${error.message}` 
     };
   }
 }
