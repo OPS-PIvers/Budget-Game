@@ -1035,8 +1035,10 @@ function saveCategoriesData(categories) {
   }
 }
 
+// --- NEW FUNCTIONS FOR ACTIVITY LOG ---
+
 /**
- * Fetches the recent activity log data (last 7 days).
+ * Fetches the recent activity log data (last 7 days) with individual activities parsed out.
  * Callable from client-side (admin only).
  * @return {Object} Result object with log entries or error.
  */
@@ -1055,7 +1057,7 @@ function getRecentActivityLog() {
     const startDate = new Date(endDate);
     startDate.setDate(startDate.getDate() - 7); // Go back 7 days
     
-    // Get data from DataProcessing.js function
+    // Get data from DataProcessing.js function with individual activities parsed
     const logEntries = getActivityLogData(startDate, endDate);
     
     return {
@@ -1072,14 +1074,15 @@ function getRecentActivityLog() {
 }
 
 /**
- * Deletes a specific activity log entry.
+ * Deletes a specific individual activity from the activity log.
  * Callable from client-side (admin only).
- * @param {number} rowIndex The sheet row index to delete.
+ * @param {number} rowIndex The sheet row index.
+ * @param {string} activityId The unique ID of the activity to delete.
  * @param {string} date The date in YYYY-MM-DD format for verification.
  * @param {string} email The email for verification.
  * @return {Object} Result object with success status and message.
  */
-function deleteActivityLogEntry(rowIndex, date, email) {
+function deleteIndividualActivityEntry(rowIndex, activityId, date, email) {
   // Check for admin privileges
   if (!isCurrentUserAdmin()) {
     return { 
@@ -1089,10 +1092,10 @@ function deleteActivityLogEntry(rowIndex, date, email) {
   }
   
   // Validate inputs
-  if (!rowIndex || !date || !email) {
+  if (!rowIndex || !activityId || !date || !email) {
     return {
       success: false,
-      message: "Missing required parameters: rowIndex, date, and email are required."
+      message: "Missing required parameters: rowIndex, activityId, date, and email are required."
     };
   }
   
@@ -1103,19 +1106,19 @@ function deleteActivityLogEntry(rowIndex, date, email) {
     };
   }
   
-  // Call DataProcessing.js function to safely delete the row
-  return deleteDashboardRow(rowIndex, date, email);
+  // Call DataProcessing.js function to handle deletion
+  return deleteIndividualActivity(rowIndex, activityId, date, email);
 }
 
 /**
- * Adds a manual activity log entry.
+ * Adds a new activity entry to the log.
  * Callable from client-side (admin only).
  * @param {string} dateString The date string in YYYY-MM-DD format.
  * @param {string} email The email to associate with the entry.
  * @param {string} activityName The name of the activity from reference.
  * @return {Object} Result object with success status and message.
  */
-function addActivityLogEntry(dateString, email, activityName) {
+function addActivityEntry(dateString, email, activityName) {
   // Check for admin privileges
   if (!isCurrentUserAdmin()) {
     return { 
@@ -1166,12 +1169,50 @@ function addActivityLogEntry(dateString, email, activityName) {
     }
     
     // Call DataProcessing.js function to add the entry
-    return addManualActivityLogEntry(timestamp, email, activityName);
+    return addIndividualActivity(timestamp, email, activityName);
   } catch (error) {
-    Logger.log(`Error in addActivityLogEntry: ${error}\nStack: ${error.stack}`);
+    Logger.log(`Error in addActivityEntry: ${error}\nStack: ${error.stack}`);
     return {
       success: false,
-      message: `Error adding activity log entry: ${error.message}`
+      message: `Error adding activity entry: ${error.message}`
     };
   }
+}
+
+/**
+ * Edits a specific activity in the log by replacing it with a new one.
+ * Callable from client-side (admin only).
+ * @param {number} rowIndex The sheet row index.
+ * @param {string} activityId The unique ID of the activity to edit.
+ * @param {string} date The date in YYYY-MM-DD format for verification.
+ * @param {string} email The email for verification.
+ * @param {string} newActivityName The new activity name to replace with.
+ * @return {Object} Result object with success status and message.
+ */
+function editActivityEntry(rowIndex, activityId, date, email, newActivityName) {
+  // Check for admin privileges
+  if (!isCurrentUserAdmin()) {
+    return { 
+      success: false, 
+      message: "Admin privileges required." 
+    };
+  }
+  
+  // Validate inputs
+  if (!rowIndex || !activityId || !date || !email || !newActivityName) {
+    return {
+      success: false,
+      message: "Missing required parameters: rowIndex, activityId, date, email, and newActivityName are required."
+    };
+  }
+  
+  if (typeof rowIndex !== 'number' || isNaN(rowIndex)) {
+    return {
+      success: false,
+      message: "Row index must be a valid number."
+    };
+  }
+  
+  // Call DataProcessing.js function to handle editing
+  return editIndividualActivity(rowIndex, activityId, date, email, newActivityName);
 }
