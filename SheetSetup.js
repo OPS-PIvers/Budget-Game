@@ -102,7 +102,7 @@ function setupPointsReferenceSheet() {
 
     // Headers
     if (sheet.getMaxRows() < 1) sheet.insertRowAfter(0); // Ensure row 1 exists
-    sheet.getRange("A1:C1").setValues([["Activity", "Points", "Category"]])
+    sheet.getRange("A1:D1").setValues([["Activity", "Points", "Category", "Required"]])
       .setFontWeight("bold")
       .setBackground(CONFIG.COLORS.HEADER_BG)
       .setFontColor(CONFIG.COLORS.HEADER_FG);
@@ -111,6 +111,7 @@ function setupPointsReferenceSheet() {
     sheet.setColumnWidth(1, 250); // Activity
     sheet.setColumnWidth(2, 80);  // Points
     sheet.setColumnWidth(3, 150); // Category
+    sheet.setColumnWidth(4, 100); // Required
 
     // Add Default Activities (only if sheet is brand new)
     addDefaultActivities(sheet); // Pass the sheet object
@@ -168,7 +169,7 @@ function setupPointsReferenceSheet() {
   const lastRow = sheet.getLastRow();
   if (lastRow > 2) { // Check if there are at least 2 data rows
     // Only sort the actual data range, not the whole sheet
-    sheet.getRange(2, 1, lastRow - 1, 3).sort([{column: 3, ascending: true}, {column: 1, ascending: true}]);
+    sheet.getRange(2, 1, lastRow - 1, 4).sort([{column: 3, ascending: true}, {column: 1, ascending: true}]);
   }
 
   if (createdNew) {
@@ -194,49 +195,49 @@ function addDefaultActivities(sheet) {
  const C = {}; CONFIG.CATEGORIES.forEach(cat => { const alias = cat.split(' ')[0].substring(0, 4).toUpperCase(); C[alias] = cat; });
  C.FIN = C.FINA || "Financial Planning"; C.MEAL = C.MEAL || "Meal Planning"; C.DISC = C.SELF || "Self-Discipline"; C.HLTH = C.HEAL || "Health"; C.HSHD = C.HOUS || "Household"; C.NEG = C.NEGA || "Negative"; C.ACH = C.ACHI || "Achievement";
  const defaultActivities = [ /* ... list of default activities ... */
-    ["Weekly budget review/planning session", 3, C.FIN],["Review one subscription for necessity", 1, C.FIN],["Cancel an unused subscription", 3, C.FIN],
-    ["Spend zero money in a day", 2, C.FIN],
-    ["Home made dinner", 1, C.MEAL],
-    ["Eat leftovers", 3, C.MEAL],
-    ["Pack lunch for work/school", 1, C.MEAL],
-    ["Get up with alarm (no snooze)", 1, C.DISC],
-    ["Lights out by 10pm", 1, C.DISC],
-    ["Walk the dog", 1, C.DISC],
-    ["Dedicated study/work block (e.g., Grad School)", 2, C.DISC],
-    ["Eat vegetables with dinner", 1, C.HLTH],
-    ["Get 7+ hours of sleep", 2, C.HLTH],
-    ["Drink water instead of sugary drinks all day", 1, C.HLTH],
-    ["Take a stretch break during work", 1, C.HLTH],
-    ["Cook with olive oil instead of butter", 1, C.HLTH],["Have a meat-free day", 1, C.HLTH],
-    ["Exercise for 30 minutes", 3, C.HLTH],
-    ["Clean bathroom", 2, C.HSHD],
-    ["Clean glass shower door", 1, C.HSHD],
-    ["Vacuum downstairs", 1, C.HSHD],
-    ["Windex all windows", 2, C.HSHD],
-    ["Dust all surfaces", 1, C.HSHD],
-    ["Clean out refrigerator", 1, C.HSHD],
-    ["Declutter one area", 2, C.HSHD],
-    ["Laundry folded and put away", 1, C.HSHD],
-    ["Clean kitchen thoroughly", 2, C.HSHD],
-    ["Order food for delivery", -10, C.NEG],
-    ["Go out to dinner", -5, C.NEG],
-    ["Fast casual or donuts", -2, C.NEG],
-    ["Trip to grocery store", -1, C.NEG],
-    ["Grocery delivery", -2, C.NEG],
-    ["Order from Target or Amazon", -2, C.NEG],
-    ["Go into Target (non-essential trip)", -3, C.NEG],["Starbucks/coffee/fast snack", -1, C.NEG],
-    ["Impulse buy (any size)", -2, C.NEG],
-    ["Unnecessary Spending (Small)", -1, C.NEG],
-    ["Unnecessary Spending (Medium)", -2, C.NEG],
-    ["Unnecessary Spending (Large)", -3, C.NEG],
-    ["Lights out after 10:30pm", -1, C.NEG],
-    ["1 week without eating out", 10, C.ACH],
-    ["Meet savings goal for the month", 10, C.ACH],
-    ["Complete a no-spend weekend", 5, C.ACH],
-    ["Paid off a debt early", 15, C.ACH]
+    ["Weekly budget review/planning session", 3, C.FIN, false],["Review one subscription for necessity", 1, C.FIN, false],["Cancel an unused subscription", 3, C.FIN, false],
+    ["Spend zero money in a day", 2, C.FIN, false],
+    ["Home made dinner", 1, C.MEAL, false],
+    ["Eat leftovers", 3, C.MEAL, false],
+    ["Pack lunch for work/school", 1, C.MEAL, false],
+    ["Get up with alarm (no snooze)", 1, C.DISC, false],
+    ["Lights out by 10pm", 1, C.DISC, false],
+    ["Walk the dog", 1, C.DISC, false],
+    ["Dedicated study/work block (e.g., Grad School)", 2, C.DISC, false],
+    ["Eat vegetables with dinner", 1, C.HLTH, false],
+    ["Get 7+ hours of sleep", 2, C.HLTH, false],
+    ["Drink water instead of sugary drinks all day", 1, C.HLTH, false],
+    ["Take a stretch break during work", 1, C.HLTH, false],
+    ["Cook with olive oil instead of butter", 1, C.HLTH, false],["Have a meat-free day", 1, C.HLTH, false],
+    ["Exercise for 30 minutes", 3, C.HLTH, false],
+    ["Clean bathroom", 2, C.HSHD, false],
+    ["Clean glass shower door", 1, C.HSHD, false],
+    ["Vacuum downstairs", 1, C.HSHD, false],
+    ["Windex all windows", 2, C.HSHD, false],
+    ["Dust all surfaces", 1, C.HSHD, false],
+    ["Clean out refrigerator", 1, C.HSHD, false],
+    ["Declutter one area", 2, C.HSHD, false],
+    ["Laundry folded and put away", 1, C.HSHD, false],
+    ["Clean kitchen thoroughly", 2, C.HSHD, false],
+    ["Order food for delivery", -10, C.NEG, false],
+    ["Go out to dinner", -5, C.NEG, false],
+    ["Fast casual or donuts", -2, C.NEG, false],
+    ["Trip to grocery store", -1, C.NEG, false],
+    ["Grocery delivery", -2, C.NEG, false],
+    ["Order from Target or Amazon", -2, C.NEG, false],
+    ["Go into Target (non-essential trip)", -3, C.NEG, false],["Starbucks/coffee/fast snack", -1, C.NEG, false],
+    ["Impulse buy (any size)", -2, C.NEG, false],
+    ["Unnecessary Spending (Small)", -1, C.NEG, false],
+    ["Unnecessary Spending (Medium)", -2, C.NEG, false],
+    ["Unnecessary Spending (Large)", -3, C.NEG, false],
+    ["Lights out after 10:30pm", -1, C.NEG, false],
+    ["1 week without eating out", 10, C.ACH, false],
+    ["Meet savings goal for the month", 10, C.ACH, false],
+    ["Complete a no-spend weekend", 5, C.ACH, false],
+    ["Paid off a debt early", 15, C.ACH, false]
  ];
  const validDefaultActivities = defaultActivities.filter(act => CONFIG.CATEGORIES.includes(act[2])); // Still validate against original CONFIG list for adding defaults
- if (validDefaultActivities.length > 0) { sheet.getRange(2, 1, validDefaultActivities.length, 3).setValues(validDefaultActivities); Logger.log(`Added ${validDefaultActivities.length} default activities.`); }
+ if (validDefaultActivities.length > 0) { sheet.getRange(2, 1, validDefaultActivities.length, 4).setValues(validDefaultActivities); Logger.log(`Added ${validDefaultActivities.length} default activities.`); }
  else { Logger.log("No valid default activities to add (check category names in script vs CONFIG)."); }
 }
 

@@ -16,22 +16,23 @@ function readActivityData() {
     if (!sheet) {
       Logger.log(`FATAL: Failed to create or find ${sheetName}. Cannot read activity data.`);
       // Return empty structure to prevent further errors down the line
-      return { pointValues: {}, categories: {} };
+      return { pointValues: {}, categories: {}, requiredActivities: {} };
     }
   }
 
   const lastRow = sheet.getLastRow();
   if (lastRow < 2) {
     Logger.log(`No activities found in ${sheetName}.`);
-    return { pointValues: {}, categories: {} }; // Return empty if no data rows
+    return { pointValues: {}, categories: {}, requiredActivities: {} }; // Return empty if no data rows
   }
 
   try {
-    // Ensure we read columns A, B, C (Activity, Points, Category)
-    const dataRange = sheet.getRange(2, 1, lastRow - 1, 3);
+    // Ensure we read columns A, B, C, D (Activity, Points, Category, Required)
+    const dataRange = sheet.getRange(2, 1, lastRow - 1, 4);
     const data = dataRange.getValues();
     const pointValues = {};
     const categories = {};
+    const requiredActivities = {};
 
     data.forEach((row, index) => {
       const activity = String(row[0]).trim();
@@ -40,6 +41,7 @@ function readActivityData() {
       const points = typeof pointsValue === 'number' ? pointsValue :
                     (pointsValue !== "" && !isNaN(pointsValue) ? Number(pointsValue) : NaN);
       const category = String(row[2]).trim();
+      const required = row[3] === true || row[3] === "TRUE" || row[3] === "true";
 
       // Only add valid entries
       if (activity && !isNaN(points) && category) {
@@ -49,20 +51,21 @@ function readActivityData() {
         } else {
             pointValues[activity] = points;
             categories[activity] = category;
+            requiredActivities[activity] = required;
         }
       } else {
         // Log if *any* data was present but row was invalid, but avoid logging completely blank rows silently inserted
-        if (row[0] || row[1] || row[2]) {
+        if (row[0] || row[1] || row[2] || row[3]) {
           Logger.log(`Skipping invalid row in ${sheetName} at sheet row ${index + 2}: [${JSON.stringify(row)}]`);
         }
       }
     });
 
-    return { pointValues, categories };
+    return { pointValues, categories, requiredActivities };
   } catch (error) {
     Logger.log(`Error reading activity data: ${error}\nStack: ${error.stack}`);
     // Return an empty structure rather than throw, to prevent cascading failures
-    return { pointValues: {}, categories: {} };
+    return { pointValues: {}, categories: {}, requiredActivities: {} };
   }
 }
 
@@ -75,6 +78,10 @@ function getActivityDataCached() {
   if (activityDataCache && typeof activityDataCache === 'object' && activityDataCache.pointValues) {
     // Add a simple check to ensure it's a populated object, not just `true` or an empty object from a previous error
     if (Object.keys(activityDataCache.pointValues).length > 0) {
+       // Ensure requiredActivities exists in cached data, or initialize it
+       if (!activityDataCache.requiredActivities) {
+         activityDataCache.requiredActivities = {};
+       }
        return activityDataCache;
     } else {
        Logger.log("Script global cache 'activityDataCache' was found but empty. Will try CacheService.");
@@ -90,6 +97,10 @@ function getActivityDataCached() {
         const parsedData = JSON.parse(cachedJson);
         // Validate the parsed structure
         if (parsedData && parsedData.pointValues && parsedData.categories && Object.keys(parsedData.pointValues).length > 0) {
+          // Ensure requiredActivities exists in parsed data, or initialize it
+          if (!parsedData.requiredActivities) {
+            parsedData.requiredActivities = {};
+          }
           activityDataCache = parsedData; // Update script global cache
           return activityDataCache;
         } else {

@@ -266,10 +266,12 @@ function getWeekData() {
 /**
  * Processes a Web App submission, logging data to the Dashboard sheet.
  * @param {Array<string>} activities - Array of selected activity names (MUST NOT include points).
+ * @param {Array<string>} skippedActivities - Array of skipped required activity names.
  * @return {Object} Result object { success, points, weeklyTotal, message, goalsUpdated?, activities? }.
  */
-function processWebAppSubmission(activities) {
-  if (!activities || !Array.isArray(activities) || activities.length === 0) {
+function processWebAppSubmission(activities, skippedActivities = []) {
+  if ((!activities || !Array.isArray(activities) || activities.length === 0) && 
+      (!skippedActivities || !Array.isArray(skippedActivities) || skippedActivities.length === 0)) {
     return { success: false, message: "No activities submitted" };
   }
 
@@ -280,18 +282,46 @@ function processWebAppSubmission(activities) {
     let totalPointsThisSubmission = 0;
     const processedActivities = []; // Store details of processed activities
 
-    activities.forEach(activityName => {
-      if (activityName) {
-        // processActivityWithPoints expects just the name now
-        const result = processActivityWithPoints(activityName, activityData);
-        if (result.name) { // Check if activity was valid and processed
-          totalPointsThisSubmission += result.points; // Sum the final points (incl. streaks)
-          processedActivities.push(result); // Add detailed result to array
-        } else {
-           Logger.log(`Skipped invalid activity in submission: ${activityName}`);
+    // Process selected activities
+    if (activities && Array.isArray(activities)) {
+      activities.forEach(activityName => {
+        if (activityName) {
+          // processActivityWithPoints expects just the name now
+          const result = processActivityWithPoints(activityName, activityData);
+          if (result.name) { // Check if activity was valid and processed
+            totalPointsThisSubmission += result.points; // Sum the final points (incl. streaks)
+            processedActivities.push(result); // Add detailed result to array
+          } else {
+             Logger.log(`Skipped invalid activity in submission: ${activityName}`);
+          }
         }
-      }
-    });
+      });
+    }
+
+    // Process skipped activities
+    if (skippedActivities && Array.isArray(skippedActivities)) {
+      skippedActivities.forEach(activityName => {
+        if (activityName && activityData.requiredActivities && activityData.requiredActivities[activityName]) {
+          // Create a negative point entry for skipped required activities
+          const basePoints = activityData.pointValues[activityName] || 0;
+          const negativePoints = Math.abs(basePoints) * -1;
+          const skippedResult = {
+            name: activityName,
+            points: negativePoints,
+            category: activityData.categories[activityName] || 'Unknown',
+            streakInfo: { 
+              originalPoints: negativePoints, 
+              bonusPoints: 0, 
+              totalPoints: negativePoints, 
+              streakLength: 0, 
+              multiplier: 1 
+            }
+          };
+          totalPointsThisSubmission += negativePoints;
+          processedActivities.push(skippedResult);
+        }
+      });
+    }
 
     // Check if any valid activities were processed
     if (processedActivities.length === 0) {
@@ -385,7 +415,7 @@ function saveActivitiesData(activities) {
     // Clear existing data (except header)
     const lastRow = sheet.getLastRow();
     if (lastRow > 1) {
-      sheet.getRange(2, 1, lastRow - 1, 3).clearContent();
+      sheet.getRange(2, 1, lastRow - 1, 4).clearContent();
     }
 
     // Write new data if any exists
@@ -393,11 +423,12 @@ function saveActivitiesData(activities) {
       const newData = activities.map(activity => [
         activity.activity || "", // Ensure values are not undefined/null
         activity.points === undefined || activity.points === null || isNaN(activity.points) ? 0 : Number(activity.points), // Ensure points are numeric, default 0
-        activity.category || getCurrentCategoryOrder()[0] || "Uncategorized" // Default to first current category or fallback
+        activity.category || getCurrentCategoryOrder()[0] || "Uncategorized", // Default to first current category or fallback
+        activity.required === true // Convert to boolean, default false
       ]);
-      sheet.getRange(2, 1, newData.length, 3).setValues(newData);
+      sheet.getRange(2, 1, newData.length, 4).setValues(newData);
       // Sort after writing
-      sheet.getRange(2, 1, newData.length, 3).sort([{column: 3, ascending: true}, {column: 1, ascending: true}]);
+      sheet.getRange(2, 1, newData.length, 4).sort([{column: 3, ascending: true}, {column: 1, ascending: true}]);
     }
 
     // Clear cache to force refresh

@@ -367,6 +367,54 @@ body {
 .reset-chip:hover { color: #000; }
 .activity-chip.selected .reset-chip:hover { color: #fff; }
 
+/* Required Activity Styles */
+.activity-chip.required {
+  border-color: #f39c12;
+  background-color: #fef9e7;
+}
+.activity-chip.required:hover {
+  background-color: #fef2d0;
+  border-color: #e67e22;
+}
+
+/* Skip Button for Required Activities */
+.skip-chip {
+  display: inline-block;
+  font-weight: 500;
+  color: #e74c3c;
+  cursor: pointer;
+  font-size: 0.75rem;
+  padding: 2px 6px;
+  border-radius: 3px;
+  margin-left: 4px;
+  background-color: rgba(231, 76, 60, 0.1);
+  border: 1px solid rgba(231, 76, 60, 0.3);
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.skip-chip:hover {
+  background-color: rgba(231, 76, 60, 0.2);
+  border-color: rgba(231, 76, 60, 0.5);
+}
+
+/* Skipped State */
+.activity-chip.skipped {
+  background-color: #ffebee;
+  border-color: #f44336;
+  color: #d32f2f;
+}
+
+.activity-chip.skipped .skip-chip {
+  background-color: #f44336;
+  color: white;
+  border-color: #d32f2f;
+}
+
+.activity-chip.skipped .skip-chip:hover {
+  background-color: #d32f2f;
+}
+
 /* Logged State */
 .activity-chip.logged {
   cursor: not-allowed;

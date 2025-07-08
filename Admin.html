@@ -189,13 +189,14 @@
           <table class="activities-table" id="activities-table">
             <thead>
               <tr>
-                <th style="width: 50%;">Activity</th>
-                <th style="width: 15%;">Points</th>
-                <th style="width: 25%;">Category</th>
-                <th style="width: 10%;">Action</th>
+                <th style="width: 40%;">Activity</th>
+                <th style="width: 12%;">Points</th>
+                <th style="width: 20%;">Category</th>
+                <th style="width: 15%;">Required</th>
+                <th style="width: 13%;">Action</th>
               </tr>
             </thead>
-            <tbody id="activities-body"><tr><td colspan="4">Loading activities...</td></tr></tbody>
+            <tbody id="activities-body"><tr><td colspan="5">Loading activities...</td></tr></tbody>
           </table>
         </div>
         <div class="form-actions">
@@ -567,7 +568,7 @@
         tbody.innerHTML = ''; // Clear loading/previous
 
         if (!activitiesData || activitiesData.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="4">No activities found. Add your first activity!</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="5">No activities found. Add your first activity!</td></tr>';
           return;
         }
 
@@ -613,6 +614,15 @@
           }
           categoryCell.appendChild(categorySelect);
 
+          // Required cell
+          const requiredCell = document.createElement('td');
+          const requiredCheckbox = document.createElement('input');
+          requiredCheckbox.type = 'checkbox';
+          requiredCheckbox.checked = activity.required === true;
+          requiredCheckbox.dataset.field = 'required';
+          requiredCheckbox.addEventListener('change', updateActivity);
+          requiredCell.appendChild(requiredCheckbox);
+
           // Action cell
           const actionCell = document.createElement('td');
           const deleteBtn = document.createElement('button');
@@ -620,7 +630,7 @@
           deleteBtn.addEventListener('click', deleteActivity);
           actionCell.appendChild(deleteBtn);
 
-          tr.appendChild(nameCell); tr.appendChild(pointsCell); tr.appendChild(categoryCell); tr.appendChild(actionCell);
+          tr.appendChild(nameCell); tr.appendChild(pointsCell); tr.appendChild(categoryCell); tr.appendChild(requiredCell); tr.appendChild(actionCell);
           applyRowStyling(tr, parseFloat(activity.points || 0));
           tbody.appendChild(tr);
         });
@@ -650,13 +660,14 @@
         let value = inputElement.value;
         if (isNaN(index) || !field) { console.error("Could not find index or field for updated activity."); return; }
         if (field === 'points') { value = parseFloat(value) || 0; }
+        if (field === 'required') { value = inputElement.checked; }
         if (activitiesData[index]) { activitiesData[index][field] = value; if (field === 'points') { applyRowStyling(tr, value); } }
         else { console.error("Activity data not found for index:", index); }
       }
 
       function addNewActivity() {
         // ... (remains the same) ...
-        const newActivity = { activity: 'New Activity', points: 1, category: categoriesList[0] || 'Uncategorized' };
+        const newActivity = { activity: 'New Activity', points: 1, category: categoriesList[0] || 'Uncategorized', required: false };
         activitiesData.push(newActivity); renderActivitiesTable();
         const lastRow = document.querySelector('#activities-body tr:last-child');
         if (lastRow) { const firstInput = lastRow.querySelector('input[type="text"]'); if (firstInput) { firstInput.focus(); firstInput.select(); } lastRow.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }

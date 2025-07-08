@@ -85,7 +85,7 @@
       let activityData = {}; // { pointValues: {...}, categories: {...} }
       let appCategories = []; // Stores category list from server
       // State for individual activity selection and count
-      let activityState = {}; // { activityName: { selected: boolean, count: number } }
+      let activityState = {}; // { activityName: { selected: boolean, count: number, skipped: boolean } }
       let currentDayPoints = 0; // Points logged by household today (before current selections)
       let weeklyPoints = 0; // Points logged by household this week (before current selections)
 
@@ -105,14 +105,14 @@
        * @param {Object} response - The response object { activityData: { pointValues, categories }, categoriesList: Array<string> }.
        */
       function handleActivityData(response) {
-        activityData = response?.activityData || { pointValues: {}, categories: {} };
+        activityData = response?.activityData || { pointValues: {}, categories: {}, requiredActivities: {} };
         appCategories = response?.categoriesList || [];
 
         // Initialize activityState based on fetched activities
         activityState = {}; // Reset state
         if (activityData && activityData.pointValues) {
            Object.keys(activityData.pointValues).forEach(activityName => {
-               activityState[activityName] = { selected: false, count: 0 };
+               activityState[activityName] = { selected: false, count: 0, skipped: false };
            });
         }
         // console.log(`Activity data loaded. Categories: ${appCategories.length}. Initialized activityState with ${Object.keys(activityState).length} activities.`);
@@ -241,7 +241,7 @@
           for (const activityName in activityData.pointValues) {
               // Make sure activity exists in state (might have been added server-side since last fetch)
               if (!activityState[activityName]) {
-                  activityState[activityName] = { selected: false, count: 0 };
+                  activityState[activityName] = { selected: false, count: 0, skipped: false };
                   // console.log(`Initialized state for newly found activity: ${activityName}`);
               }
               const category = activityData.categories[activityName] || 'Uncategorized';
@@ -339,11 +339,16 @@
 
                 const points = activity.points;
                 const isPositive = points >= 0; // Treat 0 as positive for styling
+                const isRequired = activityData.requiredActivities && activityData.requiredActivities[activityName];
                 chip.classList.add(isPositive ? 'positive' : 'negative');
+                if (isRequired) {
+                    chip.classList.add('required');
+                }
 
                 const textSpan = document.createElement('span');
                 const pointsText = isPositive ? `+${points}` : points;
-                textSpan.textContent = `${activityName} (${pointsText})`;
+                const requiredIndicator = isRequired ? '⚠️ ' : '';
+                textSpan.textContent = `${requiredIndicator}${activityName} (${pointsText})`;
                 textSpan.className = 'chip-text';
                 chip.appendChild(textSpan);
 
@@ -358,6 +363,19 @@
                 resetButton.title = `Reset ${activityName}`; // Add tooltip
                 // Initial state determined later by updateChipUI or below
                 chip.appendChild(resetButton);
+
+                // Add "didn't do" button for required activities
+                if (isRequired) {
+                    const skipButton = document.createElement('span');
+                    skipButton.className = 'skip-chip';
+                    skipButton.innerHTML = "Didn't Do";
+                    skipButton.title = `Mark ${activityName} as not done`;
+                    skipButton.addEventListener('click', (event) => {
+                        event.stopPropagation();
+                        handleSkipActivity(activityName);
+                    });
+                    chip.appendChild(skipButton);
+                }
 
                 // Determine initial state (logged or selectable) and apply base UI
                 if (alreadyLoggedToday.has(activityName)) {
@@ -449,6 +467,41 @@
           }
       }
 
+      /**
+       * Handles skip activity button clicks for required activities.
+       * Toggles the skipped state of a required activity.
+       * @param {string} activityName - The name of the activity to skip.
+       */
+      function handleSkipActivity(activityName) {
+          if (!activityState[activityName]) {
+              console.error("Skip clicked for unknown activity:", activityName);
+              return;
+          }
+
+          const chip = document.querySelector(`[data-activity="${activityName}"]`);
+          if (!chip || chip.classList.contains('logged')) {
+              return;
+          }
+
+          // Toggle skipped state
+          if (activityState[activityName].skipped) {
+              // Un-skip the activity
+              activityState[activityName].skipped = false;
+              activityState[activityName].selected = false;
+              activityState[activityName].count = 0;
+              updateChipUI(chip, activityName, false);
+          } else {
+              // Skip the activity
+              activityState[activityName].skipped = true;
+              activityState[activityName].selected = false;
+              activityState[activityName].count = 0;
+              updateChipUI(chip, activityName, false);
+          }
+
+          updatePointTotals(); // Update totals display
+          updateSubmitButtonState(); // Update submit button enable/disable
+      }
+
 
        /**
         * Updates the visual state of a single activity chip based on its state.
@@ -460,6 +513,7 @@
            if (!chipElement) return; // Guard against null elements
            const countBadge = chipElement.querySelector('.count-badge');
            const resetButton = chipElement.querySelector('.reset-chip');
+           const skipButton = chipElement.querySelector('.skip-chip');
            const state = activityState[activityName];
 
            if (!state) {
@@ -467,17 +521,34 @@
                return;
            }
 
-           if (isSelected) {
+           // Handle skipped state
+           if (state.skipped) {
+               chipElement.classList.add('skipped');
+               chipElement.classList.remove('selected');
+               if (countBadge) countBadge.style.display = 'none';
+               if (resetButton) resetButton.style.display = 'none';
+               if (skipButton) {
+                   skipButton.textContent = 'Undo';
+                   skipButton.style.display = 'inline-block';
+               }
+           } else if (isSelected) {
                chipElement.classList.add('selected');
+               chipElement.classList.remove('skipped');
                if (countBadge) {
                    countBadge.textContent = `x${state.count}`;
                    countBadge.style.display = 'inline-block';
                }
                if (resetButton) resetButton.style.display = 'inline-block';
+               if (skipButton) skipButton.style.display = 'none';
            } else {
                chipElement.classList.remove('selected');
+               chipElement.classList.remove('skipped');
                if (countBadge) countBadge.style.display = 'none';
                if (resetButton) resetButton.style.display = 'none';
+               if (skipButton) {
+                   skipButton.textContent = "Didn't Do";
+                   skipButton.style.display = 'inline-block';
+               }
            }
        }
 
@@ -490,10 +561,16 @@
         let pointsFromSelection = 0;
         // Iterate through activityState
         for (const activityName in activityState) {
-            if (activityState[activityName]?.selected) { // Check state exists and is selected
+            const state = activityState[activityName];
+            if (state?.selected) { // Check state exists and is selected
                 // Use base points from activityData for calculation before potential streak changes
                 const basePoints = activityData?.pointValues?.[activityName] ?? 0;
-                pointsFromSelection += basePoints * activityState[activityName].count;
+                pointsFromSelection += basePoints * state.count;
+            } else if (state?.skipped && activityData.requiredActivities?.[activityName]) {
+                // For skipped required activities, add negative points
+                const basePoints = activityData?.pointValues?.[activityName] ?? 0;
+                // For required activities, skipping gives negative points
+                pointsFromSelection += Math.abs(basePoints) * -1;
             }
         }
         const potentialDailyTotal = currentDayPoints + pointsFromSelection;
@@ -508,10 +585,11 @@
        * based on whether any activities are currently selected.
        */
       function updateSubmitButtonState() {
-           let anySelected = false;
+           let anyActivity = false;
            for (const activityName in activityState) {
-               if (activityState[activityName]?.selected) { // Check state exists
-                   anySelected = true;
+               const state = activityState[activityName];
+               if (state?.selected || state?.skipped) { // Check for selected or skipped activities
+                   anyActivity = true;
                    break;
                }
            }
@@ -519,7 +597,7 @@
            const hasSelectableChips = document.querySelectorAll('.activity-chip:not(.logged)').length > 0;
            const submitBtn = document.getElementById('submit-button');
            if (submitBtn) {
-               submitBtn.disabled = !anySelected || !hasSelectableChips;
+               submitBtn.disabled = !anyActivity || !hasSelectableChips;
            }
       }
 
@@ -544,21 +622,27 @@
        */
       function submitActivities() {
         const activitiesToSubmit = [];
-        // Build array based on counts
+        const skippedActivities = [];
+        
+        // Build arrays based on state
         for (const activityName in activityState) {
-            if (activityState[activityName]?.selected) { // Check state exists
-                for (let i = 0; i < activityState[activityName].count; i++) {
+            const state = activityState[activityName];
+            if (state?.selected) { // Check state exists and is selected
+                for (let i = 0; i < state.count; i++) {
                     activitiesToSubmit.push(activityName); // Send only the name
                 }
+            } else if (state?.skipped) { // Check for skipped activities
+                skippedActivities.push(activityName);
             }
         }
 
-        if (activitiesToSubmit.length === 0) {
-          showNotification('Please select at least one activity', true);
+        if (activitiesToSubmit.length === 0 && skippedActivities.length === 0) {
+          showNotification('Please select at least one activity or mark required activities as not done', true);
           return;
         }
 
         console.log("Submitting activities:", activitiesToSubmit); // Log the array being sent
+        console.log("Skipped activities:", skippedActivities); // Log the skipped activities
 
         const submitBtn = document.getElementById('submit-button');
         if (submitBtn) {
@@ -571,7 +655,7 @@
         google.script.run
           .withSuccessHandler(handleSubmitSuccess)
           .withFailureHandler(handleSubmitError)
-          .processWebAppSubmission(activitiesToSubmit); // Send the flattened array of names
+          .processWebAppSubmission(activitiesToSubmit, skippedActivities); // Send both arrays
       }
 
       /**
@@ -694,13 +778,15 @@
        * Updates chip UI and button states.
        */
       function resetSelections() {
-          let hadSelection = false;
+          let hadActivity = false;
           // Reset internal state
           for (const activityName in activityState) {
-              if (activityState[activityName]?.selected) { // Check state exists
-                  hadSelection = true;
-                  activityState[activityName].selected = false;
-                  activityState[activityName].count = 0;
+              const state = activityState[activityName];
+              if (state?.selected || state?.skipped) { // Check for both selected and skipped
+                  hadActivity = true;
+                  state.selected = false;
+                  state.count = 0;
+                  state.skipped = false;
               }
           }
 
@@ -716,9 +802,9 @@
               }
           });
 
-          if (hadSelection) {
+          if (hadActivity) {
               // console.log("Selections cleared.");
-              showNotification('Selections cleared.');
+              showNotification('Selections and skipped activities cleared.');
           }
 
           updatePointTotals(); // Update scores back to pre-selection state
