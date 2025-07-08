@@ -284,3 +284,82 @@ function setupHouseholdsSheet() {
   Logger.log(`${sheetName} sheet setup/verified.`);
   return sheet;
 }
+
+/**
+ * Sets up the Goals sheet with correct headers and formatting.
+ * Creates the sheet if it doesn't exist.
+ * @return {Sheet} The Goals sheet object
+ */
+function setupGoalsSheet() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheetName = CONFIG.SHEET_NAMES.GOALS;
+  let sheet = ss.getSheetByName(sheetName);
+  let createdNew = false;
+
+  if (!sheet) {
+    sheet = ss.insertSheet(sheetName);
+    createdNew = true;
+    
+    // Ensure row 1 exists
+    if (sheet.getMaxRows() < 1) sheet.insertRowAfter(0);
+
+    // Add headers
+    const headers = [["GoalID", "GoalName", "GoalType", "TargetAmount", "CurrentAmount", "StartDate", "TargetDate", "Status", "HouseholdID", "LastUpdated"]];
+    sheet.getRange("A1:J1").setValues(headers)
+      .setFontWeight("bold")
+      .setBackground(CONFIG.COLORS.HEADER_BG)
+      .setFontColor(CONFIG.COLORS.HEADER_FG);
+
+    // Set column widths
+    sheet.setColumnWidth(1, 120); // GoalID
+    sheet.setColumnWidth(2, 200); // GoalName
+    sheet.setColumnWidth(3, 120); // GoalType
+    sheet.setColumnWidth(4, 120); // TargetAmount
+    sheet.setColumnWidth(5, 120); // CurrentAmount
+    sheet.setColumnWidth(6, 120); // StartDate
+    sheet.setColumnWidth(7, 120); // TargetDate
+    sheet.setColumnWidth(8, 100); // Status
+    sheet.setColumnWidth(9, 200); // HouseholdID
+    sheet.setColumnWidth(10, 150); // LastUpdated
+
+    Logger.log(`Created new ${sheetName} sheet.`);
+  }
+
+  // Apply formatting and validation (even if sheet exists)
+  if (sheet.getMaxRows() > 1) {
+    // Date formatting for date columns
+    sheet.getRange("F2:F").setNumberFormat(CONFIG.DATE_FORMAT_SHORT); // StartDate
+    sheet.getRange("G2:G").setNumberFormat(CONFIG.DATE_FORMAT_SHORT); // TargetDate
+    sheet.getRange("J2:J").setNumberFormat(CONFIG.DATE_FORMAT_SHORT); // LastUpdated
+    
+    // Currency formatting for amount columns
+    sheet.getRange("D2:D").setNumberFormat("$#,##0.00"); // TargetAmount
+    sheet.getRange("E2:E").setNumberFormat("$#,##0.00"); // CurrentAmount
+
+    // Data validation for GoalType column
+    const goalTypeRange = sheet.getRange("C2:C");
+    const goalTypeRule = SpreadsheetApp.newDataValidation()
+      .requireValueInList(CONFIG.GOAL_TYPES, true)
+      .setAllowInvalid(false)
+      .setHelpText(`Select a goal type: ${CONFIG.GOAL_TYPES.join(', ')}`)
+      .build();
+    goalTypeRange.setDataValidation(goalTypeRule);
+
+    // Data validation for Status column
+    const statusRange = sheet.getRange("H2:H");
+    const statusRule = SpreadsheetApp.newDataValidation()
+      .requireValueInList(["active", "completed", "paused", "cancelled"], true)
+      .setAllowInvalid(false)
+      .setHelpText("Select status: active, completed, paused, or cancelled")
+      .build();
+    statusRange.setDataValidation(statusRule);
+  }
+
+  if (createdNew) {
+    Logger.log(`Goals sheet created and set up.`);
+  } else {
+    Logger.log(`Goals sheet validation and formatting updated.`);
+  }
+  
+  return sheet;
+}

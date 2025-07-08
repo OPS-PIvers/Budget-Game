@@ -13,6 +13,7 @@ const CONFIG = {
     DASHBOARD: "Dashboard",
     POINTS_REFERENCE: "Points Reference",
     HOUSEHOLDS: "Households",
+    GOALS: "Goals",
     // FORM_RESPONSES: "Form Responses 1" // Obsolete if not reading directly
   },
 
@@ -80,6 +81,16 @@ const CONFIG = {
     "Negative",
     "Achievement"
   ],
+  GOAL_TYPES: [ // Supported goal types for visual tracking
+    "debt",
+    "savings",
+    "vacation_fund"
+  ],
+  GOAL_SETTINGS: {
+    CACHE_TIME: 300, // 5 minutes cache for goal data
+    MAX_GOALS_PER_HOUSEHOLD: 10,
+    DEFAULT_GOAL_DURATION_MONTHS: 12
+  },
   STREAK_THRESHOLDS: { // Days required for bonuses - Defaults used if PropertiesService empty
     BONUS_1: 3, // +1 point
     BONUS_2: 7, // +2 points

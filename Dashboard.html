@@ -75,6 +75,15 @@
           <p class="loading">Loading streak data...</p>
         </div>
       </div>
+      
+      <!-- Goal Tracking Section -->
+      <div class="dashboard-section">
+        <h3>Goal Tracking</h3>
+        <div id="goal-tracking-container">
+          <p class="loading">Loading goals data...</p>
+        </div>
+      </div>
+      
       <div class="dashboard-section">
         <h3>Weekly Goals</h3>
         <div id="weekly-goals-container">
@@ -112,6 +121,23 @@
 
     <div id="notification" class="notification hidden"></div>
 
+    <!-- Goal Update Modal -->
+    <div id="goal-update-modal" class="goal-update-modal">
+      <div class="goal-update-modal-content">
+        <h3 class="goal-update-modal-title">Update Goal Amount</h3>
+        <form id="goal-update-form" class="goal-update-form">
+          <div>
+            <label for="goal-update-amount">Current Amount:</label>
+            <input type="number" id="goal-update-amount" step="0.01" min="0" required>
+          </div>
+          <div class="goal-update-modal-actions">
+            <button type="button" class="goal-tracking-btn" onclick="closeGoalUpdateModal()">Cancel</button>
+            <button type="submit" class="goal-tracking-btn primary">Update</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
     <!-- Load Chart.js from CDN -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@2.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
@@ -142,6 +168,10 @@
         if (emailBtn) emailBtn.addEventListener('click', sendDailyDigest);
         const mobileEmailBtn = document.getElementById('mobile-email-button');
         if (mobileEmailBtn) mobileEmailBtn.addEventListener('click', sendDailyDigest);
+        
+        // Set up goal update form listener
+        const goalUpdateForm = document.getElementById('goal-update-form');
+        if (goalUpdateForm) goalUpdateForm.addEventListener('submit', handleGoalUpdate);
 
         // Load primary dashboard data (historical trends, streaks, counts, settings)
         loadDashboardData(); // Fetches historical, calls renderDashboard -> loadSecondaryData
@@ -196,11 +226,12 @@
       }
 
       /**
-       * Loads secondary data sections (goals, goal history)
+       * Loads secondary data sections (goals, goal history, goal tracking)
        */
       function loadSecondaryData() {
            loadWeeklyGoals();
            loadGoalHistory();
+           loadGoalTracking();
       }
 
       /**
@@ -784,6 +815,229 @@
             });
       }
 
+      // --- Goal Tracking Functions ---
+
+      /**
+       * Loads and renders goal tracking data
+       */
+      function loadGoalTracking() {
+        google.script.run
+          .withSuccessHandler(renderGoalTracking)
+          .withFailureHandler(handleGoalTrackingError)
+          .getDetailedGoalData();
+      }
+
+      /**
+       * Renders the goal tracking section
+       */
+      function renderGoalTracking(goalData) {
+        const container = document.getElementById('goal-tracking-container');
+        
+        if (!goalData || (!goalData.activeGoals.length && !goalData.completedGoals.length)) {
+          container.innerHTML = `
+            <div class="goal-tracking-empty">
+              <div class="empty-icon">🎯</div>
+              <div class="empty-title">No Goals Set</div>
+              <div class="empty-text">Add goals in the Admin panel to start tracking your progress</div>
+              <a href="${getScriptUrl()}?page=admin" class="goal-tracking-btn primary">Go to Admin</a>
+            </div>
+          `;
+          return;
+        }
+
+        let html = `<div class="goal-tracking-container">`;
+
+        // Summary section
+        const totalGoals = goalData.activeGoals.length + goalData.completedGoals.length;
+        const totalProgress = Math.round(goalData.totalProgress);
+        const criticalCount = goalData.criticalGoals.length;
+
+        html += `
+          <div class="goal-tracking-summary">
+            <h4>Goal Overview</h4>
+            <div class="summary-stats">
+              <div class="stat">
+                <div class="stat-value">${totalGoals}</div>
+                <div class="stat-label">Total Goals</div>
+              </div>
+              <div class="stat">
+                <div class="stat-value">${goalData.activeGoals.length}</div>
+                <div class="stat-label">Active</div>
+              </div>
+              <div class="stat">
+                <div class="stat-value">${goalData.completedGoals.length}</div>
+                <div class="stat-label">Completed</div>
+              </div>
+              <div class="stat">
+                <div class="stat-value">${totalProgress}%</div>
+                <div class="stat-label">Avg Progress</div>
+              </div>
+            </div>
+          </div>
+        `;
+
+        // Vacation fund notice
+        if (goalData.vacationFundStatus && goalData.vacationFundStatus.isActive) {
+          html += `
+            <div class="goal-tracking-vacation-notice">
+              <div class="notice-title">🏖️ Vacation Fund Active!</div>
+              <div class="notice-text">
+                Your ${goalData.vacationFundStatus.savingsGoalName} goal is complete. 
+                Additional savings now go to your ${goalData.vacationFundStatus.vacationGoalName}.
+              </div>
+            </div>
+          `;
+        }
+
+        // Active goals
+        if (goalData.activeGoals.length > 0) {
+          html += `<div class="goal-tracking-goals">`;
+          
+          goalData.activeGoals.forEach(goal => {
+            const progress = goal.progress || 0;
+            const progressClass = goal.progressType === 'vacation_fund_waiting' ? 'savings' : goal.progressType;
+            const cardClass = goal.progressType === 'vacation_fund_waiting' ? 'vacation_fund waiting' : goal.progressType;
+            
+            html += `
+              <div class="goal-tracking-card ${cardClass}" data-goal-id="${goal.goalId}">
+                <div class="goal-tracking-header">
+                  <h4 class="goal-tracking-title">${goal.goalName}</h4>
+                  <span class="goal-tracking-type ${goal.progressType}">${goal.progressType.replace('_', ' ')}</span>
+                </div>
+                
+                <div class="goal-tracking-progress">
+                  <div class="goal-tracking-progress-bar">
+                    <div class="goal-tracking-progress-fill ${progressClass}" style="width: ${progress}%;">
+                      <div class="goal-tracking-progress-text">${progress}%</div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div class="goal-tracking-details">
+                  <div class="goal-tracking-amount">
+                    ${formatGoalAmount(goal, progress)}
+                  </div>
+                  <div class="goal-tracking-progress-percent">${progress}%</div>
+                </div>
+                
+                <div class="goal-tracking-actions">
+                  <button class="goal-tracking-btn primary" onclick="openGoalUpdateModal('${goal.goalId}', '${goal.goalName}', ${goal.currentAmount})">
+                    Update Amount
+                  </button>
+                </div>
+              </div>
+            `;
+          });
+          
+          html += `</div>`;
+        }
+
+        html += `</div>`;
+        container.innerHTML = html;
+      }
+
+      /**
+       * Formats goal amount display based on goal type
+       */
+      function formatGoalAmount(goal, progress) {
+        const formatCurrency = (amount) => `$${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        
+        switch (goal.progressType) {
+          case 'debt':
+            return `${formatCurrency(goal.currentAmount)} / ${formatCurrency(goal.targetAmount)} remaining`;
+          case 'savings':
+            return `${formatCurrency(goal.currentAmount)} / ${formatCurrency(goal.targetAmount)} saved`;
+          case 'vacation_fund':
+            if (goal.progress && goal.progress.currentAmount !== undefined) {
+              return `${formatCurrency(goal.progress.currentAmount)} / ${formatCurrency(goal.targetAmount)} vacation fund`;
+            }
+            return `${formatCurrency(goal.currentAmount)} / ${formatCurrency(goal.targetAmount)} vacation fund`;
+          case 'vacation_fund_waiting':
+            return `Waiting for linked savings goal to complete`;
+          default:
+            return `${formatCurrency(goal.currentAmount)} / ${formatCurrency(goal.targetAmount)}`;
+        }
+      }
+
+      /**
+       * Handles goal tracking errors
+       */
+      function handleGoalTrackingError(error) {
+        console.error('Goal tracking error:', error);
+        document.getElementById('goal-tracking-container').innerHTML = `
+          <div class="error-message">
+            <p>Unable to load goal tracking data. Please try again later.</p>
+            <button class="goal-tracking-btn primary" onclick="loadGoalTracking()">Retry</button>
+          </div>
+        `;
+      }
+
+      // --- Goal Update Modal Functions ---
+
+      let currentGoalId = null;
+
+      /**
+       * Opens the goal update modal
+       */
+      function openGoalUpdateModal(goalId, goalName, currentAmount) {
+        currentGoalId = goalId;
+        document.getElementById('goal-update-modal').querySelector('.goal-update-modal-title').textContent = `Update ${goalName}`;
+        document.getElementById('goal-update-amount').value = currentAmount;
+        document.getElementById('goal-update-modal').classList.add('show');
+      }
+
+      /**
+       * Closes the goal update modal
+       */
+      function closeGoalUpdateModal() {
+        document.getElementById('goal-update-modal').classList.remove('show');
+        currentGoalId = null;
+      }
+
+      /**
+       * Handles goal update form submission
+       */
+      function handleGoalUpdate(event) {
+        event.preventDefault();
+        
+        if (!currentGoalId) return;
+        
+        const newAmount = parseFloat(document.getElementById('goal-update-amount').value);
+        
+        if (isNaN(newAmount) || newAmount < 0) {
+          showNotification('Please enter a valid amount');
+          return;
+        }
+
+        const updates = [{ goalId: currentGoalId, newAmount: newAmount }];
+        
+        google.script.run
+          .withSuccessHandler(handleGoalUpdateSuccess)
+          .withFailureHandler(handleGoalUpdateError)
+          .updateGoalAmounts(updates);
+      }
+
+      /**
+       * Handles successful goal update
+       */
+      function handleGoalUpdateSuccess(result) {
+        closeGoalUpdateModal();
+        
+        if (result.success) {
+          showNotification('Goal updated successfully!');
+          loadGoalTracking(); // Refresh goal tracking display
+        } else {
+          showNotification('Error updating goal: ' + result.message);
+        }
+      }
+
+      /**
+       * Handles goal update error
+       */
+      function handleGoalUpdateError(error) {
+        console.error('Goal update error:', error);
+        showNotification('Error updating goal. Please try again.');
+      }
 
       // --- Streak Rendering ---
 

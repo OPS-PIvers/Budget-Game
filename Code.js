@@ -22,6 +22,7 @@ function onOpen() {
       .addItem('Setup Dashboard Sheet', 'setupDashboardMenu') // Wrapper
       .addItem('Setup Points Reference Sheet', 'setupPointsReferenceMenu') // Wrapper
       .addItem('Setup Households Sheet', 'setupHouseholdsMenu') // Wrapper
+      .addItem('Setup Goals Sheet', 'setupGoalsMenu') // Wrapper
       // .addItem('Update Form From Points Reference', 'updateFormMenu') // Obsolete - Removed
       .addItem('Rebuild Dashboard From Form Responses', 'rebuildDashboardMenu') // Wrapper - CAUTION: Check if this logic is still valid/needed without a Form Responses sheet being the primary input
       .addItem('Setup/Update All Triggers', 'setupAllTriggersMenu') // Wrapper

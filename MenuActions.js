@@ -75,6 +75,18 @@ function setupHouseholdsMenu() {
   }
 }
 
+function setupGoalsMenu() {
+  const ui = SpreadsheetApp.getUi();
+  try {
+    // setupGoalsSheet is in SheetSetup.gs
+    setupGoalsSheet();
+    ui.alert('Goals sheet setup complete.');
+  } catch (e) {
+    Logger.log(`Error setting up goals from menu: ${e}`);
+    ui.alert(`Error setting up Goals: ${e.message}`);
+  }
+}
+
 
 // --- Maintenance Wrappers ---
 function setupAllTriggersMenu() {

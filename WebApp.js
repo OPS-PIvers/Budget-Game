@@ -1247,3 +1247,211 @@ function editActivityEntry(rowIndex, activityId, date, email, newActivityName) {
   // Call DataProcessing.js function to handle editing
   return editIndividualActivity(rowIndex, activityId, date, email, newActivityName);
 }
+
+// --- Goal Management Functions ---
+
+/**
+ * Gets all goals for the current user's household
+ * Called by Admin.html and Dashboard.html
+ * @return {Array} Array of goal objects
+ */
+function getGoalsData() {
+  try {
+    const email = Session.getEffectiveUser().getEmail();
+    const householdId = getUserHouseholdId(email);
+    
+    if (!householdId) {
+      return [];
+    }
+    
+    return getGoalsByHousehold(householdId);
+    
+  } catch (error) {
+    Logger.log(`Error getting goals data: ${error.message}`);
+    return [];
+  }
+}
+
+/**
+ * Saves goal data (create, update, delete operations)
+ * Called by Admin.html
+ * @param {Array} modifiedGoals - Array of goals that were modified or created
+ * @param {Array} deletedGoals - Array of goals that were deleted
+ * @return {Object} Result object { success, message }
+ */
+function saveGoalsData(modifiedGoals, deletedGoals) {
+  if (!isCurrentUserAdmin()) {
+    return { success: false, message: "Admin privileges required." };
+  }
+  
+  try {
+    const email = Session.getEffectiveUser().getEmail();
+    const householdId = getUserHouseholdId(email);
+    
+    if (!householdId) {
+      return { success: false, message: "No household found for current user." };
+    }
+    
+    let results = [];
+    
+    // Handle deleted goals
+    if (deletedGoals && deletedGoals.length > 0) {
+      for (const goal of deletedGoals) {
+        try {
+          deleteGoal(goal.goalId);
+          results.push(`Deleted goal: ${goal.goalName}`);
+        } catch (error) {
+          Logger.log(`Error deleting goal ${goal.goalId}: ${error.message}`);
+          results.push(`Error deleting goal: ${goal.goalName}`);
+        }
+      }
+    }
+    
+    // Handle modified and new goals
+    if (modifiedGoals && modifiedGoals.length > 0) {
+      for (const goal of modifiedGoals) {
+        try {
+          if (goal.isNew) {
+            // Create new goal
+            const goalData = {
+              goalName: goal.goalName,
+              goalType: goal.goalType,
+              targetAmount: goal.targetAmount,
+              currentAmount: goal.currentAmount,
+              targetDate: goal.targetDate,
+              householdId: householdId
+            };
+            
+            const goalId = createGoal(goalData);
+            results.push(`Created goal: ${goal.goalName}`);
+          } else {
+            // Update existing goal
+            const updateData = {
+              goalName: goal.goalName,
+              targetAmount: goal.targetAmount,
+              currentAmount: goal.currentAmount,
+              targetDate: goal.targetDate,
+              status: goal.status
+            };
+            
+            updateGoal(goal.goalId, updateData);
+            results.push(`Updated goal: ${goal.goalName}`);
+          }
+        } catch (error) {
+          Logger.log(`Error saving goal ${goal.goalId}: ${error.message}`);
+          results.push(`Error saving goal: ${goal.goalName}`);
+        }
+      }
+    }
+    
+    return {
+      success: true,
+      message: `Goal operations completed: ${results.join(', ')}`
+    };
+    
+  } catch (error) {
+    Logger.log(`Error saving goals data: ${error.message}`);
+    return { success: false, message: `Error saving goals: ${error.message}` };
+  }
+}
+
+/**
+ * Updates goal amounts (used for periodic balance updates)
+ * Called by Dashboard.html
+ * @param {Array} updates - Array of {goalId, newAmount} objects
+ * @return {Object} Result object { success, message, updates }
+ */
+function updateGoalAmounts(updates) {
+  try {
+    const email = Session.getEffectiveUser().getEmail();
+    const householdId = getUserHouseholdId(email);
+    
+    if (!householdId) {
+      return { success: false, message: "No household found for current user." };
+    }
+    
+    const results = updateGoalAmounts(householdId, updates);
+    
+    return {
+      success: results.success,
+      message: results.errors.length > 0 ? results.errors.join(', ') : 'Goal amounts updated successfully',
+      updates: results
+    };
+    
+  } catch (error) {
+    Logger.log(`Error updating goal amounts: ${error.message}`);
+    return { success: false, message: `Error updating goal amounts: ${error.message}` };
+  }
+}
+
+/**
+ * Gets goal summary data for dashboard display
+ * Called by Dashboard.html
+ * @return {Object} Goal summary data
+ */
+function getGoalSummaryData() {
+  try {
+    const email = Session.getEffectiveUser().getEmail();
+    const householdId = getUserHouseholdId(email);
+    
+    if (!householdId) {
+      return {
+        totalActiveGoals: 0,
+        totalCompletedGoals: 0,
+        totalProgress: 0,
+        criticalGoalsCount: 0,
+        vacationFundActive: false,
+        topGoals: [],
+        recentCompletions: []
+      };
+    }
+    
+    return getGoalSummaryForDashboard(householdId);
+    
+  } catch (error) {
+    Logger.log(`Error getting goal summary: ${error.message}`);
+    return {
+      totalActiveGoals: 0,
+      totalCompletedGoals: 0,
+      totalProgress: 0,
+      criticalGoalsCount: 0,
+      vacationFundActive: false,
+      topGoals: [],
+      recentCompletions: []
+    };
+  }
+}
+
+/**
+ * Gets detailed goal calculations for dashboard display
+ * Called by Dashboard.html
+ * @return {Object} Detailed goal calculations
+ */
+function getDetailedGoalData() {
+  try {
+    const email = Session.getEffectiveUser().getEmail();
+    const householdId = getUserHouseholdId(email);
+    
+    if (!householdId) {
+      return {
+        activeGoals: [],
+        completedGoals: [],
+        vacationFundStatus: null,
+        totalProgress: 0,
+        criticalGoals: []
+      };
+    }
+    
+    return calculateHouseholdGoals(householdId);
+    
+  } catch (error) {
+    Logger.log(`Error getting detailed goal data: ${error.message}`);
+    return {
+      activeGoals: [],
+      completedGoals: [],
+      vacationFundStatus: null,
+      totalProgress: 0,
+      criticalGoals: []
+    };
+  }
+}

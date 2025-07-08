@@ -610,6 +610,76 @@ body {
 .goal-card.simple.achieved .status-achieved{background-color:rgba(52,168,83,.1);color:var(--positive-color);}
 .goal-card.simple .goal-progress { margin-top: auto; } /* Push progress bar to bottom */
 
+/* Goal Tracking Styles */
+.goal-tracking-container { display: flex; flex-direction: column; gap: 20px; }
+.goal-tracking-summary { display: flex; justify-content: space-between; align-items: center; background: rgba(66, 133, 244, 0.05); padding: 16px; border-radius: 8px; margin-bottom: 20px; border: 1px solid rgba(66, 133, 244, 0.1); }
+.goal-tracking-summary h4 { margin: 0; color: var(--primary-color); }
+.goal-tracking-summary .summary-stats { display: flex; gap: 24px; }
+.goal-tracking-summary .stat { text-align: center; }
+.goal-tracking-summary .stat-value { font-size: 24px; font-weight: 600; color: var(--primary-color); }
+.goal-tracking-summary .stat-label { font-size: 12px; color: var(--text-secondary); }
+
+.goal-tracking-goals { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
+.goal-tracking-card { background: var(--surface-color); border-radius: 8px; padding: 20px; box-shadow: var(--shadow-1); border-left: 4px solid var(--primary-color); transition: transform 0.2s, box-shadow 0.2s; }
+.goal-tracking-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-2); }
+.goal-tracking-card.debt { border-left-color: var(--negative-color); }
+.goal-tracking-card.savings { border-left-color: var(--positive-color); }
+.goal-tracking-card.vacation_fund { border-left-color: var(--accent-color); }
+.goal-tracking-card.completed { border-left-color: #34A853; }
+.goal-tracking-card.critical { border-left-color: #FF5722; }
+
+.goal-tracking-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; }
+.goal-tracking-title { font-size: 16px; font-weight: 500; margin: 0; color: var(--text-primary); }
+.goal-tracking-type { font-size: 12px; padding: 4px 8px; border-radius: 12px; font-weight: 500; text-transform: uppercase; }
+.goal-tracking-type.debt { background: rgba(234, 67, 53, 0.1); color: var(--negative-color); }
+.goal-tracking-type.savings { background: rgba(52, 168, 83, 0.1); color: var(--positive-color); }
+.goal-tracking-type.vacation_fund { background: rgba(251, 188, 5, 0.1); color: var(--accent-color); }
+
+.goal-tracking-progress { margin-bottom: 16px; }
+.goal-tracking-progress-bar { background: rgba(0, 0, 0, 0.1); border-radius: 10px; height: 24px; overflow: hidden; position: relative; }
+.goal-tracking-progress-fill { height: 100%; border-radius: 10px; transition: width 0.3s ease; position: relative; }
+.goal-tracking-progress-fill.debt { background: linear-gradient(90deg, var(--negative-color), #FF6B6B); }
+.goal-tracking-progress-fill.savings { background: linear-gradient(90deg, var(--positive-color), #66BB6A); }
+.goal-tracking-progress-fill.vacation_fund { background: linear-gradient(90deg, var(--accent-color), #FFD54F); }
+.goal-tracking-progress-fill.completed { background: linear-gradient(90deg, #34A853, #4CAF50); }
+.goal-tracking-progress-text { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 12px; font-weight: 600; color: white; text-shadow: 0 1px 2px rgba(0,0,0,0.3); }
+
+.goal-tracking-details { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.goal-tracking-amount { font-size: 14px; color: var(--text-secondary); }
+.goal-tracking-progress-percent { font-size: 18px; font-weight: 600; color: var(--primary-color); }
+
+.goal-tracking-actions { display: flex; gap: 8px; }
+.goal-tracking-btn { padding: 6px 12px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--surface-color); color: var(--text-primary); cursor: pointer; font-size: 12px; transition: all 0.2s; }
+.goal-tracking-btn:hover { background: var(--background-color); }
+.goal-tracking-btn.primary { background: var(--primary-color); color: white; border-color: var(--primary-color); }
+.goal-tracking-btn.primary:hover { background: var(--primary-dark); }
+
+.goal-tracking-vacation-notice { background: rgba(251, 188, 5, 0.1); border: 1px solid rgba(251, 188, 5, 0.3); border-radius: 6px; padding: 12px; margin-bottom: 16px; }
+.goal-tracking-vacation-notice .notice-title { font-weight: 600; color: var(--accent-color); margin-bottom: 4px; }
+.goal-tracking-vacation-notice .notice-text { font-size: 14px; color: var(--text-secondary); }
+
+.goal-tracking-empty { text-align: center; padding: 40px; color: var(--text-secondary); }
+.goal-tracking-empty .empty-icon { font-size: 48px; margin-bottom: 16px; opacity: 0.3; }
+.goal-tracking-empty .empty-title { font-size: 18px; margin-bottom: 8px; }
+.goal-tracking-empty .empty-text { font-size: 14px; margin-bottom: 20px; }
+
+/* Update Goal Modal Styles */
+.goal-update-modal { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; display: none; align-items: center; justify-content: center; }
+.goal-update-modal.show { display: flex; }
+.goal-update-modal-content { background: white; border-radius: 8px; padding: 24px; max-width: 400px; width: 90%; box-shadow: var(--shadow-2); }
+.goal-update-modal-title { font-size: 20px; font-weight: 600; margin-bottom: 20px; color: var(--text-primary); }
+.goal-update-form { display: flex; flex-direction: column; gap: 16px; }
+.goal-update-form label { font-weight: 500; color: var(--text-secondary); }
+.goal-update-form input { padding: 12px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 14px; }
+.goal-update-form input:focus { outline: none; border-color: var(--primary-color); box-shadow: 0 0 0 2px rgba(66, 133, 244, 0.2); }
+.goal-update-modal-actions { display: flex; gap: 12px; justify-content: flex-end; margin-top: 20px; }
+
+@media (max-width: 768px) {
+  .goal-tracking-goals { grid-template-columns: 1fr; }
+  .goal-tracking-summary { flex-direction: column; gap: 12px; }
+  .goal-tracking-summary .summary-stats { gap: 16px; }
+}
+
 @media (max-width: 768px) {
   .achievement-summary { flex-direction: column; align-items: center; }
   .achievement-card { width: 100%; max-width: 100%; }

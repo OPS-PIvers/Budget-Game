@@ -260,6 +260,37 @@
         </div>
       </div>
       <!-- END: Category Management Section -->
+      
+      <!-- Goal Management Section -->
+      <div class="admin-section">
+        <h2 class="section-title">Goal Management</h2>
+        <div class="activity-controls">
+          <input type="text" id="search-goals" placeholder="Search goals...">
+          <button class="btn btn-secondary" id="add-goal-btn">Add New Goal</button>
+        </div>
+        <div style="max-height: 400px; overflow-y: auto;">
+          <table class="activities-table" id="goals-table">
+            <thead>
+              <tr>
+                <th style="width: 25%;">Goal Name</th>
+                <th style="width: 12%;">Type</th>
+                <th style="width: 12%;">Target</th>
+                <th style="width: 12%;">Current</th>
+                <th style="width: 12%;">Progress</th>
+                <th style="width: 12%;">Status</th>
+                <th style="width: 15%;">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="goals-body"><tr><td colspan="7">Loading goals...</td></tr></tbody>
+          </table>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-secondary" id="reset-goals-btn">Reset Changes</button>
+          <button class="btn btn-primary" id="save-goals-btn">Save Goals</button>
+        </div>
+      </div>
+      <!-- END: Goal Management Section -->
+
       <div class="admin-section">
         <h2 class="section-title">Recent Activity Log (Last 7 Days)</h2>
         <div class="activity-controls">
@@ -346,6 +377,45 @@
         </form>
       </div>
     </div>
+    
+    <!-- Goal Modal -->
+    <div id="goal-modal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4); padding-top: 60px;">
+      <div style="background-color: #fefefe; margin: 5% auto; padding: 20px; border: 1px solid #888; border-radius: 8px; width: 90%; max-width: 500px;">
+        <h3 id="goal-modal-title">Add New Goal</h3>
+        <form id="goal-form">
+          <div class="form-group">
+            <label for="goal-name">Goal Name:</label>
+            <input type="text" id="goal-name" required class="form-control" style="width: 100%; padding: 8px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 4px;" placeholder="e.g., Emergency Fund">
+          </div>
+          <div class="form-group">
+            <label for="goal-type">Goal Type:</label>
+            <select id="goal-type" required class="form-control" style="width: 100%; padding: 8px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 4px;">
+              <option value="">Select goal type...</option>
+              <option value="debt">Debt Reduction</option>
+              <option value="savings">Savings Goal</option>
+              <option value="vacation_fund">Vacation Fund</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="goal-target">Target Amount:</label>
+            <input type="number" id="goal-target" required class="form-control" style="width: 100%; padding: 8px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 4px;" min="0" step="0.01" placeholder="0.00">
+          </div>
+          <div class="form-group">
+            <label for="goal-current">Current Amount:</label>
+            <input type="number" id="goal-current" required class="form-control" style="width: 100%; padding: 8px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 4px;" min="0" step="0.01" placeholder="0.00">
+          </div>
+          <div class="form-group">
+            <label for="goal-target-date">Target Date:</label>
+            <input type="date" id="goal-target-date" class="form-control" style="width: 100%; padding: 8px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 4px;">
+          </div>
+          <div class="form-actions" style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+            <button type="button" id="goal-cancel-btn" class="btn btn-secondary">Cancel</button>
+            <button type="submit" id="goal-save-btn" class="btn btn-primary">Save Goal</button>
+          </div>
+        </form>
+      </div>
+    </div>
+    
     <script>
       // Global state
       let activitiesData = [];
@@ -354,6 +424,8 @@
       let originalCategoriesList = []; // Store the initially loaded order
       let streakSettings = {};
       let originalStreakSettings = {};
+      let goalsData = [];
+      let originalGoalsData = [];
 
       // Drag and Drop State
       let draggedItem = null;
@@ -381,6 +453,14 @@
         document.getElementById('save-categories-btn').addEventListener('click', saveCategories);
         document.getElementById('search-categories').addEventListener('input', filterCategories);
 
+        // Goal Management Listeners
+        document.getElementById('add-goal-btn').addEventListener('click', addNewGoal);
+        document.getElementById('reset-goals-btn').addEventListener('click', resetGoals);
+        document.getElementById('save-goals-btn').addEventListener('click', saveGoals);
+        document.getElementById('search-goals').addEventListener('input', filterGoals);
+        document.getElementById('goal-cancel-btn').addEventListener('click', closeGoalModal);
+        document.getElementById('goal-form').addEventListener('submit', handleGoalSubmit);
+
         // Event listeners for household management
         document.getElementById('add-household-btn').addEventListener('click', addHouseholdHandler);
         document.getElementById('search-households').addEventListener('input', filterHouseholds);
@@ -390,6 +470,12 @@
           .withSuccessHandler(handleConfigData)
           .withFailureHandler(handleError)
           .getAdminConfigData(); // Calls the function in WebApp.gs
+
+        // Load goals data
+        google.script.run
+          .withSuccessHandler(handleGoalsData)
+          .withFailureHandler(handleError)
+          .getGoalsData();
 
         // Load households when the admin page is initialized
         loadHouseholds(); // Calls the function below
@@ -1491,6 +1577,184 @@
         }
       }
       
+      // --- Goal Management Functions ---
+      
+      function addNewGoal() {
+        document.getElementById('goal-modal-title').textContent = 'Add New Goal';
+        document.getElementById('goal-form').reset();
+        document.getElementById('goal-modal').style.display = 'block';
+      }
+      
+      function closeGoalModal() {
+        document.getElementById('goal-modal').style.display = 'none';
+      }
+      
+      function handleGoalSubmit(event) {
+        event.preventDefault();
+        const formData = new FormData(event.target);
+        const goalData = {
+          goalName: document.getElementById('goal-name').value,
+          goalType: document.getElementById('goal-type').value,
+          targetAmount: parseFloat(document.getElementById('goal-target').value),
+          currentAmount: parseFloat(document.getElementById('goal-current').value),
+          targetDate: document.getElementById('goal-target-date').value || null
+        };
+        
+        // Add to goals data array
+        goalsData.push({
+          ...goalData,
+          goalId: 'new_' + Date.now(),
+          status: 'active',
+          isNew: true
+        });
+        
+        renderGoalsTable();
+        closeGoalModal();
+        showNotification('Goal added successfully');
+      }
+      
+      function renderGoalsTable() {
+        const tbody = document.getElementById('goals-body');
+        
+        if (goalsData.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #666;">No goals configured</td></tr>';
+          return;
+        }
+        
+        tbody.innerHTML = goalsData.map(goal => {
+          const progress = calculateProgress(goal);
+          const progressBar = `
+            <div style="background: #f0f0f0; border-radius: 10px; height: 20px; overflow: hidden;">
+              <div style="background: ${getProgressColor(goal.goalType, progress)}; height: 100%; width: ${progress}%; transition: width 0.3s;"></div>
+            </div>
+            <small>${progress}%</small>
+          `;
+          
+          return `
+            <tr data-goal-id="${goal.goalId}">
+              <td><input type="text" value="${goal.goalName}" onchange="updateGoalField('${goal.goalId}', 'goalName', this.value)"></td>
+              <td>
+                <select onchange="updateGoalField('${goal.goalId}', 'goalType', this.value)">
+                  <option value="debt" ${goal.goalType === 'debt' ? 'selected' : ''}>Debt</option>
+                  <option value="savings" ${goal.goalType === 'savings' ? 'selected' : ''}>Savings</option>
+                  <option value="vacation_fund" ${goal.goalType === 'vacation_fund' ? 'selected' : ''}>Vacation Fund</option>
+                </select>
+              </td>
+              <td><input type="number" value="${goal.targetAmount}" step="0.01" onchange="updateGoalField('${goal.goalId}', 'targetAmount', parseFloat(this.value))"></td>
+              <td><input type="number" value="${goal.currentAmount}" step="0.01" onchange="updateGoalField('${goal.goalId}', 'currentAmount', parseFloat(this.value))"></td>
+              <td style="text-align: center;">${progressBar}</td>
+              <td>
+                <select onchange="updateGoalField('${goal.goalId}', 'status', this.value)">
+                  <option value="active" ${goal.status === 'active' ? 'selected' : ''}>Active</option>
+                  <option value="completed" ${goal.status === 'completed' ? 'selected' : ''}>Completed</option>
+                  <option value="paused" ${goal.status === 'paused' ? 'selected' : ''}>Paused</option>
+                  <option value="cancelled" ${goal.status === 'cancelled' ? 'selected' : ''}>Cancelled</option>
+                </select>
+              </td>
+              <td>
+                <button class="btn btn-danger btn-sm" onclick="deleteGoal('${goal.goalId}')">Delete</button>
+              </td>
+            </tr>
+          `;
+        }).join('');
+      }
+      
+      function updateGoalField(goalId, field, value) {
+        const goal = goalsData.find(g => g.goalId === goalId);
+        if (goal) {
+          goal[field] = value;
+          goal.isModified = true;
+          // Re-render to update progress if amounts changed
+          if (field === 'targetAmount' || field === 'currentAmount') {
+            renderGoalsTable();
+          }
+        }
+      }
+      
+      function deleteGoal(goalId) {
+        if (confirm('Are you sure you want to delete this goal?')) {
+          goalsData = goalsData.filter(g => g.goalId !== goalId);
+          renderGoalsTable();
+        }
+      }
+      
+      function calculateProgress(goal) {
+        if (!goal.targetAmount || goal.targetAmount <= 0) return 0;
+        
+        switch (goal.goalType) {
+          case 'debt':
+            const debtProgress = ((goal.targetAmount - goal.currentAmount) / goal.targetAmount) * 100;
+            return Math.max(0, Math.min(100, Math.round(debtProgress)));
+          case 'savings':
+          case 'vacation_fund':
+            const savingsProgress = (goal.currentAmount / goal.targetAmount) * 100;
+            return Math.max(0, Math.min(100, Math.round(savingsProgress)));
+          default:
+            return 0;
+        }
+      }
+      
+      function getProgressColor(goalType, progress) {
+        if (progress >= 100) return '#34A853'; // Green for completed
+        if (progress >= 75) return '#FBBC05'; // Yellow for near completion
+        if (goalType === 'debt') return '#EA4335'; // Red for debt
+        return '#4285F4'; // Blue for savings/vacation
+      }
+      
+      function filterGoals() {
+        const searchTerm = document.getElementById('search-goals').value.toLowerCase();
+        const rows = document.querySelectorAll('#goals-body tr');
+        
+        rows.forEach(row => {
+          const goalName = row.cells[0]?.textContent.toLowerCase() || '';
+          const goalType = row.cells[1]?.textContent.toLowerCase() || '';
+          const visible = goalName.includes(searchTerm) || goalType.includes(searchTerm);
+          row.style.display = visible ? '' : 'none';
+        });
+      }
+      
+      function resetGoals() {
+        goalsData = [...originalGoalsData];
+        renderGoalsTable();
+        showNotification('Goals reset to original values');
+      }
+      
+      function saveGoals() {
+        const modifiedGoals = goalsData.filter(g => g.isModified || g.isNew);
+        const deletedGoals = originalGoalsData.filter(og => !goalsData.find(g => g.goalId === og.goalId));
+        
+        if (modifiedGoals.length === 0 && deletedGoals.length === 0) {
+          showNotification('No changes to save');
+          return;
+        }
+        
+        showNotification('Saving goals...');
+        
+        google.script.run
+          .withSuccessHandler(handleGoalsSaved)
+          .withFailureHandler(handleError)
+          .saveGoalsData(modifiedGoals, deletedGoals);
+      }
+      
+      function handleGoalsSaved(result) {
+        if (result.success) {
+          showNotification('Goals saved successfully');
+          // Refresh goals data
+          google.script.run
+            .withSuccessHandler(handleGoalsData)
+            .withFailureHandler(handleError)
+            .getGoalsData();
+        } else {
+          showNotification('Error saving goals: ' + result.message);
+        }
+      }
+      
+      function handleGoalsData(goals) {
+        goalsData = goals || [];
+        originalGoalsData = JSON.parse(JSON.stringify(goalsData));
+        renderGoalsTable();
+      }
+
       // Add initialization to document ready function (or at the end of existing script)
       document.addEventListener('DOMContentLoaded', function() {
         // This line likely already exists
