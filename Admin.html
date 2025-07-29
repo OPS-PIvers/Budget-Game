@@ -1857,7 +1857,45 @@
           }
         }
         
-        goalsData = goals || [];
+        // Convert date strings back to Date objects if needed and ensure proper data structure
+        let processedGoals = [];
+        if (Array.isArray(goals)) {
+          processedGoals = goals.map(goal => {
+            if (typeof goal === 'object' && goal !== null) {
+              const processedGoal = {...goal};
+              
+              // Convert ISO date strings back to Date objects for local processing if needed
+              if (processedGoal.startDate && typeof processedGoal.startDate === 'string') {
+                try {
+                  processedGoal.startDate = new Date(processedGoal.startDate);
+                } catch (e) {
+                  console.warn('[ADMIN GOALS DEBUG] Could not parse startDate:', processedGoal.startDate);
+                }
+              }
+              
+              if (processedGoal.targetDate && typeof processedGoal.targetDate === 'string') {
+                try {
+                  processedGoal.targetDate = new Date(processedGoal.targetDate);
+                } catch (e) {
+                  console.warn('[ADMIN GOALS DEBUG] Could not parse targetDate:', processedGoal.targetDate);
+                }
+              }
+              
+              if (processedGoal.lastUpdated && typeof processedGoal.lastUpdated === 'string') {
+                try {
+                  processedGoal.lastUpdated = new Date(processedGoal.lastUpdated);
+                } catch (e) {
+                  console.warn('[ADMIN GOALS DEBUG] Could not parse lastUpdated:', processedGoal.lastUpdated);
+                }
+              }
+              
+              return processedGoal;
+            }
+            return goal;
+          });
+        }
+        
+        goalsData = processedGoals;
         console.log('[ADMIN GOALS DEBUG] Set goalsData to array of length:', goalsData.length);
         
         originalGoalsData = JSON.parse(JSON.stringify(goalsData));

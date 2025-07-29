@@ -234,11 +234,11 @@ function getGoalsByHousehold(householdId) {
         goalType: row[2],
         targetAmount: row[3],
         currentAmount: row[4],
-        startDate: row[5],
-        targetDate: row[6],
+        startDate: row[5] ? (row[5] instanceof Date ? row[5].toISOString() : row[5]) : null,
+        targetDate: row[6] ? (row[6] instanceof Date ? row[6].toISOString() : row[6]) : null,
         status: row[7],
         householdId: row[8],
-        lastUpdated: row[9]
+        lastUpdated: row[9] ? (row[9] instanceof Date ? row[9].toISOString() : row[9]) : null
       }));
     
     Logger.log(`[GOALS DEBUG] Filtered to ${goals.length} goals for household ${householdId}`);

@@ -1284,6 +1284,28 @@ function getGoalsData() {
       Logger.log(`[GOALS DEBUG] Goals data: ${JSON.stringify(goals.map(g => ({id: g.goalId, name: g.goalName, type: g.goalType})))}`);
     }
     
+    // Test serialization before returning to catch potential issues
+    try {
+      const serializedTest = JSON.stringify(goals);
+      Logger.log(`[GOALS DEBUG] Serialization test passed. Data size: ${serializedTest.length} characters`);
+    } catch (serializationError) {
+      Logger.log(`[GOALS DEBUG] SERIALIZATION ERROR: ${serializationError.message}`);
+      Logger.log(`[GOALS DEBUG] Attempting to return simplified goal data`);
+      
+      // Return simplified version if full serialization fails
+      const simplifiedGoals = goals.map(goal => ({
+        goalId: goal.goalId,
+        goalName: goal.goalName,
+        goalType: goal.goalType,
+        targetAmount: goal.targetAmount,
+        currentAmount: goal.currentAmount,
+        status: goal.status
+      }));
+      
+      Logger.log(`[GOALS DEBUG] Returning simplified goals array of length: ${simplifiedGoals.length}`);
+      return simplifiedGoals;
+    }
+    
     Logger.log(`[GOALS DEBUG] getGoalsData() returning array of length: ${goals.length}`);
     return goals;
     
