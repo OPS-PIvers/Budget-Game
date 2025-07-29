@@ -23,6 +23,12 @@ function onOpen() {
       .addItem('Setup Points Reference Sheet', 'setupPointsReferenceMenu') // Wrapper
       .addItem('Setup Households Sheet', 'setupHouseholdsMenu') // Wrapper
       .addItem('Setup Goals Sheet', 'setupGoalsMenu') // Wrapper
+      .addSeparator()
+      .addItem('Setup Expense Tracker Sheet', 'setupExpenseTrackerMenu') // Wrapper
+      .addItem('Setup Budget Categories Sheet', 'setupBudgetCategoriesMenu') // Wrapper
+      .addItem('Setup Location Mapping Sheet', 'setupLocationMappingMenu') // Wrapper  
+      .addItem('Setup All Expense Sheets', 'setupAllExpenseSheetsMenu') // Wrapper
+      .addSeparator()
       // .addItem('Update Form From Points Reference', 'updateFormMenu') // Obsolete - Removed
       .addItem('Rebuild Dashboard From Form Responses', 'rebuildDashboardMenu') // Wrapper - CAUTION: Check if this logic is still valid/needed without a Form Responses sheet being the primary input
       .addItem('Setup/Update All Triggers', 'setupAllTriggersMenu') // Wrapper

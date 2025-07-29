@@ -301,6 +301,46 @@
       </div>
       <!-- END: Goal Management Section -->
 
+      <!-- Budget Category Management Section -->
+      <div class="admin-section">
+        <h2 class="section-title">Budget Category Management</h2>
+        <div class="activity-controls">
+          <input type="text" id="search-budget-categories" placeholder="Search budget categories...">
+          <div style="display: flex; gap: 8px;">
+            <button class="btn btn-secondary" id="refresh-budget-categories-btn">🔄 Refresh</button>
+            <button class="btn btn-secondary" id="add-budget-category-btn">Add New Category</button>
+          </div>
+        </div>
+        <div style="max-height: 400px; overflow-y: auto;">
+          <table class="activities-table" id="budget-categories-table">
+            <thead>
+              <tr>
+                <th style="width: 20%;">Category Name</th>
+                <th style="width: 15%;">Monthly Budget</th>
+                <th style="width: 15%;">Pay Period Budget</th>
+                <th style="width: 15%;">Current Spent</th>
+                <th style="width: 15%;">Remaining</th>
+                <th style="width: 10%;">Status</th>
+                <th style="width: 10%;">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="budget-categories-body">
+              <tr>
+                <td colspan="7" style="text-align: center; color: #666; padding: 30px;">
+                  <div style="margin-bottom: 10px;">⏳ Loading budget categories...</div>
+                  <div style="font-size: 0.9em; color: #999;">Please wait while we fetch your budget data</div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-secondary" id="reset-budget-categories-btn">Reset Changes</button>
+          <button class="btn btn-primary" id="save-budget-categories-btn">Save Budget Categories</button>
+        </div>
+      </div>
+      <!-- END: Budget Category Management Section -->
+
       <div class="admin-section">
         <h2 class="section-title">Recent Activity Log (Last 7 Days)</h2>
         <div class="activity-controls">
@@ -426,6 +466,37 @@
       </div>
     </div>
     
+    <!-- Budget Category Modal -->
+    <div id="budget-category-modal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4); padding-top: 60px;">
+      <div style="background-color: #fefefe; margin: 5% auto; padding: 20px; border: 1px solid #888; border-radius: 8px; width: 90%; max-width: 500px;">
+        <h3 id="budget-category-modal-title">Add New Budget Category</h3>
+        <form id="budget-category-form">
+          <div class="form-group">
+            <label for="budget-category-name">Category Name:</label>
+            <input type="text" id="budget-category-name" required class="form-control" style="width: 100%; padding: 8px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 4px;" placeholder="e.g., Groceries">
+          </div>
+          <div class="form-group">
+            <label for="budget-monthly-budget">Monthly Budget:</label>
+            <input type="number" id="budget-monthly-budget" required class="form-control" style="width: 100%; padding: 8px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 4px;" min="0" step="0.01" placeholder="0.00">
+          </div>
+          <div class="form-group">
+            <label for="budget-pay-period-budget">Pay Period Budget:</label>
+            <input type="number" id="budget-pay-period-budget" required class="form-control" style="width: 100%; padding: 8px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 4px;" min="0" step="0.01" placeholder="0.00">
+            <small style="color: #666; font-size: 0.85em;">Typically half of monthly budget for bi-weekly pay periods</small>
+          </div>
+          <div class="form-group">
+            <label for="budget-current-spent">Current Spent:</label>
+            <input type="number" id="budget-current-spent" class="form-control" style="width: 100%; padding: 8px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 4px;" min="0" step="0.01" placeholder="0.00" value="0">
+            <small style="color: #666; font-size: 0.85em;">Leave as 0 for new categories</small>
+          </div>
+          <div class="form-actions" style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+            <button type="button" id="budget-category-cancel-btn" class="btn btn-secondary">Cancel</button>
+            <button type="submit" id="budget-category-save-btn" class="btn btn-primary">Save Category</button>
+          </div>
+        </form>
+      </div>
+    </div>
+    
     <script>
       // Global state
       let activitiesData = [];
@@ -436,6 +507,8 @@
       let originalStreakSettings = {};
       let goalsData = [];
       let originalGoalsData = [];
+      let budgetCategoriesData = [];
+      let originalBudgetCategoriesData = [];
 
       // Drag and Drop State
       let draggedItem = null;
@@ -471,6 +544,15 @@
         document.getElementById('search-goals').addEventListener('input', filterGoals);
         document.getElementById('goal-cancel-btn').addEventListener('click', closeGoalModal);
         document.getElementById('goal-form').addEventListener('submit', handleGoalSubmit);
+
+        // Budget Category Management Listeners
+        document.getElementById('refresh-budget-categories-btn').addEventListener('click', refreshBudgetCategories);
+        document.getElementById('add-budget-category-btn').addEventListener('click', addNewBudgetCategory);
+        document.getElementById('reset-budget-categories-btn').addEventListener('click', resetBudgetCategories);
+        document.getElementById('save-budget-categories-btn').addEventListener('click', saveBudgetCategories);
+        document.getElementById('search-budget-categories').addEventListener('input', filterBudgetCategories);
+        document.getElementById('budget-category-cancel-btn').addEventListener('click', closeBudgetCategoryModal);
+        document.getElementById('budget-category-form').addEventListener('submit', handleBudgetCategorySubmit);
 
         // Event listeners for household management
         document.getElementById('add-household-btn').addEventListener('click', addHouseholdHandler);
@@ -508,6 +590,33 @@
             handleError(error);
           })
           .getGoalsData();
+
+        // Load budget categories data
+        console.log('[ADMIN BUDGET DEBUG] Calling getExpenseTrackerData() from server...');
+        google.script.run
+          .withSuccessHandler(handleBudgetCategoriesData)
+          .withFailureHandler(function(error) {
+            console.log('[ADMIN BUDGET DEBUG] Error loading budget categories:', error);
+            
+            // Show specific error message for budget categories loading
+            const tbody = document.getElementById('budget-categories-body');
+            tbody.innerHTML = `
+              <tr>
+                <td colspan="7" style="text-align: center; color: #ea4335; padding: 30px;">
+                  <div style="margin-bottom: 10px;">⚠️ Error loading budget categories</div>
+                  <div style="font-size: 0.9em; color: #666;">
+                    ${error.message || 'Unknown error occurred'}
+                  </div>
+                  <div style="margin-top: 10px;">
+                    <button class="btn btn-primary btn-sm" onclick="location.reload()">Retry</button>
+                  </div>
+                </td>
+              </tr>
+            `;
+            
+            handleError(error);
+          })
+          .getExpenseTrackerData();
 
         // Load households when the admin page is initialized
         loadHouseholds(); // Calls the function below
@@ -1901,6 +2010,225 @@
         originalGoalsData = JSON.parse(JSON.stringify(goalsData));
         renderGoalsTable();
       }
+
+      // --- BUDGET CATEGORY MANAGEMENT FUNCTIONS ---
+      
+      function handleBudgetCategoriesData(data) {
+        console.log('[ADMIN BUDGET DEBUG] handleBudgetCategoriesData called with:', data);
+        
+        if (data.success && data.budgetCategories) {
+          budgetCategoriesData = data.budgetCategories.categories || [];
+          console.log('[ADMIN BUDGET DEBUG] Loaded budget categories:', budgetCategoriesData.length);
+          originalBudgetCategoriesData = JSON.parse(JSON.stringify(budgetCategoriesData));
+          renderBudgetCategoriesTable();
+        } else {
+          console.log('[ADMIN BUDGET DEBUG] No budget categories data or error:', data.message);
+          const tbody = document.getElementById('budget-categories-body');
+          tbody.innerHTML = `
+            <tr>
+              <td colspan="7" style="text-align: center; color: #666; padding: 30px;">
+                <div style="margin-bottom: 10px;">No budget categories found</div>
+                <div style="font-size: 0.9em; color: #999;">Click "Add New Category" to create your first budget category</div>
+              </td>
+            </tr>
+          `;
+        }
+      }
+
+      function renderBudgetCategoriesTable() {
+        const tbody = document.getElementById('budget-categories-body');
+        
+        if (!budgetCategoriesData || budgetCategoriesData.length === 0) {
+          tbody.innerHTML = `
+            <tr>
+              <td colspan="7" style="text-align: center; color: #666; padding: 30px;">
+                <div style="margin-bottom: 10px;">No budget categories found</div>
+                <div style="font-size: 0.9em; color: #999;">Click "Add New Category" to create your first budget category</div>
+              </td>
+            </tr>
+          `;
+          return;
+        }
+
+        const rows = budgetCategoriesData.map((category, index) => {
+          const percentUsed = category.payPeriodBudget > 0 ? (category.payPeriodSpent / category.payPeriodBudget) * 100 : 0;
+          let statusClass = 'good';
+          let statusText = 'Good';
+          
+          if (percentUsed > 90) {
+            statusClass = 'danger';
+            statusText = 'Over Budget';
+          } else if (percentUsed > 75) {
+            statusClass = 'warning';
+            statusText = 'Near Limit';
+          }
+
+          return `
+            <tr data-index="${index}">
+              <td>
+                <input type="text" value="${category.name}" data-field="name" 
+                       style="border: 1px solid #ddd; padding: 4px; width: 100%;">
+              </td>
+              <td>
+                <input type="number" value="${category.monthlyBudget}" data-field="monthlyBudget" 
+                       step="0.01" min="0" style="border: 1px solid #ddd; padding: 4px; width: 100%;">
+              </td>
+              <td>
+                <input type="number" value="${category.payPeriodBudget}" data-field="payPeriodBudget" 
+                       step="0.01" min="0" style="border: 1px solid #ddd; padding: 4px; width: 100%;">
+              </td>
+              <td style="text-align: right; color: #ea4335;">
+                $${category.payPeriodSpent.toFixed(2)}
+              </td>
+              <td style="text-align: right; color: ${category.remaining >= 0 ? '#34A853' : '#ea4335'};">
+                $${category.remaining.toFixed(2)}
+              </td>
+              <td>
+                <span class="status-badge status-${statusClass}" style="
+                  padding: 2px 8px; 
+                  border-radius: 12px; 
+                  font-size: 0.8em; 
+                  font-weight: 500;
+                  background: ${statusClass === 'danger' ? '#fce8e6' : statusClass === 'warning' ? '#fef7e0' : '#e6f4ea'};
+                  color: ${statusClass === 'danger' ? '#d93025' : statusClass === 'warning' ? '#f9ab00' : '#34a853'};
+                ">${statusText}</span>
+              </td>
+              <td>
+                <button class="btn btn-danger btn-sm" onclick="removeBudgetCategory(${index})" 
+                        title="Delete Category">🗑️</button>
+              </td>
+            </tr>
+          `;
+        }).join('');
+
+        tbody.innerHTML = rows;
+        addBudgetCategoryInputListeners();
+      }
+
+      function addBudgetCategoryInputListeners() {
+        const inputs = document.querySelectorAll('#budget-categories-table input');
+        inputs.forEach(input => {
+          input.addEventListener('input', (e) => {
+            const row = e.target.closest('tr');
+            const index = parseInt(row.dataset.index);
+            const field = e.target.dataset.field;
+            const value = e.target.type === 'number' ? parseFloat(e.target.value) || 0 : e.target.value;
+            
+            if (budgetCategoriesData[index]) {
+              budgetCategoriesData[index][field] = value;
+              
+              // Recalculate remaining amount if budget changed
+              if (field === 'payPeriodBudget') {
+                budgetCategoriesData[index].remaining = value - budgetCategoriesData[index].payPeriodSpent;
+                budgetCategoriesData[index].percentUsed = value > 0 ? (budgetCategoriesData[index].payPeriodSpent / value) * 100 : 0;
+              }
+            }
+          });
+        });
+      }
+
+      function addNewBudgetCategory() {
+        document.getElementById('budget-category-modal-title').textContent = 'Add New Budget Category';
+        document.getElementById('budget-category-form').reset();
+        document.getElementById('budget-category-modal').style.display = 'block';
+      }
+
+      function closeBudgetCategoryModal() {
+        document.getElementById('budget-category-modal').style.display = 'none';
+      }
+
+      function handleBudgetCategorySubmit(e) {
+        e.preventDefault();
+        
+        const name = document.getElementById('budget-category-name').value;
+        const monthlyBudget = parseFloat(document.getElementById('budget-monthly-budget').value) || 0;
+        const payPeriodBudget = parseFloat(document.getElementById('budget-pay-period-budget').value) || 0;
+        const currentSpent = parseFloat(document.getElementById('budget-current-spent').value) || 0;
+
+        const newCategory = {
+          name: name,
+          monthlyBudget: monthlyBudget,
+          currentSpent: currentSpent,
+          payPeriodBudget: payPeriodBudget,
+          payPeriodSpent: currentSpent,
+          lastReset: new Date(),
+          householdId: null,
+          remaining: payPeriodBudget - currentSpent,
+          percentUsed: payPeriodBudget > 0 ? (currentSpent / payPeriodBudget) * 100 : 0,
+          isActive: true
+        };
+
+        budgetCategoriesData.push(newCategory);
+        renderBudgetCategoriesTable();
+        closeBudgetCategoryModal();
+        showNotification('Budget category added successfully');
+      }
+
+      function removeBudgetCategory(index) {
+        const category = budgetCategoriesData[index];
+        if (confirm(`Are you sure you want to delete the "${category.name}" budget category?`)) {
+          budgetCategoriesData.splice(index, 1);
+          renderBudgetCategoriesTable();
+          showNotification('Budget category deleted');
+        }
+      }
+
+      function refreshBudgetCategories() {
+        console.log('[ADMIN BUDGET DEBUG] Refreshing budget categories...');
+        google.script.run
+          .withSuccessHandler(handleBudgetCategoriesData)
+          .withFailureHandler(handleError)
+          .getExpenseTrackerData();
+      }
+
+      function resetBudgetCategories() {
+        budgetCategoriesData = JSON.parse(JSON.stringify(originalBudgetCategoriesData));
+        renderBudgetCategoriesTable();
+        showNotification('Budget categories reset to original values');
+      }
+
+      function saveBudgetCategories() {
+        console.log('[ADMIN BUDGET DEBUG] Saving budget categories:', budgetCategoriesData);
+        
+        // Disable save button and show loading
+        const saveBtn = document.getElementById('save-budget-categories-btn');
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'Saving...';
+        
+        google.script.run
+          .withSuccessHandler(function(result) {
+            saveBtn.disabled = false;
+            saveBtn.textContent = 'Save Budget Categories';
+            
+            if (result.success) {
+              showNotification(result.message, 'success');
+              // Update original data to match current
+              originalBudgetCategoriesData = JSON.parse(JSON.stringify(budgetCategoriesData));
+            } else {
+              showNotification('Error saving budget categories: ' + result.message, 'error');
+            }
+          })
+          .withFailureHandler(function(error) {
+            console.error('[ADMIN BUDGET DEBUG] Error saving budget categories:', error);
+            saveBtn.disabled = false;
+            saveBtn.textContent = 'Save Budget Categories';
+            showNotification('Error saving budget categories: ' + error.message, 'error');
+          })
+          .saveBudgetCategoriesData(budgetCategoriesData);
+      }
+
+      function filterBudgetCategories() {
+        const searchTerm = document.getElementById('search-budget-categories').value.toLowerCase();
+        const rows = document.querySelectorAll('#budget-categories-table tbody tr');
+        
+        rows.forEach(row => {
+          const categoryName = row.querySelector('input[data-field="name"]')?.value.toLowerCase() || '';
+          const isVisible = categoryName.includes(searchTerm);
+          row.style.display = isVisible ? '' : 'none';
+        });
+      }
+
+      // --- END BUDGET CATEGORY MANAGEMENT FUNCTIONS ---
 
       // Add initialization to document ready function (or at the end of existing script)
       document.addEventListener('DOMContentLoaded', function() {

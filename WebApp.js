@@ -28,6 +28,12 @@ function doGet(e) {
       .setTitle('Budget Game Dashboard')
       .addMetaTag('viewport', 'width=device-width, initial-scale=1')
       .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+  } else if (page === 'expense') {
+    return HtmlService.createTemplateFromFile('ExpenseTracker')
+      .evaluate()
+      .setTitle('Budget Game Expense Tracker')
+      .addMetaTag('viewport', 'width=device-width, initial-scale=1')
+      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
   }
 
   // Default to the activity tracker
@@ -1658,5 +1664,366 @@ function runGoalsDiagnostic() {
       issues: [`Diagnostic failed: ${error.message}`],
       recommendations: ["Contact support or check system logs"]
     };
+  }
+}
+
+// --- EXPENSE TRACKER API FUNCTIONS ---
+
+/**
+ * Gets expense tracker data including budget categories and location mappings
+ * Called by ExpenseTracker.html
+ * @return {Object} Expense tracker data for the current user's household
+ */
+function getExpenseTrackerData() {
+  try {
+    const email = Session.getEffectiveUser().getEmail();
+    const householdId = getUserHouseholdId(email);
+    let householdEmails = [];
+    let householdName = null;
+
+    if (householdId && CONFIG.HOUSEHOLD_SETTINGS.ENABLED) {
+      householdEmails = getHouseholdEmails(householdId);
+      householdName = getHouseholdName(householdId);
+    } else {
+      householdEmails = [email];
+    }
+
+    // Get expense data using the caching functions from DataProcessing.js
+    const expenseData = getExpenseDataCached(householdId);
+    
+    return {
+      success: true,
+      budgetCategories: expenseData.budgetCategories,
+      locationMappings: expenseData.locationMappings,
+      householdId: householdId,
+      householdName: householdName,
+      members: householdEmails,
+      currentPayPeriod: getCurrentPayPeriod()
+    };
+  } catch (error) {
+    Logger.log(`Error in getExpenseTrackerData: ${error}\nStack: ${error.stack}`);
+    return {
+      success: false,
+      message: `Error loading expense data: ${error.message}`,
+      budgetCategories: { categories: [], categoriesById: {}, totalBudget: 0, totalSpent: 0 },
+      locationMappings: { locations: [], locationsByName: {} }
+    };
+  }
+}
+
+/**
+ * Submits a new expense entry
+ * Called by ExpenseTracker.html
+ * @param {number} amount The expense amount
+ * @param {string} location The store/location name
+ * @param {string} category The budget category
+ * @param {string} description Optional description
+ * @return {Object} Result object with success status and updated budget info
+ */
+function submitExpense(amount, location, category, description = "") {
+  try {
+    // Validate inputs
+    if (!amount || isNaN(amount) || amount <= 0) {
+      return { success: false, message: "Invalid amount provided" };
+    }
+    
+    if (!location || typeof location !== 'string' || location.trim() === '') {
+      return { success: false, message: "Location is required" };
+    }
+    
+    if (!category || typeof category !== 'string' || category.trim() === '') {
+      return { success: false, message: "Category is required" };
+    }
+
+    const email = Session.getEffectiveUser().getEmail();
+    const householdId = getUserHouseholdId(email);
+    
+    // Process the expense entry using DataProcessing.js function
+    const result = processExpenseEntry(
+      Number(amount), 
+      location.trim(), 
+      category.trim(), 
+      description.trim(), 
+      email, 
+      householdId
+    );
+
+    if (result.success) {
+      // Get updated budget data for the response
+      const updatedData = getExpenseTrackerData();
+      result.budgetCategories = updatedData.budgetCategories;
+    }
+
+    return result;
+  } catch (error) {
+    Logger.log(`Error in submitExpense: ${error}\nStack: ${error.stack}`);
+    return {
+      success: false,
+      message: `Error submitting expense: ${error.message}`
+    };
+  }
+}
+
+/**
+ * Gets current budget status for all categories
+ * Called by ExpenseTracker.html for real-time budget updates
+ * @return {Object} Current budget status data
+ */
+function getBudgetStatus() {
+  try {
+    const email = Session.getEffectiveUser().getEmail();
+    const householdId = getUserHouseholdId(email);
+    
+    const expenseData = getExpenseDataCached(householdId);
+    
+    return {
+      success: true,
+      budgetCategories: expenseData.budgetCategories,
+      currentPayPeriod: getCurrentPayPeriod()
+    };
+  } catch (error) {
+    Logger.log(`Error in getBudgetStatus: ${error}\nStack: ${error.stack}`);
+    return {
+      success: false,
+      message: `Error getting budget status: ${error.message}`,
+      budgetCategories: { categories: [], categoriesById: {}, totalBudget: 0, totalSpent: 0 }
+    };
+  }
+}
+
+/**
+ * Suggests a category for a given location based on location mappings
+ * Called by ExpenseTracker.html for auto-category selection
+ * @param {string} locationName The location/store name to get suggestions for
+ * @return {Object} Suggested category information
+ */
+function suggestCategoryForLocation(locationName) {
+  try {
+    if (!locationName || typeof locationName !== 'string') {
+      return { success: false, message: "Invalid location name" };
+    }
+
+    const email = Session.getEffectiveUser().getEmail();
+    const householdId = getUserHouseholdId(email);
+    
+    const expenseData = getExpenseDataCached(householdId);
+    const locationData = expenseData.locationMappings.locationsByName[locationName.toLowerCase()];
+    
+    if (locationData) {
+      return {
+        success: true,
+        suggestedCategory: locationData.defaultCategory,
+        usageCount: locationData.usageCount,
+        lastUsed: locationData.lastUsed,
+        confidence: locationData.isSuggested ? 'high' : 'low'
+      };
+    } else {
+      // Try fuzzy matching for similar location names
+      const locations = expenseData.locationMappings.locations;
+      const fuzzyMatch = locations.find(loc => 
+        loc.name.toLowerCase().includes(locationName.toLowerCase()) ||
+        locationName.toLowerCase().includes(loc.name.toLowerCase())
+      );
+      
+      if (fuzzyMatch) {
+        return {
+          success: true,
+          suggestedCategory: fuzzyMatch.defaultCategory,
+          usageCount: fuzzyMatch.usageCount,
+          lastUsed: fuzzyMatch.lastUsed,
+          confidence: 'medium',
+          matchedLocation: fuzzyMatch.name
+        };
+      }
+    }
+    
+    return {
+      success: false,
+      message: "No category suggestion found for this location"
+    };
+  } catch (error) {
+    Logger.log(`Error in suggestCategoryForLocation: ${error}\nStack: ${error.stack}`);
+    return {
+      success: false,
+      message: `Error getting category suggestion: ${error.message}`
+    };
+  }
+}
+
+/**
+ * Resets/finalizes the current pay period budgets
+ * Called by ExpenseTracker.html for pay period management
+ * @return {Object} Result object with reset status and summary
+ */
+function resetPayPeriod() {
+  try {
+    const email = Session.getEffectiveUser().getEmail();
+    const householdId = getUserHouseholdId(email);
+    
+    if (!householdId) {
+      return { success: false, message: "No household found for current user" };
+    }
+    
+    // Reset the pay period budgets using DataProcessing.js function
+    const result = resetPayPeriodBudgets(householdId);
+    
+    if (result.success) {
+      // Get updated data for the response
+      const updatedData = getExpenseTrackerData();
+      result.budgetCategories = updatedData.budgetCategories;
+      result.newPayPeriod = getCurrentPayPeriod();
+    }
+    
+    return result;
+  } catch (error) {
+    Logger.log(`Error in resetPayPeriod: ${error}\nStack: ${error.stack}`);
+    return {
+      success: false,
+      message: `Error resetting pay period: ${error.message}`
+    };
+  }
+}
+
+/**
+ * Gets recent expense entries for the current household
+ * Called by ExpenseTracker.html for showing recent activity
+ * @param {number} limit Optional limit on number of entries to return (default: 10)
+ * @return {Object} Recent expense entries data
+ */
+function getRecentExpenses(limit = 10) {
+  try {
+    const email = Session.getEffectiveUser().getEmail();
+    const householdId = getUserHouseholdId(email);
+    let householdEmails = [];
+
+    if (householdId && CONFIG.HOUSEHOLD_SETTINGS.ENABLED) {
+      householdEmails = getHouseholdEmails(householdId);
+    } else {
+      householdEmails = [email];
+    }
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName(CONFIG.SHEET_NAMES.EXPENSE_TRACKER);
+    
+    if (!sheet) {
+      return {
+        success: true,
+        expenses: [],
+        message: "No expense data found"
+      };
+    }
+
+    const lastRow = sheet.getLastRow();
+    if (lastRow < 2) {
+      return {
+        success: true,
+        expenses: [],
+        message: "No expenses recorded yet"
+      };
+    }
+
+    // Get recent entries (columns: Date, Amount, Location, Category, Description, Email, HouseholdID, PayPeriod)
+    const startRow = Math.max(2, lastRow - limit + 1);
+    const numRows = lastRow - startRow + 1;
+    const data = sheet.getRange(startRow, 1, numRows, 8).getValues();
+    
+    const expenses = [];
+    data.reverse().forEach((row, index) => { // Reverse to get most recent first
+      const rowEmail = row[5] || "";
+      const rowHouseholdId = row[6] || "";
+      
+      // Filter by household membership
+      if (householdEmails.some(he => he.toLowerCase() === rowEmail.toLowerCase()) ||
+          (householdId && rowHouseholdId === householdId)) {
+        expenses.push({
+          date: row[0],
+          amount: row[1],
+          location: row[2],
+          category: row[3],
+          description: row[4],
+          email: rowEmail,
+          payPeriod: row[7],
+          rowIndex: lastRow - index // For potential future editing
+        });
+      }
+    });
+
+    return {
+      success: true,
+      expenses: expenses.slice(0, limit), // Ensure we don't exceed the limit
+      totalCount: expenses.length
+    };
+  } catch (error) {
+    Logger.log(`Error in getRecentExpenses: ${error}\nStack: ${error.stack}`);
+    return {
+      success: false,
+      message: `Error getting recent expenses: ${error.message}`,
+      expenses: []
+    };
+  }
+}
+
+/**
+ * Saves budget category configurations from the Admin panel
+ * Called by Admin.html
+ * @param {Array} categories Array of budget category objects
+ * @return {Object} Result object with success status
+ */
+function saveBudgetCategoriesData(categories) {
+  if (!isCurrentUserAdmin()) {
+    return { success: false, message: "Admin privileges required." };
+  }
+  
+  if (!Array.isArray(categories)) {
+    return { success: false, message: "Invalid categories data" };
+  }
+
+  try {
+    const email = Session.getEffectiveUser().getEmail();
+    const householdId = getUserHouseholdId(email);
+    
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    let sheet = ss.getSheetByName(CONFIG.SHEET_NAMES.BUDGET_CATEGORIES);
+
+    if (!sheet) {
+      setupBudgetCategoriesSheet();
+      sheet = ss.getSheetByName(CONFIG.SHEET_NAMES.BUDGET_CATEGORIES);
+      if (!sheet) {
+        return { success: false, message: "Budget Categories sheet could not be found or created." };
+      }
+    }
+
+    // Clear existing data (except header)
+    const lastRow = sheet.getLastRow();
+    if (lastRow > 1) {
+      sheet.getRange(2, 1, lastRow - 1, 8).clearContent();
+    }
+
+    // Write new data if any exists
+    if (categories.length > 0) {
+      const newData = categories.map(category => [
+        category.name || "",
+        typeof category.monthlyBudget === 'number' ? category.monthlyBudget : 0,
+        typeof category.currentSpent === 'number' ? category.currentSpent : 0,
+        typeof category.payPeriodBudget === 'number' ? category.payPeriodBudget : 0,
+        typeof category.payPeriodSpent === 'number' ? category.payPeriodSpent : 0,
+        category.lastReset instanceof Date ? category.lastReset : new Date(),
+        householdId || null,
+        category.isActive !== false // Default to true
+      ]);
+      
+      sheet.getRange(2, 1, newData.length, 8).setValues(newData);
+    }
+
+    // Clear cache to force refresh
+    resetExpenseDataCache();
+
+    return {
+      success: true,
+      message: `Saved ${categories.length} budget categories successfully`
+    };
+  } catch (error) {
+    Logger.log(`Error saving budget categories: ${error}\nStack: ${error.stack}`);
+    return { success: false, message: `Error saving: ${error.message}` };
   }
 }

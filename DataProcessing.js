@@ -1449,3 +1449,520 @@ function editIndividualActivity(rowIndex, activityId, expectedDate, expectedEmai
     };
   }
 }
+
+// --- EXPENSE TRACKER DATA PROCESSING FUNCTIONS ---
+
+/**
+ * Global cache variable for expense-related data
+ */
+let expenseDataCache = null;
+
+/**
+ * Resets the expense data cache (both script-global and CacheService)
+ */
+function resetExpenseDataCache() {
+  expenseDataCache = null;
+  try {
+    const cache = CacheService.getScriptCache();
+    cache.remove('expenseData');
+    cache.remove('budgetCategoriesData');
+    cache.remove('locationMappingData');
+    Logger.log("Expense data caches reset.");
+  } catch (e) {
+    Logger.log(`Warning: Error clearing expense data from CacheService: ${e}`);
+  }
+}
+
+/**
+ * Reads budget category data from the Budget Categories sheet
+ * @param {string} householdId Optional household ID to filter by
+ * @return {Object} Budget categories data with current spending and limits
+ */
+function readBudgetCategoriesData(householdId = null) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheetName = CONFIG.SHEET_NAMES.BUDGET_CATEGORIES;
+  let sheet = ss.getSheetByName(sheetName);
+
+  if (!sheet) {
+    Logger.log(`${sheetName} not found, attempting to set up.`);
+    setupBudgetCategoriesSheet();
+    sheet = ss.getSheetByName(sheetName);
+    if (!sheet) {
+      Logger.log(`FATAL: Failed to create or find ${sheetName}.`);
+      return { categories: [], categoriesById: {}, totalBudget: 0, totalSpent: 0 };
+    }
+  }
+
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) {
+    Logger.log(`No budget categories found in ${sheetName}.`);
+    return { categories: [], categoriesById: {}, totalBudget: 0, totalSpent: 0 };
+  }
+
+  try {
+    // Columns: CategoryName, MonthlyBudget, CurrentSpent, PayPeriodBudget, PayPeriodSpent, LastReset, HouseholdID, IsActive
+    const dataRange = sheet.getRange(2, 1, lastRow - 1, 8);
+    const data = dataRange.getValues();
+    const categories = [];
+    const categoriesById = {};
+    let totalBudget = 0;
+    let totalSpent = 0;
+
+    data.forEach((row, index) => {
+      const categoryName = String(row[0]).trim();
+      const monthlyBudget = typeof row[1] === 'number' ? row[1] : (row[1] !== "" && !isNaN(row[1]) ? Number(row[1]) : 0);
+      const currentSpent = typeof row[2] === 'number' ? row[2] : (row[2] !== "" && !isNaN(row[2]) ? Number(row[2]) : 0);
+      const payPeriodBudget = typeof row[3] === 'number' ? row[3] : (row[3] !== "" && !isNaN(row[3]) ? Number(row[3]) : 0);
+      const payPeriodSpent = typeof row[4] === 'number' ? row[4] : (row[4] !== "" && !isNaN(row[4]) ? Number(row[4]) : 0);
+      const lastReset = row[5] instanceof Date ? row[5] : null;
+      const categoryHouseholdId = row[6] ? String(row[6]).trim() : null;
+      const isActive = row[7] === true || row[7] === "TRUE" || row[7] === "true";
+
+      // Filter by household if specified
+      if (householdId && categoryHouseholdId && categoryHouseholdId !== householdId) {
+        return; // Skip this category
+      }
+
+      if (categoryName && isActive) {
+        const categoryData = {
+          name: categoryName,
+          monthlyBudget: monthlyBudget,
+          currentSpent: currentSpent,
+          payPeriodBudget: payPeriodBudget,
+          payPeriodSpent: payPeriodSpent,
+          lastReset: lastReset,
+          householdId: categoryHouseholdId,
+          remaining: payPeriodBudget - payPeriodSpent,
+          percentUsed: payPeriodBudget > 0 ? (payPeriodSpent / payPeriodBudget) * 100 : 0,
+          rowIndex: index + 2 // Sheet row number for updates
+        };
+
+        categories.push(categoryData);
+        categoriesById[categoryName] = categoryData;
+        totalBudget += payPeriodBudget;
+        totalSpent += payPeriodSpent;
+      }
+    });
+
+    return { 
+      categories: categories, 
+      categoriesById: categoriesById, 
+      totalBudget: totalBudget, 
+      totalSpent: totalSpent,
+      totalRemaining: totalBudget - totalSpent
+    };
+  } catch (error) {
+    Logger.log(`Error reading budget categories data: ${error}\nStack: ${error.stack}`);
+    return { categories: [], categoriesById: {}, totalBudget: 0, totalSpent: 0 };
+  }
+}
+
+/**
+ * Reads location mapping data from the Location Mapping sheet
+ * @param {string} householdId Optional household ID to filter by
+ * @return {Object} Location mappings and usage data
+ */
+function readLocationMappingData(householdId = null) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheetName = CONFIG.SHEET_NAMES.LOCATION_MAPPING;
+  let sheet = ss.getSheetByName(sheetName);
+
+  if (!sheet) {
+    Logger.log(`${sheetName} not found, attempting to set up.`);
+    setupLocationMappingSheet();
+    sheet = ss.getSheetByName(sheetName);
+    if (!sheet) {
+      Logger.log(`FATAL: Failed to create or find ${sheetName}.`);
+      return { locations: [], locationsByName: {} };
+    }
+  }
+
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) {
+    Logger.log(`No location mappings found in ${sheetName}.`);
+    return { locations: [], locationsByName: {} };
+  }
+
+  try {
+    // Columns: LocationName, DefaultCategory, UsageCount, LastUsed, HouseholdID, IsActive
+    const dataRange = sheet.getRange(2, 1, lastRow - 1, 6);
+    const data = dataRange.getValues();
+    const locations = [];
+    const locationsByName = {};
+
+    data.forEach((row, index) => {
+      const locationName = String(row[0]).trim();
+      const defaultCategory = String(row[1]).trim();
+      const usageCount = typeof row[2] === 'number' ? row[2] : (row[2] !== "" && !isNaN(row[2]) ? Number(row[2]) : 0);
+      const lastUsed = row[3] instanceof Date ? row[3] : null;
+      const locationHouseholdId = row[4] ? String(row[4]).trim() : null;
+      const isActive = row[5] === true || row[5] === "TRUE" || row[5] === "true";
+
+      // Filter by household if specified
+      if (householdId && locationHouseholdId && locationHouseholdId !== householdId) {
+        return; // Skip this location
+      }
+
+      if (locationName && isActive) {
+        const locationData = {
+          name: locationName,
+          defaultCategory: defaultCategory,
+          usageCount: usageCount,
+          lastUsed: lastUsed,
+          householdId: locationHouseholdId,
+          rowIndex: index + 2, // Sheet row number for updates
+          isSuggested: usageCount >= CONFIG.EXPENSE_SETTINGS.LOCATION_LEARNING_THRESHOLD
+        };
+
+        locations.push(locationData);
+        locationsByName[locationName.toLowerCase()] = locationData;
+      }
+    });
+
+    return { 
+      locations: locations, 
+      locationsByName: locationsByName
+    };
+  } catch (error) {
+    Logger.log(`Error reading location mapping data: ${error}\nStack: ${error.stack}`);
+    return { locations: [], locationsByName: {} };
+  }
+}
+
+/**
+ * Caching wrapper for expense-related data
+ * @param {string} householdId Optional household ID for filtering
+ * @return {Object} Complete expense data including budget categories and location mappings
+ */
+function getExpenseDataCached(householdId = null) {
+  const cacheKey = `expenseData_${householdId || 'default'}`;
+  
+  // Check script-global cache first
+  if (expenseDataCache && expenseDataCache[cacheKey]) {
+    return expenseDataCache[cacheKey];
+  }
+
+  // Check CacheService
+  try {
+    const cache = CacheService.getScriptCache();
+    const cachedJson = cache.get(cacheKey);
+    if (cachedJson) {
+      const parsedData = JSON.parse(cachedJson);
+      if (parsedData && parsedData.budgetCategories && parsedData.locationMappings) {
+        // Initialize script cache if needed
+        if (!expenseDataCache) expenseDataCache = {};
+        expenseDataCache[cacheKey] = parsedData;
+        return parsedData;
+      }
+    }
+  } catch (e) {
+    Logger.log(`Error reading expense data from cache: ${e}`);
+  }
+
+  // Fetch fresh data
+  const budgetCategories = readBudgetCategoriesData(householdId);
+  const locationMappings = readLocationMappingData(householdId);
+  
+  const expenseData = {
+    budgetCategories: budgetCategories,
+    locationMappings: locationMappings,
+    lastUpdated: new Date()
+  };
+
+  // Cache the results
+  try {
+    if (!expenseDataCache) expenseDataCache = {};
+    expenseDataCache[cacheKey] = expenseData;
+    
+    const cache = CacheService.getScriptCache();
+    cache.put(cacheKey, JSON.stringify(expenseData), CONFIG.EXPENSE_SETTINGS.CACHE_TIME);
+  } catch (e) {
+    Logger.log(`Error caching expense data: ${e}`);
+  }
+
+  return expenseData;
+}
+
+/**
+ * Processes and logs an expense entry to the Expense Tracker sheet
+ * @param {number} amount The expense amount
+ * @param {string} location The store/location name
+ * @param {string} category The budget category
+ * @param {string} description Optional description
+ * @param {string} email User's email
+ * @param {string} householdId User's household ID
+ * @return {Object} Result object with success status and updated budget info
+ */
+function processExpenseEntry(amount, location, category, description = "", email, householdId) {
+  try {
+    const timestamp = new Date();
+    const payPeriod = getCurrentPayPeriod(); // Helper function to calculate current pay period
+
+    // Log the expense
+    const logResult = logExpenseToSheet(timestamp, amount, location, category, description, email, householdId, payPeriod);
+    if (!logResult.success) {
+      return logResult;
+    }
+
+    // Update budget category spending
+    const budgetUpdateResult = updateBudgetCategorySpending(category, amount, householdId);
+    
+    // Update location mapping usage
+    updateLocationMappingUsage(location, category, householdId);
+
+    // Clear cache to reflect changes
+    resetExpenseDataCache();
+
+    return {
+      success: true,
+      amount: amount,
+      location: location,
+      category: category,
+      remainingBudget: budgetUpdateResult.remainingBudget,
+      percentUsed: budgetUpdateResult.percentUsed,
+      message: `Expense of $${amount.toFixed(2)} logged successfully at ${location}`
+    };
+  } catch (error) {
+    Logger.log(`Error processing expense entry: ${error}\nStack: ${error.stack}`);
+    return {
+      success: false,
+      message: `Error processing expense: ${error.message}`
+    };
+  }
+}
+
+/**
+ * Logs an expense entry to the Expense Tracker sheet
+ * @private
+ */
+function logExpenseToSheet(timestamp, amount, location, category, description, email, householdId, payPeriod) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    let sheet = ss.getSheetByName(CONFIG.SHEET_NAMES.EXPENSE_TRACKER);
+    
+    if (!sheet) {
+      setupExpenseTrackerSheet();
+      sheet = ss.getSheetByName(CONFIG.SHEET_NAMES.EXPENSE_TRACKER);
+      if (!sheet) {
+        return { success: false, message: "Could not create Expense Tracker sheet" };
+      }
+    }
+
+    // Add the expense entry
+    const rowData = [timestamp, amount, location, category, description, email, householdId, payPeriod];
+    sheet.appendRow(rowData);
+
+    Logger.log(`Expense logged: $${amount} at ${location} (${category}) for ${email}`);
+    return { success: true };
+  } catch (error) {
+    Logger.log(`Error logging expense to sheet: ${error}\nStack: ${error.stack}`);
+    return { success: false, message: `Error logging expense: ${error.message}` };
+  }
+}
+
+/**
+ * Updates budget category spending amounts
+ * @private
+ */
+function updateBudgetCategorySpending(categoryName, amount, householdId) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName(CONFIG.SHEET_NAMES.BUDGET_CATEGORIES);
+    
+    if (!sheet) {
+      return { success: false, message: "Budget Categories sheet not found" };
+    }
+
+    const lastRow = sheet.getLastRow();
+    if (lastRow < 2) {
+      return { success: false, message: "No budget categories found" };
+    }
+
+    // Find the category row
+    const data = sheet.getRange(2, 1, lastRow - 1, 8).getValues();
+    let targetRowIndex = -1;
+
+    data.forEach((row, index) => {
+      const name = String(row[0]).trim();
+      const rowHouseholdId = row[6] ? String(row[6]).trim() : null;
+      
+      if (name === categoryName && (!householdId || !rowHouseholdId || rowHouseholdId === householdId)) {
+        targetRowIndex = index + 2; // Sheet row number
+      }
+    });
+
+    if (targetRowIndex === -1) {
+      return { success: false, message: `Budget category '${categoryName}' not found` };
+    }
+
+    // Update spending amounts
+    const currentSpentCell = sheet.getRange(targetRowIndex, 3); // Column C
+    const payPeriodSpentCell = sheet.getRange(targetRowIndex, 5); // Column E
+    const payPeriodBudgetCell = sheet.getRange(targetRowIndex, 4); // Column D
+
+    const currentSpent = currentSpentCell.getValue() || 0;
+    const payPeriodSpent = payPeriodSpentCell.getValue() || 0;
+    const payPeriodBudget = payPeriodBudgetCell.getValue() || 0;
+
+    const newCurrentSpent = currentSpent + amount;
+    const newPayPeriodSpent = payPeriodSpent + amount;
+
+    currentSpentCell.setValue(newCurrentSpent);
+    payPeriodSpentCell.setValue(newPayPeriodSpent);
+
+    const remainingBudget = payPeriodBudget - newPayPeriodSpent;
+    const percentUsed = payPeriodBudget > 0 ? (newPayPeriodSpent / payPeriodBudget) * 100 : 0;
+
+    return {
+      success: true,
+      remainingBudget: remainingBudget,
+      percentUsed: percentUsed,
+      newSpent: newPayPeriodSpent,
+      budget: payPeriodBudget
+    };
+  } catch (error) {
+    Logger.log(`Error updating budget category spending: ${error}\nStack: ${error.stack}`);
+    return { success: false, message: `Error updating budget: ${error.message}` };
+  }
+}
+
+/**
+ * Updates location mapping usage statistics
+ * @private
+ */
+function updateLocationMappingUsage(locationName, category, householdId) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName(CONFIG.SHEET_NAMES.LOCATION_MAPPING);
+    
+    if (!sheet) {
+      return; // Not critical if this fails
+    }
+
+    const lastRow = sheet.getLastRow();
+    if (lastRow < 2) {
+      // Add new location if sheet is empty
+      addNewLocationMapping(locationName, category, householdId);
+      return;
+    }
+
+    // Find existing location
+    const data = sheet.getRange(2, 1, lastRow - 1, 6).getValues();
+    let targetRowIndex = -1;
+
+    data.forEach((row, index) => {
+      const name = String(row[0]).trim().toLowerCase();
+      const rowHouseholdId = row[4] ? String(row[4]).trim() : null;
+      
+      if (name === locationName.toLowerCase() && (!householdId || !rowHouseholdId || rowHouseholdId === householdId)) {
+        targetRowIndex = index + 2; // Sheet row number
+      }
+    });
+
+    if (targetRowIndex !== -1) {
+      // Update existing location
+      const usageCountCell = sheet.getRange(targetRowIndex, 3); // Column C
+      const lastUsedCell = sheet.getRange(targetRowIndex, 4); // Column D
+      
+      const currentUsage = usageCountCell.getValue() || 0;
+      usageCountCell.setValue(currentUsage + 1);
+      lastUsedCell.setValue(new Date());
+    } else {
+      // Add new location
+      addNewLocationMapping(locationName, category, householdId);
+    }
+  } catch (error) {
+    Logger.log(`Error updating location mapping usage: ${error}`);
+    // Not critical enough to fail the whole expense entry
+  }
+}
+
+/**
+ * Adds a new location mapping entry
+ * @private
+ */
+function addNewLocationMapping(locationName, category, householdId) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName(CONFIG.SHEET_NAMES.LOCATION_MAPPING);
+    
+    if (!sheet) {
+      return;
+    }
+
+    const rowData = [locationName, category, 1, new Date(), householdId, true];
+    sheet.appendRow(rowData);
+    
+    Logger.log(`Added new location mapping: ${locationName} -> ${category}`);
+  } catch (error) {
+    Logger.log(`Error adding new location mapping: ${error}`);
+  }
+}
+
+/**
+ * Calculates the current pay period identifier
+ * @return {string} Pay period identifier (e.g., "2024-01-P1")
+ */
+function getCurrentPayPeriod() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth() + 1; // JavaScript months are 0-based
+  const dayOfMonth = now.getDate();
+  
+  // Determine if we're in the first or second half of the month
+  const periodNumber = dayOfMonth <= 15 ? 1 : 2;
+  
+  return `${year}-${month.toString().padStart(2, '0')}-P${periodNumber}`;
+}
+
+/**
+ * Resets budget spending for a new pay period
+ * @param {string} householdId The household ID to reset budgets for
+ * @return {Object} Result object with success status
+ */
+function resetPayPeriodBudgets(householdId) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName(CONFIG.SHEET_NAMES.BUDGET_CATEGORIES);
+    
+    if (!sheet) {
+      return { success: false, message: "Budget Categories sheet not found" };
+    }
+
+    const lastRow = sheet.getLastRow();
+    if (lastRow < 2) {
+      return { success: false, message: "No budget categories found" };
+    }
+
+    const data = sheet.getRange(2, 1, lastRow - 1, 8).getValues();
+    let resetCount = 0;
+
+    data.forEach((row, index) => {
+      const rowHouseholdId = row[6] ? String(row[6]).trim() : null;
+      
+      if (!householdId || !rowHouseholdId || rowHouseholdId === householdId) {
+        const rowIndex = index + 2;
+        
+        // Reset PayPeriodSpent (Column E) to 0
+        sheet.getRange(rowIndex, 5).setValue(0);
+        
+        // Update LastReset (Column F) to current date
+        sheet.getRange(rowIndex, 6).setValue(new Date());
+        
+        resetCount++;
+      }
+    });
+
+    // Clear cache
+    resetExpenseDataCache();
+
+    return {
+      success: true,
+      message: `Reset ${resetCount} budget categories for new pay period`,
+      categoriesReset: resetCount
+    };
+  } catch (error) {
+    Logger.log(`Error resetting pay period budgets: ${error}\nStack: ${error.stack}`);
+    return { success: false, message: `Error resetting budgets: ${error.message}` };
+  }
+}

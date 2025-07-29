@@ -87,6 +87,55 @@ function setupGoalsMenu() {
   }
 }
 
+function setupExpenseTrackerMenu() {
+  const ui = SpreadsheetApp.getUi();
+  try {
+    // setupExpenseTrackerSheet is in SheetSetup.gs
+    setupExpenseTrackerSheet();
+    ui.alert('Expense Tracker sheet setup complete.');
+  } catch (e) {
+    Logger.log(`Error setting up expense tracker from menu: ${e}`);
+    ui.alert(`Error setting up Expense Tracker: ${e.message}`);
+  }
+}
+
+function setupBudgetCategoriesMenu() {
+  const ui = SpreadsheetApp.getUi();
+  try {
+    // setupBudgetCategoriesSheet is in SheetSetup.gs
+    setupBudgetCategoriesSheet();
+    ui.alert('Budget Categories sheet setup complete.');
+  } catch (e) {
+    Logger.log(`Error setting up budget categories from menu: ${e}`);
+    ui.alert(`Error setting up Budget Categories: ${e.message}`);
+  }
+}
+
+function setupLocationMappingMenu() {
+  const ui = SpreadsheetApp.getUi();
+  try {
+    // setupLocationMappingSheet is in SheetSetup.gs
+    setupLocationMappingSheet();
+    ui.alert('Location Mapping sheet setup complete.');
+  } catch (e) {
+    Logger.log(`Error setting up location mapping from menu: ${e}`);
+    ui.alert(`Error setting up Location Mapping: ${e.message}`);
+  }
+}
+
+function setupAllExpenseSheetsMenu() {
+  const ui = SpreadsheetApp.getUi();
+  try {
+    setupExpenseTrackerSheet();
+    setupBudgetCategoriesSheet();
+    setupLocationMappingSheet();
+    ui.alert('All expense tracking sheets setup complete.');
+  } catch (e) {
+    Logger.log(`Error setting up all expense sheets from menu: ${e}`);
+    ui.alert(`Error setting up expense sheets: ${e.message}`);
+  }
+}
+
 
 // --- Maintenance Wrappers ---
 function setupAllTriggersMenu() {

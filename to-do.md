@@ -1,31 +1,3 @@
-## ✅ FIXED "Goals" LOADING 
-**COMPLETED**: Fixed the Goals loading issue through comprehensive debugging and improvements:
-
-### What was fixed:
-- **Root Cause**: Goals were being saved to the Goals sheet but not loading in the Dashboard due to household ID association issues
-- **Debug Logging**: Added comprehensive logging throughout the Goals loading data flow (getUserHouseholdId → getGoalsByHousehold → calculateHouseholdGoals)
-- **Auto-Household Creation**: Added `ensureUserHasHousehold()` function to automatically create household associations when missing
-- **Fallback Logic**: Added functions to detect and fix orphaned goals (goals without proper household associations)
-- **Enhanced Error Messaging**: Improved Dashboard error messages with specific diagnostics and actionable steps
-- **Diagnostic Tool**: Added "Run Diagnostic" button that shows detailed information about Goals loading status
-
-### Technical improvements made:
-1. **Enhanced `getDetailedGoalData()`** - Now auto-creates household if missing
-2. **Enhanced `createGoal()`** - Added detailed logging and validation
-3. **Enhanced `getUserHouseholdId()`** - Added comprehensive debug logging
-4. **Enhanced `getGoalsByHousehold()`** - Added logging and household ID debugging
-5. **Added `getOrphanedGoals()`** - Identifies goals without household associations
-6. **Added `assignOrphanedGoalsToHousehold()`** - Fixes orphaned goals
-7. **Added `runGoalsDiagnostic()`** - Comprehensive diagnostic tool
-8. **Enhanced Dashboard UI** - Better error messages and diagnostic interface
-
-### How it works now:
-- When you save a goal, it's properly associated with your household ID
-- When you reload the app, it can find your household and retrieve your goals
-- If household setup is missing, it's automatically created
-- If goals exist but aren't associated, the diagnostic tool helps identify and fix the issue
-- Enhanced error messages guide users through troubleshooting steps
-
 ## ADD "Expense Tracker" VIEW
 The main landing page for this app should be an "Expense Tracker" view with the following features:
   [ ] Chips/Buttons for the most common stores (These stores are linked to a specific budget category, i.e. "Misc." or "Grocery" or "Gas")
@@ -42,7 +14,7 @@ The main landing page for this app should be an "Expense Tracker" view with the 
   [ ] The apps script should look for the correct tab by name and if it doesn't exist, it should automatically be created with the correct data mapping set up.
 
 ## MORNING GOAL SETTING FOR HABITS
-For the positive habits (basically anything except the Negative category from the "Points Reference" tab of the spreadsheet), I'd like a way to select the ones I hope to achieve that day, receiving a bonus for the ones I do complete and a penalty for the ones I don't.
+For the positive habits (basically anything except the Negative category from the "Points Reference" tab of the spreadsheet), I'd like a way to select the ones I hope to achieve that day, receiving a bonus for the ones I do complete and a penalty for the ones I don't.  This likely needs to be its own view in the web app, as I'm not sure how it integrates iwth the currently existing views.
   [ ] This needs to be very easy and well organized.  The selections I make for the daily goal need to lock at like 9am or something so it's not so easy to go back on my goal, you know?
   [ ] There should be an email encouragement or something around dinner time that looks at the habits that have not yet been selected (this relates to the update below) and emails the users of the household a friendly nudge about which ones they have yet to complete.
   [ ] There should be some type of reward for completing all, and then some kind of reduction for any of them that are not completed.
@@ -56,3 +28,6 @@ Currently the app requires a user to select their habits in the web app and clic
   [ ] Auto-submission of selected habits at 10pm
   [ ] All household members should see the same habits selected (if household member 1 selects exercise, whne household member 2 loads the web app, exercise is selected, etc.)
   [ ] Ensure households only have one submission per household (even though household members 1 and 2 load the web app and see the same habits, we cannot have both members submit because then it will duplicate the submissions.  Household member 1 should be the one that gets submitted, but Household member 2 needs the ability to select/deselect activies.)
+
+## VISUAL GOAL TRACKER ADDED TO "DASHBOARD" VIEW
+Currently, the add/edit/delete goal --and-- visual goal tracker information is all in the Admin page.  I need the editing info in the admin view, but the visual goal tracker (with the meter, etc.) in the dashboard so I can visually track my goal progress while viewing the rest of the data visualizations in the dashboard view.

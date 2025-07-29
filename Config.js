@@ -14,6 +14,9 @@ const CONFIG = {
     POINTS_REFERENCE: "Points Reference",
     HOUSEHOLDS: "Households",
     GOALS: "Goals",
+    EXPENSE_TRACKER: "Expense Tracker",
+    BUDGET_CATEGORIES: "Budget Categories",
+    LOCATION_MAPPING: "Location Mapping",
     // FORM_RESPONSES: "Form Responses 1" // Obsolete if not reading directly
   },
 
@@ -90,6 +93,14 @@ const CONFIG = {
     CACHE_TIME: 300, // 5 minutes cache for goal data
     MAX_GOALS_PER_HOUSEHOLD: 10,
     DEFAULT_GOAL_DURATION_MONTHS: 12
+  },
+  EXPENSE_SETTINGS: {
+    CACHE_TIME: 600, // 10 minutes cache for expense data
+    DEFAULT_PAY_PERIOD_DAYS: 14, // Default pay period length
+    AUTO_SAVE_DELAY: 2000, // 2 seconds delay for auto-save
+    MAX_LOCATIONS_PER_HOUSEHOLD: 50, // Max stored locations
+    DEFAULT_BUDGET_CATEGORIES: ["Groceries", "Gas", "Shopping", "Dining", "Utilities", "Entertainment"],
+    LOCATION_LEARNING_THRESHOLD: 3 // Times location used before it becomes a suggestion
   },
   STREAK_THRESHOLDS: { // Days required for bonuses - Defaults used if PropertiesService empty
     BONUS_1: 3, // +1 point

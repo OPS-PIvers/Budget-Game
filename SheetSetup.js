@@ -363,3 +363,279 @@ function setupGoalsSheet() {
   
   return sheet;
 }
+
+/**
+ * Sets up the Expense Tracker sheet with correct headers and formatting.
+ * Creates the sheet if it doesn't exist.
+ * @return {Sheet} The Expense Tracker sheet object
+ */
+function setupExpenseTrackerSheet() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheetName = CONFIG.SHEET_NAMES.EXPENSE_TRACKER;
+  let sheet = ss.getSheetByName(sheetName);
+  let createdNew = false;
+
+  if (!sheet) {
+    sheet = ss.insertSheet(sheetName);
+    createdNew = true;
+    
+    // Ensure row 1 exists
+    if (sheet.getMaxRows() < 1) sheet.insertRowAfter(0);
+
+    // Add headers
+    const headers = [["Date", "Amount", "Location", "Category", "Description", "Email", "HouseholdID", "PayPeriod"]];
+    sheet.getRange("A1:H1").setValues(headers)
+      .setFontWeight("bold")
+      .setBackground(CONFIG.COLORS.HEADER_BG)
+      .setFontColor(CONFIG.COLORS.HEADER_FG);
+
+    // Set column widths
+    sheet.setColumnWidth(1, 100); // Date
+    sheet.setColumnWidth(2, 100); // Amount
+    sheet.setColumnWidth(3, 200); // Location
+    sheet.setColumnWidth(4, 150); // Category
+    sheet.setColumnWidth(5, 250); // Description
+    sheet.setColumnWidth(6, 200); // Email
+    sheet.setColumnWidth(7, 200); // HouseholdID
+    sheet.setColumnWidth(8, 120); // PayPeriod
+
+    Logger.log(`Created new ${sheetName} sheet.`);
+  }
+
+  // Apply formatting (even if sheet exists)
+  if (sheet.getMaxRows() > 1) {
+    // Date formatting
+    sheet.getRange("A2:A").setNumberFormat(CONFIG.DATE_FORMAT_SHORT);
+    
+    // Currency formatting for Amount
+    sheet.getRange("B2:B").setNumberFormat("$#,##0.00");
+    
+    // Conditional formatting for amounts (red for expenses)
+    const amountRange = sheet.getRange("B2:B");
+    let rules = sheet.getConditionalFormatRules();
+    rules = rules.filter(rule => rule.getRanges().every(range => range.getA1Notation() !== amountRange.getA1Notation()));
+
+    const expenseRule = SpreadsheetApp.newConditionalFormatRule()
+      .whenNumberGreaterThan(0)
+      .setBackground("#fce5cd") // Light orange for expenses
+      .setRanges([amountRange])
+      .build();
+
+    rules.push(expenseRule);
+    sheet.setConditionalFormatRules(rules);
+  }
+
+  if (createdNew) {
+    Logger.log(`Expense Tracker sheet created and set up.`);
+  } else {
+    Logger.log(`Expense Tracker sheet validation and formatting updated.`);
+  }
+  
+  return sheet;
+}
+
+/**
+ * Sets up the Budget Categories sheet with correct headers and formatting.
+ * Creates the sheet if it doesn't exist and adds default categories.
+ * @return {Sheet} The Budget Categories sheet object
+ */
+function setupBudgetCategoriesSheet() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheetName = CONFIG.SHEET_NAMES.BUDGET_CATEGORIES;
+  let sheet = ss.getSheetByName(sheetName);
+  let createdNew = false;
+
+  if (!sheet) {
+    sheet = ss.insertSheet(sheetName);
+    createdNew = true;
+    
+    // Ensure row 1 exists
+    if (sheet.getMaxRows() < 1) sheet.insertRowAfter(0);
+
+    // Add headers
+    const headers = [["CategoryName", "MonthlyBudget", "CurrentSpent", "PayPeriodBudget", "PayPeriodSpent", "LastReset", "HouseholdID", "IsActive"]];
+    sheet.getRange("A1:H1").setValues(headers)
+      .setFontWeight("bold")
+      .setBackground(CONFIG.COLORS.HEADER_BG)
+      .setFontColor(CONFIG.COLORS.HEADER_FG);
+
+    // Set column widths
+    sheet.setColumnWidth(1, 150); // CategoryName
+    sheet.setColumnWidth(2, 120); // MonthlyBudget
+    sheet.setColumnWidth(3, 120); // CurrentSpent
+    sheet.setColumnWidth(4, 120); // PayPeriodBudget
+    sheet.setColumnWidth(5, 120); // PayPeriodSpent
+    sheet.setColumnWidth(6, 120); // LastReset
+    sheet.setColumnWidth(7, 200); // HouseholdID
+    sheet.setColumnWidth(8, 80);  // IsActive
+
+    // Add default budget categories
+    addDefaultBudgetCategories(sheet);
+    
+    Logger.log(`Created new ${sheetName} sheet.`);
+  }
+
+  // Apply formatting (even if sheet exists)
+  if (sheet.getMaxRows() > 1) {
+    // Currency formatting for budget and spent columns
+    sheet.getRange("B2:B").setNumberFormat("$#,##0.00"); // MonthlyBudget
+    sheet.getRange("C2:C").setNumberFormat("$#,##0.00"); // CurrentSpent
+    sheet.getRange("D2:D").setNumberFormat("$#,##0.00"); // PayPeriodBudget
+    sheet.getRange("E2:E").setNumberFormat("$#,##0.00"); // PayPeriodSpent
+    
+    // Date formatting for LastReset
+    sheet.getRange("F2:F").setNumberFormat(CONFIG.DATE_FORMAT_SHORT);
+    
+    // Data validation for IsActive column
+    const activeRange = sheet.getRange("H2:H");
+    const activeRule = SpreadsheetApp.newDataValidation()
+      .requireValueInList([true, false], true)
+      .setAllowInvalid(false)
+      .setHelpText("Select true or false")
+      .build();
+    activeRange.setDataValidation(activeRule);
+  }
+
+  if (createdNew) {
+    Logger.log(`Budget Categories sheet created and set up.`);
+  } else {
+    Logger.log(`Budget Categories sheet validation and formatting updated.`);
+  }
+  
+  return sheet;
+}
+
+/**
+ * Adds default budget categories to the Budget Categories sheet.
+ * @param {Sheet} sheet The Budget Categories sheet object.
+ */
+function addDefaultBudgetCategories(sheet) {
+  if (!sheet) {
+    Logger.log("Sheet object not provided to addDefaultBudgetCategories.");
+    return;
+  }
+  
+  if (sheet.getLastRow() > 1) {
+    Logger.log("Default budget categories not added because Budget Categories sheet already contains data.");
+    return;
+  }
+  
+  const defaultCategories = CONFIG.EXPENSE_SETTINGS.DEFAULT_BUDGET_CATEGORIES.map(category => [
+    category,     // CategoryName
+    500,          // MonthlyBudget (default $500)
+    0,            // CurrentSpent
+    250,          // PayPeriodBudget (default $250)
+    0,            // PayPeriodSpent
+    new Date(),   // LastReset
+    null,         // HouseholdID (will be set when households use it)
+    true          // IsActive
+  ]);
+  
+  if (defaultCategories.length > 0) {
+    sheet.getRange(2, 1, defaultCategories.length, 8).setValues(defaultCategories);
+    Logger.log(`Added ${defaultCategories.length} default budget categories.`);
+  }
+}
+
+/**
+ * Sets up the Location Mapping sheet with correct headers and formatting.
+ * Creates the sheet if it doesn't exist.
+ * @return {Sheet} The Location Mapping sheet object
+ */
+function setupLocationMappingSheet() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheetName = CONFIG.SHEET_NAMES.LOCATION_MAPPING;
+  let sheet = ss.getSheetByName(sheetName);
+  let createdNew = false;
+
+  if (!sheet) {
+    sheet = ss.insertSheet(sheetName);
+    createdNew = true;
+    
+    // Ensure row 1 exists
+    if (sheet.getMaxRows() < 1) sheet.insertRowAfter(0);
+
+    // Add headers
+    const headers = [["LocationName", "DefaultCategory", "UsageCount", "LastUsed", "HouseholdID", "IsActive"]];
+    sheet.getRange("A1:F1").setValues(headers)
+      .setFontWeight("bold")
+      .setBackground(CONFIG.COLORS.HEADER_BG)
+      .setFontColor(CONFIG.COLORS.HEADER_FG);
+
+    // Set column widths
+    sheet.setColumnWidth(1, 200); // LocationName
+    sheet.setColumnWidth(2, 150); // DefaultCategory
+    sheet.setColumnWidth(3, 100); // UsageCount
+    sheet.setColumnWidth(4, 120); // LastUsed
+    sheet.setColumnWidth(5, 200); // HouseholdID
+    sheet.setColumnWidth(6, 80);  // IsActive
+
+    // Add some common location mappings
+    addDefaultLocationMappings(sheet);
+    
+    Logger.log(`Created new ${sheetName} sheet.`);
+  }
+
+  // Apply formatting (even if sheet exists)
+  if (sheet.getMaxRows() > 1) {
+    // Date formatting for LastUsed
+    sheet.getRange("D2:D").setNumberFormat(CONFIG.DATE_FORMAT_SHORT);
+    
+    // Number formatting for UsageCount
+    sheet.getRange("C2:C").setNumberFormat("0");
+    
+    // Data validation for IsActive column
+    const activeRange = sheet.getRange("F2:F");
+    const activeRule = SpreadsheetApp.newDataValidation()
+      .requireValueInList([true, false], true)
+      .setAllowInvalid(false)
+      .setHelpText("Select true or false")
+      .build();
+    activeRange.setDataValidation(activeRule);
+  }
+
+  if (createdNew) {
+    Logger.log(`Location Mapping sheet created and set up.`);
+  } else {
+    Logger.log(`Location Mapping sheet validation and formatting updated.`);
+  }
+  
+  return sheet;
+}
+
+/**
+ * Adds default location mappings to the Location Mapping sheet.
+ * @param {Sheet} sheet The Location Mapping sheet object.
+ */
+function addDefaultLocationMappings(sheet) {
+  if (!sheet) {
+    Logger.log("Sheet object not provided to addDefaultLocationMappings.");
+    return;
+  }
+  
+  if (sheet.getLastRow() > 1) {
+    Logger.log("Default location mappings not added because Location Mapping sheet already contains data.");
+    return;
+  }
+  
+  // Common store-to-category mappings
+  const defaultMappings = [
+    ["Kroger", "Groceries", 0, null, null, true],
+    ["Publix", "Groceries", 0, null, null, true],
+    ["Walmart", "Shopping", 0, null, null, true],
+    ["Target", "Shopping", 0, null, null, true],
+    ["Amazon", "Shopping", 0, null, null, true],
+    ["Shell", "Gas", 0, null, null, true],
+    ["BP", "Gas", 0, null, null, true],
+    ["Exxon", "Gas", 0, null, null, true],
+    ["McDonald's", "Dining", 0, null, null, true],
+    ["Starbucks", "Dining", 0, null, null, true],
+    ["Netflix", "Entertainment", 0, null, null, true],
+    ["Spotify", "Entertainment", 0, null, null, true]
+  ];
+  
+  if (defaultMappings.length > 0) {
+    sheet.getRange(2, 1, defaultMappings.length, 6).setValues(defaultMappings);
+    Logger.log(`Added ${defaultMappings.length} default location mappings.`);
+  }
+}

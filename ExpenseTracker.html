@@ -1,0 +1,957 @@
+<!-- ExpenseTracker.html -->
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <?!= include('Stylesheet'); ?>
+    <style>
+      /* Expense Tracker Specific Styles */
+      .expense-header {
+        background: linear-gradient(135deg, #4285F4 0%, #34A853 100%);
+        color: white;
+        text-align: center;
+        padding: 2rem 1rem;
+        margin: -1rem -1rem 2rem -1rem;
+        border-radius: 0 0 20px 20px;
+      }
+
+      .expense-header h1 {
+        margin: 0 0 0.5rem 0;
+        font-size: 2rem;
+        font-weight: 300;
+      }
+
+      .expense-header .pay-period {
+        opacity: 0.9;
+        font-size: 0.9rem;
+      }
+
+      .budget-overview {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+        margin-bottom: 2rem;
+      }
+
+      .budget-summary-card {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        text-align: center;
+      }
+
+      .budget-amount {
+        font-size: 2rem;
+        font-weight: bold;
+        margin: 0.5rem 0;
+      }
+
+      .budget-amount.total { color: #4285F4; }
+      .budget-amount.remaining { color: #34A853; }
+      .budget-amount.spent { color: #EA4335; }
+
+      .budget-meters {
+        display: grid;
+        gap: 1rem;
+        margin-bottom: 2rem;
+      }
+
+      .budget-meter {
+        background: white;
+        border-radius: 12px;
+        padding: 1rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      }
+
+      .meter-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.5rem;
+      }
+
+      .meter-category {
+        font-weight: 600;
+        font-size: 1rem;
+      }
+
+      .meter-amounts {
+        font-size: 0.85rem;
+        color: #666;
+      }
+
+      .meter-bar {
+        height: 8px;
+        background: #f0f0f0;
+        border-radius: 4px;
+        overflow: hidden;
+        margin-bottom: 0.5rem;
+      }
+
+      .meter-fill {
+        height: 100%;
+        border-radius: 4px;
+        transition: width 0.3s ease, background-color 0.3s ease;
+      }
+
+      .meter-fill.good { background: #34A853; }
+      .meter-fill.warning { background: #FBBC05; }
+      .meter-fill.danger { background: #EA4335; }
+
+      .meter-status {
+        font-size: 0.8rem;
+        font-weight: 500;
+        text-align: right;
+      }
+
+      .expense-entry {
+        background: white;
+        border-radius: 12px;
+        padding: 2rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        margin-bottom: 2rem;
+      }
+
+      .store-chips {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+        gap: 0.75rem;
+        margin-bottom: 2rem;
+      }
+
+      .store-chip {
+        background: #f8f9fa;
+        border: 2px solid #e9ecef;
+        border-radius: 25px;
+        padding: 0.75rem 1rem;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        font-size: 0.9rem;
+        font-weight: 500;
+        min-height: 44px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .store-chip:hover {
+        border-color: #4285F4;
+        background: #f0f4ff;
+      }
+
+      .store-chip.selected {
+        background: #4285F4;
+        color: white;
+        border-color: #4285F4;
+      }
+
+      .store-chip.add-other {
+        border-style: dashed;
+        color: #666;
+      }
+
+      .amount-input-section {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 1rem;
+        align-items: end;
+        margin-bottom: 1.5rem;
+      }
+
+      .input-group {
+        display: flex;
+        flex-direction: column;
+      }
+
+      .input-group label {
+        margin-bottom: 0.5rem;
+        font-weight: 600;
+        color: #333;
+      }
+
+      .amount-input {
+        padding: 1rem;
+        border: 2px solid #e9ecef;
+        border-radius: 8px;
+        font-size: 1.25rem;
+        font-weight: 600;
+        text-align: center;
+        transition: border-color 0.2s ease;
+      }
+
+      .amount-input:focus {
+        outline: none;
+        border-color: #4285F4;
+      }
+
+      .submit-expense-btn {
+        background: #34A853;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        padding: 1rem 2rem;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background-color 0.2s ease;
+        min-height: 56px;
+        min-width: 120px;
+      }
+
+      .submit-expense-btn:hover:not(:disabled) {
+        background: #2d8f43;
+      }
+
+      .submit-expense-btn:disabled {
+        background: #ccc;
+        cursor: not-allowed;
+      }
+
+      .category-section {
+        margin-bottom: 1.5rem;
+      }
+
+      .category-chips {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+        gap: 0.5rem;
+      }
+
+      .category-chip {
+        background: #f8f9fa;
+        border: 2px solid #e9ecef;
+        border-radius: 20px;
+        padding: 0.5rem 1rem;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        font-size: 0.85rem;
+        font-weight: 500;
+        min-height: 36px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .category-chip:hover {
+        border-color: #4285F4;
+        background: #f0f4ff;
+      }
+
+      .category-chip.selected {
+        background: #4285F4;
+        color: white;
+        border-color: #4285F4;
+      }
+
+      .expense-actions {
+        display: flex;
+        gap: 1rem;
+        justify-content: center;
+        margin: 2rem 0;
+      }
+
+      .btn-reset {
+        background: #EA4335;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        padding: 0.75rem 1.5rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background-color 0.2s ease;
+      }
+
+      .btn-reset:hover {
+        background: #d33b2c;
+      }
+
+      .btn-edit {
+        background: #FBBC05;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        padding: 0.75rem 1.5rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background-color 0.2s ease;
+      }
+
+      .btn-edit:hover {
+        background: #f9ab00;
+      }
+
+      .recent-expenses {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        margin-top: 2rem;
+      }
+
+      .recent-expenses h3 {
+        margin: 0 0 1rem 0;
+        color: #333;
+      }
+
+      .expense-item {
+        display: grid;
+        grid-template-columns: 1fr auto auto;
+        gap: 1rem;
+        align-items: center;
+        padding: 0.75rem 0;
+        border-bottom: 1px solid #f0f0f0;
+      }
+
+      .expense-item:last-child {
+        border-bottom: none;
+      }
+
+      .expense-details {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+      }
+
+      .expense-location {
+        font-weight: 600;
+        color: #333;
+      }
+
+      .expense-category {
+        font-size: 0.85rem;
+        color: #666;
+      }
+
+      .expense-amount {
+        font-weight: 600;
+        color: #EA4335;
+      }
+
+      .expense-date {
+        font-size: 0.8rem;
+        color: #999;
+      }
+
+      /* Responsive Design */
+      @media (max-width: 768px) {
+        .budget-overview {
+          grid-template-columns: 1fr;
+        }
+
+        .store-chips {
+          grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+        }
+
+        .amount-input-section {
+          grid-template-columns: 1fr;
+          gap: 1rem;
+        }
+
+        .expense-actions {
+          flex-direction: column;
+        }
+
+        .expense-item {
+          grid-template-columns: 1fr auto;
+          gap: 0.5rem;
+        }
+
+        .expense-details {
+          grid-column: 1 / -1;
+        }
+      }
+
+      /* Loading and notification styles */
+      .loading-spinner {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        border: 2px solid #f3f3f3;
+        border-top: 2px solid #4285F4;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      }
+
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+
+      .auto-save-indicator {
+        color: #34A853;
+        font-size: 0.8rem;
+        margin-top: 0.5rem;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+      }
+
+      .auto-save-indicator.show {
+        opacity: 1;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="app-header">
+      <div class="header-content">
+        <a href="<?= getScriptUrl() ?>?page=expense" class="app-title">Budget Game</a>
+        <div class="action-buttons">
+          <button id="email-button" class="btn btn-outline">Send Daily Digest</button>
+          <a href="<?= getScriptUrl() ?>?page=admin" class="btn btn-outline">Admin</a>
+        </div>
+      </div>
+    </header>
+
+    <nav class="nav-container">
+      <div class="main-nav">
+        <a href="<?= getScriptUrl() ?>?page=expense" class="nav-link active">
+          <svg class="nav-icon" viewBox="0 0 24 24">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+          </svg>
+          Expense Tracker
+        </a>
+        <a href="<?= getScriptUrl() ?>" class="nav-link">
+          <svg class="nav-icon" viewBox="0 0 24 24">
+            <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/>
+            <path d="M18 9l-1.4-1.4-5.6 5.6-2.6-2.6L7 12l4 4z"/>
+          </svg>
+          Activity Tracker
+        </a>
+        <a href="<?= getScriptUrl() ?>?page=dashboard" class="nav-link">
+          <svg class="nav-icon" viewBox="0 0 24 24">
+            <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/>
+            <path d="M9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/>
+          </svg>
+          Dashboard
+        </a>
+      </div>
+    </nav>
+
+    <div class="container main-content">
+      <!-- Household Info Placeholder -->
+      <div id="household-info-placeholder"></div>
+
+      <!-- Expense Header -->
+      <div class="expense-header">
+        <h1>Expense Tracker</h1>
+        <div class="pay-period" id="pay-period-info">Loading...</div>
+      </div>
+
+      <!-- Budget Overview -->
+      <div class="budget-overview">
+        <div class="budget-summary-card">
+          <h3>Total Budget</h3>
+          <div class="budget-amount total" id="total-budget">$0</div>
+        </div>
+        <div class="budget-summary-card">
+          <h3>Remaining</h3>
+          <div class="budget-amount remaining" id="remaining-budget">$0</div>
+        </div>
+      </div>
+
+      <!-- Budget Meters -->
+      <div class="budget-meters" id="budget-meters">
+        <div class="loading">Loading budget information...</div>
+      </div>
+
+      <!-- Expense Entry Form -->
+      <div class="expense-entry">
+        <h3 style="margin-top: 0;">Add New Expense</h3>
+        
+        <!-- Store Selection -->
+        <div class="store-section">
+          <label>Where did you shop?</label>
+          <div class="store-chips" id="store-chips">
+            <div class="loading">Loading stores...</div>
+          </div>
+        </div>
+
+        <!-- Category Selection -->
+        <div class="category-section">
+          <label>Category</label>
+          <div class="category-chips" id="category-chips">
+            <div class="loading">Loading categories...</div>
+          </div>
+        </div>
+
+        <!-- Amount Input -->
+        <div class="amount-input-section">
+          <div class="input-group">
+            <label for="amount-input">Amount Spent</label>
+            <input type="number" id="amount-input" class="amount-input" placeholder="0.00" step="0.01" min="0">
+            <div class="auto-save-indicator" id="auto-save-indicator">Auto-saved ✓</div>
+          </div>
+          <button id="submit-expense" class="submit-expense-btn" disabled>
+            Add Expense
+          </button>
+        </div>
+
+        <!-- Optional Description -->
+        <div class="input-group">
+          <label for="description-input">Description (optional)</label>
+          <input type="text" id="description-input" placeholder="What did you buy?" style="padding: 0.75rem; border: 2px solid #e9ecef; border-radius: 8px;">
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="expense-actions">
+        <button id="edit-categories" class="btn-edit">Edit Categories</button>
+        <button id="reset-period" class="btn-reset">Finalize Period</button>
+      </div>
+
+      <!-- Recent Expenses -->
+      <div class="recent-expenses" id="recent-expenses">
+        <h3>Recent Expenses</h3>
+        <div id="recent-expenses-list">
+          <div class="loading">Loading recent expenses...</div>
+        </div>
+      </div>
+
+    </div>
+
+    <div id="notification" class="notification hidden"></div>
+
+    <script>
+      // Global state
+      let expenseData = null;
+      let budgetCategories = [];
+      let locationMappings = [];
+      let selectedStore = null;
+      let selectedCategory = null;
+      let householdInfo = null;
+
+      // Initialization flags
+      let isDataLoaded = false;
+
+      // --- Utility Functions ---
+      function formatCurrency(amount) {
+        return new Intl.NumberFormat('en-US', {
+          style: 'currency',
+          currency: 'USD'
+        }).format(amount);
+      }
+
+      function showNotification(message, type = 'info') {
+        const notification = document.getElementById('notification');
+        notification.textContent = message;
+        notification.className = `notification ${type}`;
+        notification.style.display = 'block';
+        setTimeout(() => {
+          notification.style.display = 'none';
+        }, 5000);
+      }
+
+      function showAutoSaveIndicator() {
+        const indicator = document.getElementById('auto-save-indicator');
+        indicator.classList.add('show');
+        setTimeout(() => {
+          indicator.classList.remove('show');
+        }, 2000);
+      }
+
+      // --- Data Loading Functions ---
+      function loadExpenseData() {
+        console.log('Loading expense tracker data...');
+        google.script.run
+          .withSuccessHandler(handleExpenseDataLoaded)
+          .withFailureHandler(handleError)
+          .getExpenseTrackerData();
+      }
+
+      function handleExpenseDataLoaded(data) {
+        console.log('Expense data loaded:', data);
+        if (data.success) {
+          expenseData = data;
+          budgetCategories = data.budgetCategories.categories || [];
+          locationMappings = data.locationMappings.locations || [];
+          householdInfo = {
+            id: data.householdId,
+            name: data.householdName,
+            members: data.members
+          };
+          
+          updatePayPeriodInfo(data.currentPayPeriod);
+          updateBudgetOverview();
+          updateBudgetMeters();
+          updateStoreChips();
+          updateCategoryChips();
+          updateHouseholdInfo();
+          
+          isDataLoaded = true;
+          loadRecentExpenses();
+        } else {
+          showNotification(data.message || 'Failed to load expense data', 'error');
+        }
+      }
+
+      function handleError(error) {
+        console.error('Error:', error);
+        showNotification('An error occurred. Please try again.', 'error');
+      }
+
+      // --- UI Update Functions ---
+      function updatePayPeriodInfo(payPeriod) {
+        document.getElementById('pay-period-info').textContent = `Pay Period: ${payPeriod}`;
+      }
+
+      function updateBudgetOverview() {
+        const totalBudget = expenseData.budgetCategories.totalBudget || 0;
+        const totalRemaining = expenseData.budgetCategories.totalRemaining || 0;
+        
+        document.getElementById('total-budget').textContent = formatCurrency(totalBudget);
+        document.getElementById('remaining-budget').textContent = formatCurrency(totalRemaining);
+      }
+
+      function updateBudgetMeters() {
+        const metersContainer = document.getElementById('budget-meters');
+        
+        if (budgetCategories.length === 0) {
+          metersContainer.innerHTML = '<div class="loading">No budget categories found. Please set up budget categories first.</div>';
+          return;
+        }
+
+        const metersHtml = budgetCategories.map(category => {
+          const percentUsed = Math.min(category.percentUsed, 100);
+          let fillClass = 'good';
+          if (percentUsed > 90) fillClass = 'danger';
+          else if (percentUsed > 75) fillClass = 'warning';
+
+          return `
+            <div class="budget-meter">
+              <div class="meter-header">
+                <div class="meter-category">${category.name}</div>
+                <div class="meter-amounts">${formatCurrency(category.payPeriodSpent)} / ${formatCurrency(category.payPeriodBudget)}</div>
+              </div>
+              <div class="meter-bar">
+                <div class="meter-fill ${fillClass}" style="width: ${percentUsed}%"></div>
+              </div>
+              <div class="meter-status">${formatCurrency(category.remaining)} remaining</div>
+            </div>
+          `;
+        }).join('');
+
+        metersContainer.innerHTML = metersHtml;
+      }
+
+      function updateStoreChips() {
+        const storeChipsContainer = document.getElementById('store-chips');
+        
+        // Get top locations by usage count
+        const topLocations = locationMappings
+          .filter(loc => loc.isSuggested)
+          .sort((a, b) => b.usageCount - a.usageCount)
+          .slice(0, 8);
+
+        const storeChipsHtml = topLocations.map(location => `
+          <div class="store-chip" data-store="${location.name}" data-category="${location.defaultCategory}">
+            ${location.name}
+          </div>
+        `).join('') + `
+          <div class="store-chip add-other" id="add-other-store">
+            + Add Other
+          </div>
+        `;
+
+        storeChipsContainer.innerHTML = storeChipsHtml;
+
+        // Add event listeners
+        document.querySelectorAll('.store-chip:not(.add-other)').forEach(chip => {
+          chip.addEventListener('click', () => selectStore(chip));
+        });
+
+        document.getElementById('add-other-store').addEventListener('click', addOtherStore);
+      }
+
+      function updateCategoryChips() {
+        const categoryChipsContainer = document.getElementById('category-chips');
+        
+        const categoryChipsHtml = budgetCategories.map(category => `
+          <div class="category-chip" data-category="${category.name}">
+            ${category.name}
+          </div>
+        `).join('');
+
+        categoryChipsContainer.innerHTML = categoryChipsHtml;
+
+        // Add event listeners
+        document.querySelectorAll('.category-chip').forEach(chip => {
+          chip.addEventListener('click', () => selectCategory(chip));
+        });
+      }
+
+      function updateHouseholdInfo() {
+        const placeholder = document.getElementById('household-info-placeholder');
+        if (householdInfo && householdInfo.name) {
+          placeholder.innerHTML = `
+            <div class="household-info">
+              <strong>${householdInfo.name}</strong> - ${householdInfo.members.length} member(s)
+            </div>
+          `;
+        }
+      }
+
+      // --- User Interaction Functions ---
+      function selectStore(chipElement) {
+        // Clear previous selections
+        document.querySelectorAll('.store-chip').forEach(chip => chip.classList.remove('selected'));
+        
+        // Select new store
+        chipElement.classList.add('selected');
+        selectedStore = chipElement.dataset.store;
+        
+        // Auto-suggest category
+        const suggestedCategory = chipElement.dataset.category;
+        if (suggestedCategory) {
+          autoSelectCategory(suggestedCategory);
+        }
+        
+        updateSubmitButton();
+      }
+
+      function selectCategory(chipElement) {
+        // Clear previous selections
+        document.querySelectorAll('.category-chip').forEach(chip => chip.classList.remove('selected'));
+        
+        // Select new category
+        chipElement.classList.add('selected');
+        selectedCategory = chipElement.dataset.category;
+        
+        updateSubmitButton();
+      }
+
+      function autoSelectCategory(categoryName) {
+        const categoryChip = document.querySelector(`[data-category="${categoryName}"]`);
+        if (categoryChip) {
+          selectCategory(categoryChip);
+        }
+      }
+
+      function addOtherStore() {
+        const storeName = prompt('Enter store name:');
+        if (storeName && storeName.trim()) {
+          // Create temporary chip
+          const tempChip = document.createElement('div');
+          tempChip.className = 'store-chip selected';
+          tempChip.textContent = storeName.trim();
+          tempChip.dataset.store = storeName.trim();
+          
+          // Insert before "Add Other" button
+          const addOtherBtn = document.getElementById('add-other-store');
+          addOtherBtn.parentNode.insertBefore(tempChip, addOtherBtn);
+          
+          // Clear other selections and select this one
+          document.querySelectorAll('.store-chip:not(.add-other)').forEach(chip => 
+            chip.classList.remove('selected'));
+          
+          selectedStore = storeName.trim();
+          updateSubmitButton();
+          
+          // Add click listener
+          tempChip.addEventListener('click', () => selectStore(tempChip));
+        }
+      }
+
+      function updateSubmitButton() {
+        const submitBtn = document.getElementById('submit-expense');
+        const amountInput = document.getElementById('amount-input');
+        const amount = parseFloat(amountInput.value);
+        
+        const isValid = selectedStore && selectedCategory && amount > 0;
+        submitBtn.disabled = !isValid;
+      }
+
+      // --- Expense Submission ---
+      function submitExpense() {
+        const amountInput = document.getElementById('amount-input');
+        const descriptionInput = document.getElementById('description-input');
+        
+        const amount = parseFloat(amountInput.value);
+        const description = descriptionInput.value.trim();
+        
+        if (!selectedStore || !selectedCategory || !amount || amount <= 0) {
+          showNotification('Please fill in all required fields', 'error');
+          return;
+        }
+
+        // Disable submit button and show loading
+        const submitBtn = document.getElementById('submit-expense');
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="loading-spinner"></span> Adding...';
+
+        google.script.run
+          .withSuccessHandler(handleExpenseSubmitted)
+          .withFailureHandler(handleExpenseSubmitError)
+          .submitExpense(amount, selectedStore, selectedCategory, description);
+      }
+
+      function handleExpenseSubmitted(result) {
+        const submitBtn = document.getElementById('submit-expense');
+        submitBtn.innerHTML = 'Add Expense';
+        
+        if (result.success) {
+          showNotification(result.message, 'success');
+          showAutoSaveIndicator();
+          
+          // Update budget data
+          if (result.budgetCategories) {
+            expenseData.budgetCategories = result.budgetCategories;
+            budgetCategories = result.budgetCategories.categories || [];
+            updateBudgetOverview();
+            updateBudgetMeters();
+          }
+          
+          // Reset form
+          resetForm();
+          
+          // Reload recent expenses
+          loadRecentExpenses();
+        } else {
+          showNotification(result.message, 'error');
+          submitBtn.disabled = false;
+        }
+      }
+
+      function handleExpenseSubmitError(error) {
+        console.error('Expense submission error:', error);
+        showNotification('Failed to submit expense. Please try again.', 'error');
+        
+        const submitBtn = document.getElementById('submit-expense');
+        submitBtn.innerHTML = 'Add Expense';
+        submitBtn.disabled = false;
+      }
+
+      function resetForm() {
+        // Reset form inputs
+        document.getElementById('amount-input').value = '';
+        document.getElementById('description-input').value = '';
+        
+        // Clear selections
+        document.querySelectorAll('.store-chip, .category-chip').forEach(chip => 
+          chip.classList.remove('selected'));
+        
+        selectedStore = null;
+        selectedCategory = null;
+        
+        updateSubmitButton();
+      }
+
+      // --- Recent Expenses ---
+      function loadRecentExpenses() {
+        google.script.run
+          .withSuccessHandler(handleRecentExpensesLoaded)
+          .withFailureHandler(() => {
+            document.getElementById('recent-expenses-list').innerHTML = 'Failed to load recent expenses.';
+          })
+          .getRecentExpenses(5);
+      }
+
+      function handleRecentExpensesLoaded(result) {
+        const container = document.getElementById('recent-expenses-list');
+        
+        if (result.success && result.expenses.length > 0) {
+          const expensesHtml = result.expenses.map(expense => `
+            <div class="expense-item">
+              <div class="expense-details">
+                <div class="expense-location">${expense.location}</div>
+                <div class="expense-category">${expense.category}</div>
+              </div>
+              <div class="expense-amount">${formatCurrency(expense.amount)}</div>
+              <div class="expense-date">${new Date(expense.date).toLocaleDateString()}</div>
+            </div>
+          `).join('');
+          
+          container.innerHTML = expensesHtml;
+        } else {
+          container.innerHTML = '<div style="text-align: center; color: #666; padding: 1rem;">No recent expenses found.</div>';
+        }
+      }
+
+      // --- Action Buttons ---
+      function editCategories() {
+        if (confirm('This will open the Admin panel to manage budget categories. Continue?')) {
+          window.open(`${window.location.origin}${window.location.pathname}?page=admin`, '_blank');
+        }
+      }
+
+      function resetPayPeriod() {
+        if (confirm('Are you sure you want to finalize this pay period? This will reset all spending amounts to zero and cannot be undone.')) {
+          const resetBtn = document.getElementById('reset-period');
+          resetBtn.disabled = true;
+          resetBtn.textContent = 'Resetting...';
+          
+          google.script.run
+            .withSuccessHandler(handlePayPeriodReset)
+            .withFailureHandler(handlePayPeriodResetError)
+            .resetPayPeriod();
+        }
+      }
+
+      function handlePayPeriodReset(result) {
+        const resetBtn = document.getElementById('reset-period');
+        resetBtn.disabled = false;
+        resetBtn.textContent = 'Finalize Period';
+        
+        if (result.success) {
+          showNotification(result.message, 'success');
+          
+          // Refresh all data
+          loadExpenseData();
+        } else {
+          showNotification(result.message, 'error');
+        }
+      }
+
+      function handlePayPeriodResetError(error) {
+        console.error('Pay period reset error:', error);
+        showNotification('Failed to reset pay period. Please try again.', 'error');
+        
+        const resetBtn = document.getElementById('reset-period');
+        resetBtn.disabled = false;
+        resetBtn.textContent = 'Finalize Period';
+      }
+
+      // --- Event Listeners ---
+      document.addEventListener('DOMContentLoaded', function() {
+        // Initialize
+        loadExpenseData();
+        
+        // Amount input listener
+        document.getElementById('amount-input').addEventListener('input', updateSubmitButton);
+        
+        // Submit button listener  
+        document.getElementById('submit-expense').addEventListener('click', submitExpense);
+        
+        // Action buttons
+        document.getElementById('edit-categories').addEventListener('click', editCategories);
+        document.getElementById('reset-period').addEventListener('click', resetPayPeriod);
+        
+        // Email button (reuse from existing pattern)
+        document.getElementById('email-button').addEventListener('click', function() {
+          this.disabled = true;
+          this.textContent = 'Sending...';
+          google.script.run
+            .withSuccessHandler(() => {
+              showNotification('Daily digest sent successfully!', 'success');
+              this.disabled = false;
+              this.textContent = 'Send Daily Digest';
+            })
+            .withFailureHandler(() => {
+              showNotification('Failed to send digest', 'error');
+              this.disabled = false;
+              this.textContent = 'Send Daily Digest';
+            })
+            .forceSendDailyDigest();
+        });
+
+        // Enter key support for amount input
+        document.getElementById('amount-input').addEventListener('keypress', function(e) {
+          if (e.key === 'Enter' && !document.getElementById('submit-expense').disabled) {
+            submitExpense();
+          }
+        });
+      });
+    </script>
+  </body>
+</html>
