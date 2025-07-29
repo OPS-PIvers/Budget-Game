@@ -34,12 +34,6 @@ function doGet(e) {
       .setTitle('Budget Game Expense Tracker')
       .addMetaTag('viewport', 'width=device-width, initial-scale=1')
       .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
-  } else if (page === 'activity') {
-    return HtmlService.createTemplateFromFile('ActivityTracker')
-      .evaluate()
-      .setTitle('Budget Game Tracker')
-      .addMetaTag('viewport', 'width=device-width, initial-scale=1')
-      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
   }
 
   // Default to the activity tracker (main landing page)
