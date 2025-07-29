@@ -1286,10 +1286,21 @@ function saveGoalsData(modifiedGoals, deletedGoals) {
   
   try {
     const email = Session.getEffectiveUser().getEmail();
-    const householdId = getUserHouseholdId(email);
+    Logger.log(`[GOALS DEBUG] saveGoalsData called for admin user: ${email}`);
+    
+    let householdId = getUserHouseholdId(email);
+    Logger.log(`[GOALS DEBUG] Initial household lookup returned: ${householdId}`);
     
     if (!householdId) {
-      return { success: false, message: "No household found for current user." };
+      Logger.log(`[GOALS DEBUG] No household found, attempting to create one for admin user`);
+      householdId = ensureUserHasHousehold(email);
+      
+      if (!householdId) {
+        Logger.log(`[GOALS DEBUG] Failed to create household for admin user: ${email}`);
+        return { success: false, message: "No household found for current user and failed to create one." };
+      }
+      
+      Logger.log(`[GOALS DEBUG] Successfully created household for admin user: ${householdId}`);
     }
     
     let results = [];
@@ -1430,28 +1441,179 @@ function getGoalSummaryData() {
 function getDetailedGoalData() {
   try {
     const email = Session.getEffectiveUser().getEmail();
-    const householdId = getUserHouseholdId(email);
+    Logger.log(`[GOALS DEBUG] getDetailedGoalData called for email: ${email}`);
+    
+    let householdId = getUserHouseholdId(email);
+    Logger.log(`[GOALS DEBUG] getUserHouseholdId returned: ${householdId}`);
     
     if (!householdId) {
-      return {
-        activeGoals: [],
-        completedGoals: [],
-        vacationFundStatus: null,
-        totalProgress: 0,
-        criticalGoals: []
-      };
+      Logger.log(`[GOALS DEBUG] No household ID found for email: ${email}, attempting to create one`);
+      householdId = ensureUserHasHousehold(email);
+      
+      if (!householdId) {
+        Logger.log(`[GOALS DEBUG] Failed to create household for email: ${email}, returning empty results`);
+        return {
+          activeGoals: [],
+          completedGoals: [],
+          vacationFundStatus: null,
+          totalProgress: 0,
+          criticalGoals: []
+        };
+      }
+      
+      Logger.log(`[GOALS DEBUG] Successfully created/found household: ${householdId}`);
     }
     
-    return calculateHouseholdGoals(householdId);
+    Logger.log(`[GOALS DEBUG] Calling calculateHouseholdGoals with householdId: ${householdId}`);
+    const results = calculateHouseholdGoals(householdId);
+    Logger.log(`[GOALS DEBUG] calculateHouseholdGoals returned ${results.activeGoals.length} active goals, ${results.completedGoals.length} completed goals`);
+    
+    return results;
     
   } catch (error) {
-    Logger.log(`Error getting detailed goal data: ${error.message}`);
+    Logger.log(`[GOALS DEBUG] Error getting detailed goal data: ${error.message}\nStack: ${error.stack}`);
     return {
       activeGoals: [],
       completedGoals: [],
       vacationFundStatus: null,
       totalProgress: 0,
       criticalGoals: []
+    };
+  }
+}
+
+/**
+ * Gets orphaned goals for admin management
+ * Called by Admin.html
+ * @return {Array} Array of orphaned goals
+ */
+function getOrphanedGoalsData() {
+  if (!isCurrentUserAdmin()) {
+    return [];
+  }
+  
+  try {
+    return getOrphanedGoals();
+  } catch (error) {
+    Logger.log(`Error getting orphaned goals data: ${error.message}`);
+    return [];
+  }
+}
+
+/**
+ * Assigns orphaned goals to the current user's household
+ * Called by Admin.html
+ * @param {Array} goalIds - Array of goal IDs to assign
+ * @return {Object} Result object
+ */
+function fixOrphanedGoals(goalIds) {
+  if (!isCurrentUserAdmin()) {
+    return { success: false, message: "Admin privileges required." };
+  }
+  
+  try {
+    const email = Session.getEffectiveUser().getEmail();
+    let householdId = getUserHouseholdId(email);
+    
+    if (!householdId) {
+      householdId = ensureUserHasHousehold(email);
+      if (!householdId) {
+        return { success: false, message: "Could not determine or create household for admin user." };
+      }
+    }
+    
+    return assignOrphanedGoalsToHousehold(goalIds, householdId);
+    
+  } catch (error) {
+    Logger.log(`Error fixing orphaned goals: ${error.message}`);
+    return { success: false, message: `Error: ${error.message}` };
+  }
+}
+
+/**
+ * Runs a comprehensive diagnostic on the goals loading system
+ * Called by Dashboard.html
+ * @return {Object} Diagnostic results
+ */
+function runGoalsDiagnostic() {
+  try {
+    const email = Session.getEffectiveUser().getEmail();
+    const householdId = getUserHouseholdId(email);
+    const diagnostic = {
+      userEmail: email,
+      householdId: householdId,
+      goalsSheetExists: false,
+      totalGoalsInSheet: 0,
+      goalsForHousehold: 0,
+      orphanedGoals: 0,
+      issues: [],
+      recommendations: []
+    };
+    
+    // Check if Goals sheet exists
+    try {
+      const sheet = setupGoalsSheet();
+      diagnostic.goalsSheetExists = true;
+      
+      const lastRow = sheet.getLastRow();
+      if (lastRow > 1) {
+        diagnostic.totalGoalsInSheet = lastRow - 1; // Subtract header row
+        
+        // Count goals for this household
+        const goals = getGoalsByHousehold(householdId || 'none');
+        diagnostic.goalsForHousehold = goals.length;
+        
+        // Count orphaned goals
+        const orphaned = getOrphanedGoals();
+        diagnostic.orphanedGoals = orphaned.length;
+      }
+    } catch (sheetError) {
+      diagnostic.goalsSheetExists = false;
+      diagnostic.issues.push("Goals sheet does not exist or cannot be accessed");
+      diagnostic.recommendations.push("Use Admin panel to create Goals sheet");
+    }
+    
+    // Check household setup
+    if (!householdId) {
+      diagnostic.issues.push("No household ID found for your email");
+      diagnostic.recommendations.push("Household may need to be set up. Try creating a goal in Admin panel to auto-create household.");
+    }
+    
+    // Check for orphaned goals
+    if (diagnostic.orphanedGoals > 0) {
+      diagnostic.issues.push(`${diagnostic.orphanedGoals} goals found without household associations`);
+      diagnostic.recommendations.push("Use Admin panel to fix orphaned goals");
+    }
+    
+    // Check for goals mismatch
+    if (diagnostic.totalGoalsInSheet > 0 && diagnostic.goalsForHousehold === 0 && householdId) {
+      diagnostic.issues.push("Goals exist in sheet but none are linked to your household");
+      diagnostic.recommendations.push("Goals may need to be reassigned to your household");
+    }
+    
+    // Success case
+    if (diagnostic.issues.length === 0) {
+      if (diagnostic.goalsForHousehold > 0) {
+        diagnostic.recommendations.push("Everything looks good! Your goals should be loading properly.");
+      } else {
+        diagnostic.recommendations.push("Setup appears correct. You can create goals in the Admin panel.");
+      }
+    }
+    
+    Logger.log(`[GOALS DEBUG] Diagnostic completed: ${JSON.stringify(diagnostic)}`);
+    return diagnostic;
+    
+  } catch (error) {
+    Logger.log(`Error running goals diagnostic: ${error.message}`);
+    return {
+      userEmail: "Unknown",
+      householdId: null,
+      goalsSheetExists: false,
+      totalGoalsInSheet: 0,
+      goalsForHousehold: 0,
+      orphanedGoals: 0,
+      issues: [`Diagnostic failed: ${error.message}`],
+      recommendations: ["Contact support or check system logs"]
     };
   }
 }

@@ -837,9 +837,20 @@
           container.innerHTML = `
             <div class="goal-tracking-empty">
               <div class="empty-icon">🎯</div>
-              <div class="empty-title">No Goals Set</div>
-              <div class="empty-text">Add goals in the Admin panel to start tracking your progress</div>
-              <a href="${getScriptUrl()}?page=admin" class="goal-tracking-btn primary">Go to Admin</a>
+              <div class="empty-title">No Goals Found</div>
+              <div class="empty-text">
+                <p>Your goals may not be loading due to one of these reasons:</p>
+                <ul style="text-align: left; margin: 10px 0;">
+                  <li>No goals have been created yet</li>
+                  <li>Goals exist but aren't linked to your account</li>
+                  <li>Household setup is incomplete</li>
+                </ul>
+                <p><strong>Next steps:</strong></p>
+              </div>
+              <div class="goal-tracking-actions">
+                <a href="${getScriptUrl()}?page=admin" class="goal-tracking-btn primary">Create Goals (Admin)</a>
+                <button class="goal-tracking-btn secondary" onclick="checkGoalsDiagnostic()">Run Diagnostic</button>
+              </div>
             </div>
           `;
           return;
@@ -965,11 +976,107 @@
       function handleGoalTrackingError(error) {
         console.error('Goal tracking error:', error);
         document.getElementById('goal-tracking-container').innerHTML = `
-          <div class="error-message">
-            <p>Unable to load goal tracking data. Please try again later.</p>
-            <button class="goal-tracking-btn primary" onclick="loadGoalTracking()">Retry</button>
+          <div class="goal-tracking-error">
+            <div class="error-icon">⚠️</div>
+            <div class="error-title">Failed to Load Goals</div>
+            <div class="error-text">
+              <p>There was an error loading your goals: <strong>${error.message || 'Unknown error'}</strong></p>
+              <p>This might be due to:</p>
+              <ul style="text-align: left; margin: 10px 0;">
+                <li>Missing household setup</li>
+                <li>Goals sheet configuration issue</li>
+                <li>Permission problems</li>
+              </ul>
+            </div>
+            <div class="goal-tracking-actions">
+              <button class="goal-tracking-btn primary" onclick="loadGoalTracking()">Retry</button>
+              <button class="goal-tracking-btn secondary" onclick="checkGoalsDiagnostic()">Run Diagnostic</button>
+            </div>
           </div>
         `;
+      }
+
+      /**
+       * Runs a diagnostic check on goals loading
+       */
+      function checkGoalsDiagnostic() {
+        const container = document.getElementById('goal-tracking-container');
+        container.innerHTML = '<div class="loading">Running diagnostic...</div>';
+        
+        google.script.run
+          .withSuccessHandler(renderGoalsDiagnostic)
+          .withFailureHandler(error => {
+            container.innerHTML = `<div class="error-message">Diagnostic failed: ${error.message}</div>`;
+          })
+          .runGoalsDiagnostic();
+      }
+
+      /**
+       * Renders the goals diagnostic results
+       */
+      function renderGoalsDiagnostic(diagnostic) {
+        const container = document.getElementById('goal-tracking-container');
+        
+        let html = `
+          <div class="diagnostic-results">
+            <div class="diagnostic-header">
+              <h4>🔍 Goals Diagnostic Results</h4>
+            </div>
+            <div class="diagnostic-info">
+              <div class="diagnostic-item">
+                <strong>Your Email:</strong> ${diagnostic.userEmail}
+              </div>
+              <div class="diagnostic-item">
+                <strong>Household ID:</strong> ${diagnostic.householdId || 'None found'}
+              </div>
+              <div class="diagnostic-item">
+                <strong>Goals Sheet Exists:</strong> ${diagnostic.goalsSheetExists ? 'Yes' : 'No'}
+              </div>
+              <div class="diagnostic-item">
+                <strong>Goals in Sheet:</strong> ${diagnostic.totalGoalsInSheet}
+              </div>
+              <div class="diagnostic-item">
+                <strong>Goals for Your Household:</strong> ${diagnostic.goalsForHousehold}
+              </div>
+              <div class="diagnostic-item">
+                <strong>Orphaned Goals:</strong> ${diagnostic.orphanedGoals}
+              </div>
+            </div>
+        `;
+        
+        if (diagnostic.issues.length > 0) {
+          html += `
+            <div class="diagnostic-issues">
+              <h5>⚠️ Issues Found:</h5>
+              <ul>
+          `;
+          for (const issue of diagnostic.issues) {
+            html += `<li>${issue}</li>`;
+          }
+          html += `</ul></div>`;
+        }
+        
+        if (diagnostic.recommendations.length > 0) {
+          html += `
+            <div class="diagnostic-recommendations">
+              <h5>💡 Recommendations:</h5>
+              <ul>
+          `;
+          for (const rec of diagnostic.recommendations) {
+            html += `<li>${rec}</li>`;
+          }
+          html += `</ul></div>`;
+        }
+        
+        html += `
+            <div class="diagnostic-actions">
+              <button class="goal-tracking-btn primary" onclick="loadGoalTracking()">Reload Goals</button>
+              <a href="${getScriptUrl()}?page=admin" class="goal-tracking-btn secondary">Go to Admin</a>
+            </div>
+          </div>
+        `;
+        
+        container.innerHTML = html;
       }
 
       // --- Goal Update Modal Functions ---

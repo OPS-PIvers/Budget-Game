@@ -5,10 +5,16 @@
  * @return {string|null} The household ID or null if not found
  */
 function getUserHouseholdId(email) {
-  if (!email || !CONFIG.HOUSEHOLD_SETTINGS.ENABLED) return null;
+  Logger.log(`[GOALS DEBUG] getUserHouseholdId called with email: ${email}`);
+  
+  if (!email || !CONFIG.HOUSEHOLD_SETTINGS.ENABLED) {
+    Logger.log(`[GOALS DEBUG] Email missing or household settings disabled. Email: ${email}, Settings enabled: ${CONFIG.HOUSEHOLD_SETTINGS.ENABLED}`);
+    return null;
+  }
   
   // Normalize email for consistency
   const normalizedEmail = String(email).trim().toLowerCase();
+  Logger.log(`[GOALS DEBUG] Normalized email: ${normalizedEmail}`);
 
   // Check cache first
   const cache = CacheService.getScriptCache();
@@ -16,10 +22,12 @@ function getUserHouseholdId(email) {
   try {
     const cachedId = cache.get(cacheKey);
     if (cachedId) {
+      Logger.log(`[GOALS DEBUG] Found cached household ID: ${cachedId}`);
       return cachedId === "null" ? null : cachedId; // Handle null stored as string
     }
+    Logger.log(`[GOALS DEBUG] No cached household ID found, checking sheet`);
   } catch (cacheError) {
-    Logger.log(`Warning: Cache error in getUserHouseholdId: ${cacheError}. Will check sheet.`);
+    Logger.log(`[GOALS DEBUG] Cache error in getUserHouseholdId: ${cacheError}. Will check sheet.`);
     // Continue to sheet lookup on cache error
   }
 
@@ -29,26 +37,33 @@ function getUserHouseholdId(email) {
     const sheet = ss.getSheetByName(CONFIG.SHEET_NAMES.HOUSEHOLDS);
 
     if (!sheet) {
-      Logger.log("Households sheet not found in getUserHouseholdId");
+      Logger.log(`[GOALS DEBUG] Households sheet not found. Sheet name configured as: ${CONFIG.SHEET_NAMES.HOUSEHOLDS}`);
       cache.put(cacheKey, "null", CONFIG.HOUSEHOLD_SETTINGS.CACHE_TIME);
       return null;
     }
 
     const lastRow = sheet.getLastRow();
+    Logger.log(`[GOALS DEBUG] Households sheet has ${lastRow} rows (including header)`);
+    
     if (lastRow <= 1) {
       // Only header row exists
+      Logger.log(`[GOALS DEBUG] Households sheet has no data rows`);
       cache.put(cacheKey, "null", CONFIG.HOUSEHOLD_SETTINGS.CACHE_TIME);
       return null;
     }
 
     // Get all email rows (Col C) and Household IDs (Col A)
     const data = sheet.getRange(2, 1, lastRow - 1, 3).getValues(); // A2:C<lastRow>
+    Logger.log(`[GOALS DEBUG] Retrieved ${data.length} rows from Households sheet`);
+    
     let householdId = null;
 
     // Find the household for this email (case-insensitive)
     for (let i = 0; i < data.length; i++) {
       const rowId = data[i][0];      // Household ID from Col A
       const rowEmail = data[i][2];   // Email from Col C
+      
+      Logger.log(`[GOALS DEBUG] Row ${i + 2}: Household ID = ${rowId}, Email = ${rowEmail}`);
       
       // Skip rows with missing ID or email
       if (!rowId || !rowEmail) continue;
@@ -57,23 +72,77 @@ function getUserHouseholdId(email) {
       const normalizedRowEmail = String(rowEmail).trim().toLowerCase();
       
       if (normalizedRowEmail === normalizedEmail) {
+        Logger.log(`[GOALS DEBUG] Found matching email! Household ID: ${rowId}`);
         householdId = rowId;
         break;
       }
+    }
+
+    if (!householdId) {
+      Logger.log(`[GOALS DEBUG] No household found for email: ${normalizedEmail}`);
     }
 
     // Store in cache (even if null, to avoid repeated lookups)
     try {
       cache.put(cacheKey, householdId || "null", CONFIG.HOUSEHOLD_SETTINGS.CACHE_TIME);
     } catch (cachePutError) {
-      Logger.log(`Warning: Error storing household ID in cache: ${cachePutError}`);
+      Logger.log(`[GOALS DEBUG] Error storing household ID in cache: ${cachePutError}`);
       // Non-critical error, continue
     }
 
     return householdId;
   } catch (error) {
-    Logger.log(`Error in getUserHouseholdId for ${email}: ${error}\nStack: ${error.stack}`);
+    Logger.log(`[GOALS DEBUG] Error in getUserHouseholdId for ${email}: ${error}\nStack: ${error.stack}`);
     return null; // Return null on error to avoid causing cascading failures
+  }
+}
+
+/**
+ * Ensures a user has a household, creating one if needed
+ * @param {string} email - The user's email address
+ * @return {string|null} The household ID or null if creation failed
+ */
+function ensureUserHasHousehold(email) {
+  Logger.log(`[GOALS DEBUG] ensureUserHasHousehold called for email: ${email}`);
+  
+  // First check if user already has a household
+  let householdId = getUserHouseholdId(email);
+  if (householdId) {
+    Logger.log(`[GOALS DEBUG] User already has household: ${householdId}`);
+    return householdId;
+  }
+  
+  // User doesn't have a household, create one
+  try {
+    Logger.log(`[GOALS DEBUG] Creating new household for user: ${email}`);
+    
+    const sheet = setupHouseholdsSheet();
+    const newHouseholdId = `household_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const now = new Date();
+    
+    // Add the user to their own household
+    const newRow = [
+      newHouseholdId,
+      `${email}'s Household`, // Household name
+      email, // User email
+      now // Created date
+    ];
+    
+    Logger.log(`[GOALS DEBUG] Adding household row: [${newRow.join(', ')}]`);
+    sheet.appendRow(newRow);
+    
+    // Clear cache to ensure fresh lookup
+    const cache = CacheService.getScriptCache();
+    const normalizedEmail = String(email).trim().toLowerCase();
+    const cacheKey = `household_${normalizedEmail}`;
+    cache.remove(cacheKey);
+    
+    Logger.log(`[GOALS DEBUG] Successfully created household ${newHouseholdId} for user ${email}`);
+    return newHouseholdId;
+    
+  } catch (error) {
+    Logger.log(`[GOALS DEBUG] Error creating household for user ${email}: ${error.message}\nStack: ${error.stack}`);
+    return null;
   }
 }
 

@@ -17,22 +17,36 @@
  */
 function createGoal(goalData) {
   try {
+    Logger.log(`[GOALS DEBUG] createGoal called with data: ${JSON.stringify(goalData)}`);
+    
     const sheet = setupGoalsSheet();
     const goalId = generateGoalId();
     const now = new Date();
     
+    Logger.log(`[GOALS DEBUG] Generated goal ID: ${goalId}`);
+    
     // Validate goal data
     if (!goalData.goalName || !goalData.goalType || !goalData.targetAmount || !goalData.householdId) {
-      throw new Error("Missing required goal data");
+      const missingFields = [];
+      if (!goalData.goalName) missingFields.push('goalName');
+      if (!goalData.goalType) missingFields.push('goalType');
+      if (!goalData.targetAmount) missingFields.push('targetAmount');
+      if (!goalData.householdId) missingFields.push('householdId');
+      Logger.log(`[GOALS DEBUG] Missing required goal data: ${missingFields.join(', ')}`);
+      throw new Error(`Missing required goal data: ${missingFields.join(', ')}`);
     }
     
     if (!CONFIG.GOAL_TYPES.includes(goalData.goalType)) {
+      Logger.log(`[GOALS DEBUG] Invalid goal type: ${goalData.goalType}. Valid types: ${CONFIG.GOAL_TYPES.join(', ')}`);
       throw new Error(`Invalid goal type: ${goalData.goalType}`);
     }
     
     // Check goal limit per household
     const existingGoals = getGoalsByHousehold(goalData.householdId);
+    Logger.log(`[GOALS DEBUG] Found ${existingGoals.length} existing goals for household ${goalData.householdId}`);
+    
     if (existingGoals.length >= CONFIG.GOAL_SETTINGS.MAX_GOALS_PER_HOUSEHOLD) {
+      Logger.log(`[GOALS DEBUG] Goal limit exceeded: ${existingGoals.length} >= ${CONFIG.GOAL_SETTINGS.MAX_GOALS_PER_HOUSEHOLD}`);
       throw new Error(`Maximum ${CONFIG.GOAL_SETTINGS.MAX_GOALS_PER_HOUSEHOLD} goals per household`);
     }
     
@@ -49,14 +63,15 @@ function createGoal(goalData) {
       now
     ];
     
+    Logger.log(`[GOALS DEBUG] About to append row to Goals sheet: [${newRow.join(', ')}]`);
     sheet.appendRow(newRow);
     clearGoalCache();
     
-    Logger.log(`Created new goal: ${goalId} - ${goalData.goalName}`);
+    Logger.log(`[GOALS DEBUG] Successfully created new goal: ${goalId} - ${goalData.goalName} for household ${goalData.householdId}`);
     return goalId;
     
   } catch (error) {
-    Logger.log(`Error creating goal: ${error.message}`);
+    Logger.log(`[GOALS DEBUG] Error creating goal: ${error.message}\nStack: ${error.stack}`);
     throw error;
   }
 }
@@ -148,21 +163,38 @@ function deleteGoal(goalId) {
  */
 function getGoalsByHousehold(householdId) {
   try {
+    Logger.log(`[GOALS DEBUG] getGoalsByHousehold called with householdId: ${householdId}`);
+    
     const cached = getGoalCache(householdId);
     if (cached) {
+      Logger.log(`[GOALS DEBUG] Found cached goals for household ${householdId}: ${cached.length} goals`);
       return cached;
     }
     
     const sheet = setupGoalsSheet();
     const lastRow = sheet.getLastRow();
+    Logger.log(`[GOALS DEBUG] Goals sheet has ${lastRow} rows (including header)`);
     
     if (lastRow <= 1) {
+      Logger.log(`[GOALS DEBUG] Goals sheet has no data rows, returning empty array`);
       return [];
     }
     
     const data = sheet.getRange(2, 1, lastRow - 1, 10).getValues();
+    Logger.log(`[GOALS DEBUG] Retrieved ${data.length} rows from Goals sheet`);
+    
+    // Log all household IDs found in the sheet for debugging
+    const allHouseholdIds = data.map(row => row[8]).filter(id => id);
+    Logger.log(`[GOALS DEBUG] All household IDs in Goals sheet: ${JSON.stringify([...new Set(allHouseholdIds)])}`);
+    
     const goals = data
-      .filter(row => row[8] === householdId) // Filter by household
+      .filter(row => {
+        const isMatch = row[8] === householdId;
+        if (!isMatch && row[0]) { // Only log non-matches that have data
+          Logger.log(`[GOALS DEBUG] Goal ${row[0]} (${row[1]}) has household ID ${row[8]}, looking for ${householdId}`);
+        }
+        return isMatch;
+      })
       .map(row => ({
         goalId: row[0],
         goalName: row[1],
@@ -176,11 +208,16 @@ function getGoalsByHousehold(householdId) {
         lastUpdated: row[9]
       }));
     
+    Logger.log(`[GOALS DEBUG] Filtered to ${goals.length} goals for household ${householdId}`);
+    if (goals.length > 0) {
+      Logger.log(`[GOALS DEBUG] Found goals: ${goals.map(g => `${g.goalId} (${g.goalName})`).join(', ')}`);
+    }
+    
     setGoalCache(householdId, goals);
     return goals;
     
   } catch (error) {
-    Logger.log(`Error getting goals for household ${householdId}: ${error.message}`);
+    Logger.log(`[GOALS DEBUG] Error getting goals for household ${householdId}: ${error.message}\nStack: ${error.stack}`);
     return [];
   }
 }
@@ -323,6 +360,136 @@ function findGoalRow(goalId) {
   } catch (error) {
     Logger.log(`Error finding goal row: ${error.message}`);
     return null;
+  }
+}
+
+/**
+ * Gets orphaned goals (goals without valid household associations)
+ * @return {Array} Array of orphaned goal objects
+ */
+function getOrphanedGoals() {
+  try {
+    Logger.log(`[GOALS DEBUG] getOrphanedGoals called`);
+    
+    const sheet = setupGoalsSheet();
+    const lastRow = sheet.getLastRow();
+    
+    if (lastRow <= 1) {
+      Logger.log(`[GOALS DEBUG] No goals found in sheet`);
+      return [];
+    }
+    
+    const data = sheet.getRange(2, 1, lastRow - 1, 10).getValues();
+    const orphanedGoals = data
+      .filter(row => !row[8] || row[8] === '') // No household ID or empty household ID
+      .map(row => ({
+        goalId: row[0],
+        goalName: row[1],
+        goalType: row[2],
+        targetAmount: row[3],
+        currentAmount: row[4],
+        startDate: row[5],
+        targetDate: row[6],
+        status: row[7],
+        householdId: row[8],
+        lastUpdated: row[9],
+        isOrphaned: true
+      }));
+    
+    Logger.log(`[GOALS DEBUG] Found ${orphanedGoals.length} orphaned goals`);
+    return orphanedGoals;
+    
+  } catch (error) {
+    Logger.log(`[GOALS DEBUG] Error getting orphaned goals: ${error.message}\nStack: ${error.stack}`);
+    return [];
+  }
+}
+
+/**
+ * Assigns orphaned goals to a household
+ * @param {Array} goalIds - Array of goal IDs to assign
+ * @param {string} householdId - The household ID to assign them to
+ * @return {Object} Result object { success, message, assignedCount }
+ */
+function assignOrphanedGoalsToHousehold(goalIds, householdId) {
+  try {
+    Logger.log(`[GOALS DEBUG] Assigning ${goalIds.length} goals to household ${householdId}`);
+    
+    const sheet = setupGoalsSheet();
+    let assignedCount = 0;
+    
+    for (const goalId of goalIds) {
+      const goalRow = findGoalRow(goalId);
+      if (goalRow) {
+        sheet.getRange(goalRow, 9).setValue(householdId); // Column 9 is household ID
+        assignedCount++;
+        Logger.log(`[GOALS DEBUG] Assigned goal ${goalId} to household ${householdId}`);
+      } else {
+        Logger.log(`[GOALS DEBUG] Goal not found: ${goalId}`);
+      }
+    }
+    
+    clearGoalCache();
+    
+    return {
+      success: true,
+      message: `Successfully assigned ${assignedCount} goals to household`,
+      assignedCount: assignedCount
+    };
+    
+  } catch (error) {
+    Logger.log(`[GOALS DEBUG] Error assigning orphaned goals: ${error.message}\nStack: ${error.stack}`);
+    return {
+      success: false,
+      message: `Error assigning goals: ${error.message}`,
+      assignedCount: 0
+    };
+  }
+}
+
+/**
+ * Gets goals for a user by email (fallback for when household lookup fails)
+ * @param {string} email - The user's email address
+ * @return {Array} Array of goal objects that might belong to this user
+ */
+function getGoalsByUserEmail(email) {
+  try {
+    Logger.log(`[GOALS DEBUG] getGoalsByUserEmail called for: ${email}`);
+    
+    const sheet = setupGoalsSheet();
+    const lastRow = sheet.getLastRow();
+    
+    if (lastRow <= 1) {
+      return [];
+    }
+    
+    const data = sheet.getRange(2, 1, lastRow - 1, 10).getValues();
+    
+    // Look for goals that might belong to this user
+    // This is a heuristic approach - we'll look for goals with no household ID
+    // that were created around the same time as user activity
+    const potentialUserGoals = data
+      .filter(row => !row[8] || row[8] === '') // No household ID
+      .map(row => ({
+        goalId: row[0],
+        goalName: row[1],
+        goalType: row[2],
+        targetAmount: row[3],
+        currentAmount: row[4],
+        startDate: row[5],
+        targetDate: row[6],
+        status: row[7],
+        householdId: row[8],
+        lastUpdated: row[9],
+        isPotentialMatch: true
+      }));
+    
+    Logger.log(`[GOALS DEBUG] Found ${potentialUserGoals.length} potential goals for user ${email}`);
+    return potentialUserGoals;
+    
+  } catch (error) {
+    Logger.log(`[GOALS DEBUG] Error getting goals by user email: ${error.message}\nStack: ${error.stack}`);
+    return [];
   }
 }
 
