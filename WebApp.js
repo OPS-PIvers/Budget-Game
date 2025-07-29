@@ -15,33 +15,31 @@ function doGet(e) {
   if (page === 'admin') {
     // Ensure admin access if needed (using helper from HouseholdManagement.gs)
     if (!isCurrentUserAdmin()) {
-       return HtmlService.createHtmlOutput('<!DOCTYPE html><html><head><title>Access Denied</title></head><body>Access Denied. Admin privileges required.</body></html>');
+       return createPageOutput('Admin', 'Access Denied');
     }
-    return HtmlService.createTemplateFromFile('Admin')
-      .evaluate()
-      .setTitle('Budget Game Admin')
-      .addMetaTag('viewport', 'width=device-width, initial-scale=1')
-      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+    return createPageOutput('Admin', 'Budget Game Admin');
   } else if (page === 'dashboard') {
-    return HtmlService.createTemplateFromFile('Dashboard')
-      .evaluate()
-      .setTitle('Budget Game Dashboard')
-      .addMetaTag('viewport', 'width=device-width, initial-scale=1')
-      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+    return createPageOutput('Dashboard', 'Budget Game Dashboard');
   } else if (page === 'expense') {
-    return HtmlService.createTemplateFromFile('ExpenseTracker')
-      .evaluate()
-      .setTitle('Budget Game Expense Tracker')
-      .addMetaTag('viewport', 'width=device-width, initial-scale=1')
-      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+    return createPageOutput('ExpenseTracker', 'Budget Game Expense Tracker');
   }
 
   // Default to the activity tracker (main landing page)
-  return HtmlService.createTemplateFromFile('ActivityTracker')
-      .evaluate()
-      .setTitle('Budget Game Tracker')
-      .addMetaTag('viewport', 'width=device-width, initial-scale=1')
-      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+  return createPageOutput('ActivityTracker', 'Budget Game Tracker');
+}
+
+/**
+ * Creates a standard HTML page output.
+ * @param {string} template The name of the HTML template file.
+ * @param {string} title The title of the page.
+ * @return {HtmlOutput} The configured HTML service output.
+ */
+function createPageOutput(template, title) {
+  return HtmlService.createTemplateFromFile(template)
+    .evaluate()
+    .setTitle(title)
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1')
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
 /**
