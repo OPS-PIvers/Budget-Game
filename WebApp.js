@@ -10,38 +10,36 @@
  * @return {HtmlOutput} The HTML service output.
  */
 function doGet(e) {
-  const page = e.parameter.page;
+  const view = e.parameter.view;
 
-  if (page === 'admin') {
+  if (view === 'admin') {
     // Ensure admin access if needed (using helper from HouseholdManagement.gs)
     if (!isCurrentUserAdmin()) {
        return HtmlService.createHtmlOutput('<!DOCTYPE html><html><head><title>Access Denied</title></head><body>Access Denied. Admin privileges required.</body></html>');
     }
-    return HtmlService.createTemplateFromFile('Admin')
-      .evaluate()
-      .setTitle('Budget Game Admin')
-      .addMetaTag('viewport', 'width=device-width, initial-scale=1')
-      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
-  } else if (page === 'dashboard') {
-    return HtmlService.createTemplateFromFile('Dashboard')
-      .evaluate()
-      .setTitle('Budget Game Dashboard')
-      .addMetaTag('viewport', 'width=device-width, initial-scale=1')
-      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
-  } else if (page === 'expense') {
-    return HtmlService.createTemplateFromFile('ExpenseTracker')
-      .evaluate()
-      .setTitle('Budget Game Expense Tracker')
-      .addMetaTag('viewport', 'width=device-width, initial-scale=1')
-      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+    return createPageOutput('Admin', 'Budget Game Admin');
+  } else if (view === 'dashboard') {
+    return createPageOutput('Dashboard', 'Budget Game Dashboard');
+  } else if (view === 'expense') {
+    return createPageOutput('ExpenseTracker', 'Budget Game Expense Tracker');
   }
 
-  // Default to the expense tracker (main landing page)
-  return HtmlService.createTemplateFromFile('ExpenseTracker')
-      .evaluate()
-      .setTitle('Budget Game Expense Tracker')
-      .addMetaTag('viewport', 'width=device-width, initial-scale=1')
-      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+  // Default to the activity tracker (main landing page)
+  return createPageOutput('ActivityTracker', 'Budget Game Tracker');
+}
+
+/**
+ * Creates a standard HTML page output.
+ * @param {string} template The name of the HTML template file.
+ * @param {string} title The title of the page.
+ * @return {HtmlOutput} The configured HTML service output.
+ */
+function createPageOutput(template, title) {
+  return HtmlService.createTemplateFromFile(template)
+    .evaluate()
+    .setTitle(title)
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1')
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
 /**
