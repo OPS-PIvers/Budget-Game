@@ -73,7 +73,8 @@ function getUserHouseholdId(email) {
       
       if (normalizedRowEmail === normalizedEmail) {
         Logger.log(`[GOALS DEBUG] Found matching email! Household ID: ${rowId}`);
-        householdId = rowId;
+        // Normalize household ID to ensure consistent format
+        householdId = String(rowId).trim();
         break;
       }
     }

@@ -1257,17 +1257,38 @@ function editActivityEntry(rowIndex, activityId, date, email, newActivityName) {
  */
 function getGoalsData() {
   try {
+    Logger.log(`[GOALS DEBUG] getGoalsData() called`);
+    
     const email = Session.getEffectiveUser().getEmail();
-    const householdId = getUserHouseholdId(email);
+    Logger.log(`[GOALS DEBUG] Current user email: ${email}`);
+    
+    let householdId = getUserHouseholdId(email);
+    Logger.log(`[GOALS DEBUG] User household ID: ${householdId}`);
     
     if (!householdId) {
-      return [];
+      Logger.log(`[GOALS DEBUG] No household ID found, attempting to create one`);
+      householdId = ensureUserHasHousehold(email);
+      
+      if (!householdId) {
+        Logger.log(`[GOALS DEBUG] Failed to create household, returning empty array`);
+        return [];
+      }
+      
+      Logger.log(`[GOALS DEBUG] Successfully created/found household: ${householdId}`);
     }
     
-    return getGoalsByHousehold(householdId);
+    const goals = getGoalsByHousehold(householdId);
+    Logger.log(`[GOALS DEBUG] getGoalsByHousehold returned ${goals.length} goals`);
+    
+    if (goals.length > 0) {
+      Logger.log(`[GOALS DEBUG] Goals data: ${JSON.stringify(goals.map(g => ({id: g.goalId, name: g.goalName, type: g.goalType})))}`);
+    }
+    
+    Logger.log(`[GOALS DEBUG] getGoalsData() returning array of length: ${goals.length}`);
+    return goals;
     
   } catch (error) {
-    Logger.log(`Error getting goals data: ${error.message}`);
+    Logger.log(`[GOALS DEBUG] Error getting goals data: ${error.message}\nStack: ${error.stack}`);
     return [];
   }
 }

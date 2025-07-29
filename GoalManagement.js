@@ -187,13 +187,46 @@ function getGoalsByHousehold(householdId) {
     const allHouseholdIds = data.map(row => row[8]).filter(id => id);
     Logger.log(`[GOALS DEBUG] All household IDs in Goals sheet: ${JSON.stringify([...new Set(allHouseholdIds)])}`);
     
+    // Detailed debugging of target household ID
+    Logger.log(`[GOALS DEBUG] Target household ID: "${householdId}"`);
+    Logger.log(`[GOALS DEBUG] Target household ID type: ${typeof householdId}`);
+    Logger.log(`[GOALS DEBUG] Target household ID length: ${String(householdId).length}`);
+    Logger.log(`[GOALS DEBUG] Target household ID char codes: ${Array.from(String(householdId)).map(c => c.charCodeAt(0)).join(',')}`);
+    
+    const normalizedTargetId = normalizeHouseholdId(householdId);
+    Logger.log(`[GOALS DEBUG] Normalized target household ID: "${normalizedTargetId}"`);
+    
     const goals = data
       .filter(row => {
-        const isMatch = row[8] === householdId;
-        if (!isMatch && row[0]) { // Only log non-matches that have data
-          Logger.log(`[GOALS DEBUG] Goal ${row[0]} (${row[1]}) has household ID ${row[8]}, looking for ${householdId}`);
+        const sheetHouseholdId = row[8];
+        const normalizedSheetId = normalizeHouseholdId(sheetHouseholdId);
+        
+        // Try multiple comparison methods for comprehensive debugging
+        const strictMatch = sheetHouseholdId === householdId;
+        const normalizedMatch = normalizedSheetId === normalizedTargetId;
+        
+        // Log key comparison information for each goal
+        Logger.log(`[GOALS DEBUG] Goal ${row[0]} (${row[1]}): Sheet="${sheetHouseholdId}" vs Target="${householdId}" | Strict=${strictMatch} | Normalized=${normalizedMatch}`);
+        
+        // Log detailed debugging only for first goal or mismatches to reduce log volume
+        const isFirstGoal = row === data[0];
+        if (isFirstGoal || (!normalizedMatch && row[0])) {
+          Logger.log(`[GOALS DEBUG] - Sheet household ID: "${sheetHouseholdId}" (type: ${typeof sheetHouseholdId}, length: ${String(sheetHouseholdId).length})`);
+          Logger.log(`[GOALS DEBUG] - Normalized sheet ID: "${normalizedSheetId}"`);
+          Logger.log(`[GOALS DEBUG] - Target household ID: "${householdId}" (type: ${typeof householdId}, length: ${String(householdId).length})`);
+          Logger.log(`[GOALS DEBUG] - Normalized target ID: "${normalizedTargetId}"`);
+          Logger.log(`[GOALS DEBUG] - String comparison: ${String(sheetHouseholdId) === String(householdId)}`);
+          Logger.log(`[GOALS DEBUG] - Trimmed comparison: ${String(sheetHouseholdId).trim() === String(householdId).trim()}`);
         }
-        return isMatch;
+        
+        if (!normalizedMatch && row[0]) {
+          Logger.log(`[GOALS DEBUG] MISMATCH: Goal ${row[0]} (${row[1]}) has normalized ID "${normalizedSheetId}", looking for "${normalizedTargetId}"`);
+        } else if (normalizedMatch) {
+          Logger.log(`[GOALS DEBUG] ✓ MATCH FOUND: Goal ${row[0]} (${row[1]}) matches household "${normalizedTargetId}"`);
+        }
+        
+        // Use the normalized comparison instead of strict equality
+        return normalizedMatch;
       })
       .map(row => ({
         goalId: row[0],
@@ -324,6 +357,19 @@ function calculateGoalProgress(goal) {
 }
 
 // --- Helper Functions ---
+
+/**
+ * Normalizes an ID for safe comparison
+ * Handles null/undefined values, trims whitespace, and ensures string comparison
+ * @param {*} id - The ID to normalize
+ * @return {string} Normalized ID as string
+ */
+function normalizeHouseholdId(id) {
+  if (id === null || id === undefined) {
+    return '';
+  }
+  return String(id).trim();
+}
 
 /**
  * Generates a unique goal ID

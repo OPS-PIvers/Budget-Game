@@ -266,7 +266,10 @@
         <h2 class="section-title">Goal Management</h2>
         <div class="activity-controls">
           <input type="text" id="search-goals" placeholder="Search goals...">
-          <button class="btn btn-secondary" id="add-goal-btn">Add New Goal</button>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn btn-secondary" id="refresh-goals-btn">🔄 Refresh</button>
+            <button class="btn btn-secondary" id="add-goal-btn">Add New Goal</button>
+          </div>
         </div>
         <div style="max-height: 400px; overflow-y: auto;">
           <table class="activities-table" id="goals-table">
@@ -281,7 +284,14 @@
                 <th style="width: 15%;">Actions</th>
               </tr>
             </thead>
-            <tbody id="goals-body"><tr><td colspan="7">Loading goals...</td></tr></tbody>
+            <tbody id="goals-body">
+              <tr>
+                <td colspan="7" style="text-align: center; color: #666; padding: 30px;">
+                  <div style="margin-bottom: 10px;">⏳ Loading goals...</div>
+                  <div style="font-size: 0.9em; color: #999;">Please wait while we fetch your goal data</div>
+                </td>
+              </tr>
+            </tbody>
           </table>
         </div>
         <div class="form-actions">
@@ -454,6 +464,7 @@
         document.getElementById('search-categories').addEventListener('input', filterCategories);
 
         // Goal Management Listeners
+        document.getElementById('refresh-goals-btn').addEventListener('click', refreshGoals);
         document.getElementById('add-goal-btn').addEventListener('click', addNewGoal);
         document.getElementById('reset-goals-btn').addEventListener('click', resetGoals);
         document.getElementById('save-goals-btn').addEventListener('click', saveGoals);
@@ -472,9 +483,30 @@
           .getAdminConfigData(); // Calls the function in WebApp.gs
 
         // Load goals data
+        console.log('[ADMIN GOALS DEBUG] Calling getGoalsData() from server...');
         google.script.run
           .withSuccessHandler(handleGoalsData)
-          .withFailureHandler(handleError)
+          .withFailureHandler(function(error) {
+            console.log('[ADMIN GOALS DEBUG] Error loading goals:', error);
+            
+            // Show specific error message for goals loading
+            const tbody = document.getElementById('goals-body');
+            tbody.innerHTML = `
+              <tr>
+                <td colspan="7" style="text-align: center; color: #ea4335; padding: 30px;">
+                  <div style="margin-bottom: 10px;">⚠️ Error loading goals</div>
+                  <div style="font-size: 0.9em; color: #666;">
+                    ${error.message || 'Unknown error occurred'}
+                  </div>
+                  <div style="margin-top: 10px;">
+                    <button class="btn btn-primary btn-sm" onclick="location.reload()">Retry</button>
+                  </div>
+                </td>
+              </tr>
+            `;
+            
+            handleError(error);
+          })
           .getGoalsData();
 
         // Load households when the admin page is initialized
@@ -1579,6 +1611,47 @@
       
       // --- Goal Management Functions ---
       
+      function refreshGoals() {
+        console.log('[ADMIN GOALS DEBUG] Manual refresh goals triggered');
+        
+        // Show loading state
+        const tbody = document.getElementById('goals-body');
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="7" style="text-align: center; color: #666; padding: 30px;">
+              <div style="margin-bottom: 10px;">🔄 Refreshing goals...</div>
+              <div style="font-size: 0.9em; color: #999;">Fetching latest goal data</div>
+            </td>
+          </tr>
+        `;
+        
+        // Reload goals data
+        google.script.run
+          .withSuccessHandler(function(goals) {
+            console.log('[ADMIN GOALS DEBUG] Manual refresh completed:', goals);
+            handleGoalsData(goals);
+            showNotification('Goals refreshed successfully');
+          })
+          .withFailureHandler(function(error) {
+            console.log('[ADMIN GOALS DEBUG] Manual refresh failed:', error);
+            tbody.innerHTML = `
+              <tr>
+                <td colspan="7" style="text-align: center; color: #ea4335; padding: 30px;">
+                  <div style="margin-bottom: 10px;">⚠️ Refresh failed</div>
+                  <div style="font-size: 0.9em; color: #666;">
+                    ${error.message || 'Unknown error occurred'}
+                  </div>
+                  <div style="margin-top: 10px;">
+                    <button class="btn btn-primary btn-sm" onclick="refreshGoals()">Try Again</button>
+                  </div>
+                </td>
+              </tr>
+            `;
+            handleError(error);
+          })
+          .getGoalsData();
+      }
+      
       function addNewGoal() {
         document.getElementById('goal-modal-title').textContent = 'Add New Goal';
         document.getElementById('goal-form').reset();
@@ -1614,12 +1687,28 @@
       }
       
       function renderGoalsTable() {
+        console.log('[ADMIN GOALS DEBUG] renderGoalsTable called');
+        console.log('[ADMIN GOALS DEBUG] goalsData length:', goalsData.length);
+        console.log('[ADMIN GOALS DEBUG] goalsData contents:', goalsData);
+        
         const tbody = document.getElementById('goals-body');
         
         if (goalsData.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #666;">No goals configured</td></tr>';
+          console.log('[ADMIN GOALS DEBUG] No goals found, showing "No goals configured" message');
+          tbody.innerHTML = `
+            <tr>
+              <td colspan="7" style="text-align: center; color: #666; padding: 30px;">
+                <div style="margin-bottom: 10px;">📋 No goals configured</div>
+                <div style="font-size: 0.9em; color: #999;">
+                  Click "Add New Goal" above to create your first goal
+                </div>
+              </td>
+            </tr>
+          `;
           return;
         }
+        
+        console.log('[ADMIN GOALS DEBUG] Rendering', goalsData.length, 'goals');
         
         tbody.innerHTML = goalsData.map(goal => {
           const progress = calculateProgress(goal);
@@ -1739,10 +1828,17 @@
       function handleGoalsSaved(result) {
         if (result.success) {
           showNotification('Goals saved successfully');
-          // Refresh goals data
+          // Refresh goals data immediately after saving
+          console.log('[ADMIN GOALS DEBUG] Reloading goals after successful save...');
           google.script.run
-            .withSuccessHandler(handleGoalsData)
-            .withFailureHandler(handleError)
+            .withSuccessHandler(function(goals) {
+              console.log('[ADMIN GOALS DEBUG] Reloaded goals after save:', goals);
+              handleGoalsData(goals);
+            })
+            .withFailureHandler(function(error) {
+              console.log('[ADMIN GOALS DEBUG] Error reloading goals after save:', error);
+              handleError(error);
+            })
             .getGoalsData();
         } else {
           showNotification('Error saving goals: ' + result.message);
@@ -1750,7 +1846,20 @@
       }
       
       function handleGoalsData(goals) {
+        console.log('[ADMIN GOALS DEBUG] handleGoalsData called with:', goals);
+        console.log('[ADMIN GOALS DEBUG] Type of goals parameter:', typeof goals);
+        console.log('[ADMIN GOALS DEBUG] Is goals array?', Array.isArray(goals));
+        
+        if (goals) {
+          console.log('[ADMIN GOALS DEBUG] Goals length:', goals.length);
+          if (goals.length > 0) {
+            console.log('[ADMIN GOALS DEBUG] First goal structure:', goals[0]);
+          }
+        }
+        
         goalsData = goals || [];
+        console.log('[ADMIN GOALS DEBUG] Set goalsData to array of length:', goalsData.length);
+        
         originalGoalsData = JSON.parse(JSON.stringify(goalsData));
         renderGoalsTable();
       }
