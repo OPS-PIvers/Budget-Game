@@ -2014,7 +2014,7 @@ function saveBudgetCategoriesData(categories) {
     }
 
     // Clear cache to force refresh
-    resetExpenseDataCache();
+    resetExpenseDataCache(householdId);
 
     return {
       success: true,

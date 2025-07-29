@@ -1459,17 +1459,30 @@ let expenseDataCache = null;
 
 /**
  * Resets the expense data cache (both script-global and CacheService)
+ * @param {string} householdId The household ID to clear the cache for.
  */
-function resetExpenseDataCache() {
-  expenseDataCache = null;
+function resetExpenseDataCache(householdId = null) {
+  const cacheKey = `expenseData_${householdId || 'default'}`;
+
+  // Reset script-global cache if it exists
+  if (expenseDataCache && typeof expenseDataCache === 'object' && expenseDataCache[cacheKey]) {
+    delete expenseDataCache[cacheKey];
+    Logger.log(`Cleared script-global cache for key: ${cacheKey}`);
+  }
+
   try {
     const cache = CacheService.getScriptCache();
+    // Remove the specific, household-based cache key
+    cache.remove(cacheKey);
+
+    // For good measure, remove the old generic keys if they exist from previous versions
     cache.remove('expenseData');
     cache.remove('budgetCategoriesData');
     cache.remove('locationMappingData');
-    Logger.log("Expense data caches reset.");
+
+    Logger.log(`Expense data cache in CacheService reset for key: ${cacheKey}`);
   } catch (e) {
-    Logger.log(`Warning: Error clearing expense data from CacheService: ${e}`);
+    Logger.log(`Warning: Error clearing expense data from CacheService for key ${cacheKey}: ${e}`);
   }
 }
 
@@ -1711,7 +1724,7 @@ function processExpenseEntry(amount, location, category, description = "", email
     updateLocationMappingUsage(location, category, householdId);
 
     // Clear cache to reflect changes
-    resetExpenseDataCache();
+    resetExpenseDataCache(householdId);
 
     return {
       success: true,
@@ -1954,7 +1967,7 @@ function resetPayPeriodBudgets(householdId) {
     });
 
     // Clear cache
-    resetExpenseDataCache();
+    resetExpenseDataCache(householdId);
 
     return {
       success: true,
