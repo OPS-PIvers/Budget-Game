@@ -36,10 +36,10 @@ function doGet(e) {
       .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
   }
 
-  // Default to the activity tracker
-  return HtmlService.createTemplateFromFile('ActivityTracker')
+  // Default to the expense tracker (main landing page)
+  return HtmlService.createTemplateFromFile('ExpenseTracker')
       .evaluate()
-      .setTitle('Budget Game Tracker')
+      .setTitle('Budget Game Expense Tracker')
       .addMetaTag('viewport', 'width=device-width, initial-scale=1')
       .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
