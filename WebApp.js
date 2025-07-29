@@ -10,17 +10,17 @@
  * @return {HtmlOutput} The HTML service output.
  */
 function doGet(e) {
-  const page = e.parameter.page;
+  const view = e.parameter.view;
 
-  if (page === 'admin') {
+  if (view === 'admin') {
     // Ensure admin access if needed (using helper from HouseholdManagement.gs)
     if (!isCurrentUserAdmin()) {
-       return createPageOutput('Admin', 'Access Denied');
+       return HtmlService.createHtmlOutput('<!DOCTYPE html><html><head><title>Access Denied</title></head><body>Access Denied. Admin privileges required.</body></html>');
     }
     return createPageOutput('Admin', 'Budget Game Admin');
-  } else if (page === 'dashboard') {
+  } else if (view === 'dashboard') {
     return createPageOutput('Dashboard', 'Budget Game Dashboard');
-  } else if (page === 'expense') {
+  } else if (view === 'expense') {
     return createPageOutput('ExpenseTracker', 'Budget Game Expense Tracker');
   }
 
