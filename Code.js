@@ -29,6 +29,7 @@ function onOpen() {
       .addItem('Setup Location Mapping Sheet', 'setupLocationMappingMenu') // Wrapper  
       .addItem('Setup All Expense Sheets', 'setupAllExpenseSheetsMenu') // Wrapper
       .addSeparator()
+      .addItem('Cleanup Legacy Cache', 'cleanupLegacyCacheMenu') // Wrapper
       // .addItem('Update Form From Points Reference', 'updateFormMenu') // Obsolete - Removed
       .addItem('Rebuild Dashboard From Form Responses', 'rebuildDashboardMenu') // Wrapper - CAUTION: Check if this logic is still valid/needed without a Form Responses sheet being the primary input
       .addItem('Setup/Update All Triggers', 'setupAllTriggersMenu') // Wrapper
