@@ -175,7 +175,11 @@
     <div class="container">
       <header>
         <h1>Budget Game Admin</h1>
-        <a href="#" class="back-btn" id="back-button">Return to App</a>
+        <div class="return-nav">
+          <a href="<?= getScriptUrl() ?>?view=activity" class="back-btn">Activity Tracker</a>
+          <a href="<?= getScriptUrl() ?>?view=dashboard" class="back-btn">Dashboard</a>
+          <a href="<?= getScriptUrl() ?>?view=expense" class="back-btn">Expense Tracker</a>
+        </div>
       </header>
 
       <!-- Activity Configuration -->
@@ -518,7 +522,6 @@
 
       function initializeAdmin() {
         // Set up event listeners
-        document.getElementById('back-button').addEventListener('click', navigateToApp);
         document.getElementById('add-activity-btn').addEventListener('click', addNewActivity);
         document.getElementById('reset-activities-btn').addEventListener('click', resetActivities);
         document.getElementById('save-activities-btn').addEventListener('click', saveActivities);
@@ -984,12 +987,6 @@
           // ... (optional add/delete button disabling) ...
       }
 
-
-      function navigateToApp() {
-        google.script.run.withSuccessHandler(url => {
-            window.top.location.href = url; // Use window.top to escape iframe if necessary
-        }).getScriptUrl();
-      }
 
       function showNotification(message, isError = false) {
         const notification = document.getElementById('notification');
