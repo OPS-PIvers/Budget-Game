@@ -47,8 +47,16 @@ function createPageOutput(template, title) {
  * @param {string} filename The name of the HTML file to include (e.g., 'Stylesheet').
  * @return {string} The HTML content of the included file.
  */
-function include(filename) {
-  return HtmlService.createHtmlOutputFromFile(filename).getContent();
+function include(filename, data) {
+  const template = HtmlService.createTemplateFromFile(filename);
+  if (data) {
+    // Pass all keys from the data object to the template
+    Object.keys(data).forEach(key => {
+      template[key] = data[key];
+    });
+  }
+  // Evaluate the template and return its content
+  return template.evaluate().getContent();
 }
 
 /**
