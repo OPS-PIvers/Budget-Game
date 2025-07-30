@@ -176,9 +176,9 @@
       <header>
         <h1>Budget Game Admin</h1>
         <div class="return-nav">
-            <a href="<?= getScriptUrl() ?>?view=activity" class="back-btn">Activity Tracker</a>
-            <a href="<?= getScriptUrl() ?>?view=dashboard" class="back-btn">Dashboard</a>
-            <a href="<?= getScriptUrl() ?>?view=expense" class="back-btn">Expense Tracker</a>
+          <a href="<?= getScriptUrl() ?>?view=activity" class="back-btn">Activity Tracker</a>
+          <a href="<?= getScriptUrl() ?>?view=dashboard" class="back-btn">Dashboard</a>
+          <a href="<?= getScriptUrl() ?>?view=expense" class="back-btn">Expense Tracker</a>
         </div>
       </header>
 
@@ -987,12 +987,6 @@
           // ... (optional add/delete button disabling) ...
       }
 
-
-      function navigateToApp() {
-        google.script.run.withSuccessHandler(url => {
-            window.top.location.href = url; // Use window.top to escape iframe if necessary
-        }).getScriptUrl();
-      }
 
       function showNotification(message, isError = false) {
         const notification = document.getElementById('notification');
