@@ -1650,6 +1650,77 @@ function readLocationMappingData(householdId = null) {
 }
 
 /**
+ * Gets enhanced location data including recent locations from expense entries
+ * This ensures all locations used in the past 30 days appear as options
+ * @param {string} householdId Optional household ID to filter by
+ * @return {Object} Enhanced location mappings with recent locations included
+ */
+function getEnhancedLocationMappingData(householdId = null) {
+  // Start with existing location mapping data
+  const existingData = readLocationMappingData(householdId);
+  let locations = [...existingData.locations];
+  const locationsByName = { ...existingData.locationsByName };
+  
+  try {
+    // Get recent locations from expense tracker sheet (last 30 days)
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const expenseSheet = ss.getSheetByName(CONFIG.SHEET_NAMES.EXPENSE_TRACKER);
+    
+    if (expenseSheet) {
+      const lastRow = expenseSheet.getLastRow();
+      if (lastRow > 1) {
+        const cutoffDate = new Date();
+        cutoffDate.setDate(cutoffDate.getDate() - 30); // Last 30 days
+        
+        // Read recent expense data: Date(A), Amount(B), Location(C), Category(D), Description(E), Email(F), HouseholdID(G)
+        const data = expenseSheet.getRange(2, 1, lastRow - 1, 7).getValues();
+        
+        data.forEach(row => {
+          const expenseDate = row[0];
+          const location = String(row[2]).trim();
+          const category = String(row[3]).trim();
+          const expenseHouseholdId = row[6] ? String(row[6]).trim() : null;
+          
+          // Filter by household and recent date
+          if (expenseDate instanceof Date && expenseDate >= cutoffDate) {
+            if (!householdId || !expenseHouseholdId || expenseHouseholdId === householdId) {
+              const locationKey = location.toLowerCase();
+              
+              // If location isn't already in our mapping, add it as a recent location
+              if (location && !locationsByName[locationKey]) {
+                const recentLocationData = {
+                  name: location,
+                  defaultCategory: category,
+                  usageCount: 1,
+                  lastUsed: expenseDate,
+                  householdId: expenseHouseholdId,
+                  rowIndex: -1, // Not in mapping sheet yet
+                  isSuggested: true, // Show recent locations as suggested
+                  isRecent: true // Flag to identify as coming from recent expenses
+                };
+                
+                locations.push(recentLocationData);
+                locationsByName[locationKey] = recentLocationData;
+              }
+            }
+          }
+        });
+      }
+    }
+    
+    Logger.log(`Enhanced location data loaded: ${locations.length} total locations (${existingData.locations.length} from mapping, ${locations.length - existingData.locations.length} recent)`);
+  } catch (error) {
+    Logger.log(`Error enhancing location data with recent locations: ${error}`);
+    // Fall back to original data if enhancement fails
+  }
+  
+  return {
+    locations: locations,
+    locationsByName: locationsByName
+  };
+}
+
+/**
  * Caching wrapper for expense-related data
  * @param {string} householdId Optional household ID for filtering
  * @return {Object} Complete expense data including budget categories and location mappings
@@ -1681,7 +1752,7 @@ function getExpenseDataCached(householdId = null) {
 
   // Fetch fresh data
   const budgetCategories = readBudgetCategoriesData(householdId);
-  const locationMappings = readLocationMappingData(householdId);
+  const locationMappings = getEnhancedLocationMappingData(householdId);
   
   const expenseData = {
     budgetCategories: budgetCategories,

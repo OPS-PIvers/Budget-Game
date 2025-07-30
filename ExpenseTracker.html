@@ -152,6 +152,16 @@
         color: #666;
       }
 
+      .store-chip.recent-location {
+        border-color: #34A853;
+        background: #f0f9f0;
+      }
+
+      .store-chip.recent-location:hover {
+        border-color: #34A853;
+        background: #e8f5e8;
+      }
+
       .amount-input-section {
         display: grid;
         grid-template-columns: 1fr auto;
@@ -638,15 +648,20 @@
       function updateStoreChips() {
         const storeChipsContainer = document.getElementById('store-chips');
         
-        // Get top locations by usage count
+        // Get top locations - prioritize recently used and frequently used locations
         const topLocations = locationMappings
-          .filter(loc => loc.isSuggested)
-          .sort((a, b) => b.usageCount - a.usageCount)
+          .sort((a, b) => {
+            // Recent locations first (if available)
+            if (a.isRecent && !b.isRecent) return -1;
+            if (!a.isRecent && b.isRecent) return 1;
+            // Then by usage count
+            return b.usageCount - a.usageCount;
+          })
           .slice(0, 8);
 
         const storeChipsHtml = topLocations.map(location => `
-          <div class="store-chip" data-store="${location.name}" data-category="${location.defaultCategory}">
-            ${location.name}
+          <div class="store-chip${location.isRecent ? ' recent-location' : ''}" data-store="${location.name}" data-category="${location.defaultCategory}">
+            ${location.name}${location.isRecent ? ' 🆕' : ''}
           </div>
         `).join('') + `
           <div class="store-chip add-other" id="add-other-store">
