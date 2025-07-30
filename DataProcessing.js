@@ -1458,11 +1458,21 @@ function editIndividualActivity(rowIndex, activityId, expectedDate, expectedEmai
 let expenseDataCache = null;
 
 /**
+ * Generates a consistent cache key for expense data based on household ID.
+ * @param {string|null} householdId The ID of the household.
+ * @return {string} The cache key.
+ * @private
+ */
+function _getExpenseCacheKey(householdId) {
+  return `expenseData_${householdId || 'default'}`;
+}
+
+/**
  * Resets the expense data cache (both script-global and CacheService)
- * @param {string} householdId The household ID to clear the cache for.
+ * @param {string|null} householdId The household ID to clear the cache for.
  */
 function resetExpenseDataCache(householdId = null) {
-  const cacheKey = `expenseData_${householdId || 'default'}`;
+  const cacheKey = _getExpenseCacheKey(householdId);
 
   // Reset script-global cache if it exists
   if (expenseDataCache && typeof expenseDataCache === 'object' && expenseDataCache[cacheKey]) {
@@ -1648,7 +1658,7 @@ function readLocationMappingData(householdId = null) {
  * @return {Object} Complete expense data including budget categories and location mappings
  */
 function getExpenseDataCached(householdId = null) {
-  const cacheKey = `expenseData_${householdId || 'default'}`;
+  const cacheKey = _getExpenseCacheKey(householdId);
   
   // Check script-global cache first
   if (expenseDataCache && expenseDataCache[cacheKey]) {
