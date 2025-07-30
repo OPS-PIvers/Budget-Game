@@ -1485,9 +1485,7 @@ function resetExpenseDataCache(householdId = null) {
     // Remove the specific, household-based cache key
     cache.remove(cacheKey);
 
-    // For good measure, remove the old generic keys if they exist from previous versions
-    // TODO: This can be removed after a transition period (e.g., after a few weeks).
-    cache.removeAll(['expenseData', 'budgetCategoriesData', 'locationMappingData']);
+    // The old, generic keys are now cleaned up by a separate, one-time function.
 
     Logger.log(`Expense data cache in CacheService reset for key: ${cacheKey}`);
   } catch (e) {
@@ -1986,5 +1984,22 @@ function resetPayPeriodBudgets(householdId) {
   } catch (error) {
     Logger.log(`Error resetting pay period budgets: ${error}\nStack: ${error.stack}`);
     return { success: false, message: `Error resetting budgets: ${error.message}` };
+  }
+}
+
+/**
+ * Performs a one-time cleanup of old, generic cache keys.
+ * This can be run by an admin from the menu to clean up legacy cache entries.
+ */
+function cleanupLegacyCacheKeys() {
+  try {
+    const keysToRemove = ['expenseData', 'budgetCategoriesData', 'locationMappingData'];
+    const cache = CacheService.getScriptCache();
+    cache.removeAll(keysToRemove);
+    Logger.log(`Successfully removed legacy cache keys: ${keysToRemove.join(', ')}`);
+    return { success: true, message: `Successfully removed legacy cache keys: ${keysToRemove.join(', ')}` };
+  } catch (e) {
+    Logger.log(`Error during legacy cache cleanup: ${e}`);
+    return { success: false, message: `Error during legacy cache cleanup: ${e.message}` };
   }
 }

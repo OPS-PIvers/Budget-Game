@@ -138,6 +138,36 @@ function setupAllExpenseSheetsMenu() {
 
 
 // --- Maintenance Wrappers ---
+
+function cleanupLegacyCacheMenu() {
+  const ui = SpreadsheetApp.getUi();
+  if (!isCurrentUserAdmin()) {
+    ui.alert('You must be an admin to perform this action.');
+    return;
+  }
+  const response = ui.prompt(
+    'Confirm Legacy Cache Cleanup',
+    'This will remove old, generic cache keys. This is a one-time operation. Type "CLEANUP" to confirm.',
+    ui.ButtonSet.OK_CANCEL
+  );
+
+  if (response.getSelectedButton() == ui.Button.OK && response.getResponseText() == 'CLEANUP') {
+    try {
+      const result = cleanupLegacyCacheKeys();
+      if (result.success) {
+        ui.alert('Success', result.message, ui.ButtonSet.OK);
+      } else {
+        ui.alert('Error', result.message, ui.ButtonSet.OK);
+      }
+    } catch (e) {
+      Logger.log(`Error cleaning up legacy cache from menu: ${e}`);
+      ui.alert(`An error occurred: ${e.message}`);
+    }
+  } else {
+    ui.alert('Cleanup cancelled.');
+  }
+}
+
 function setupAllTriggersMenu() {
     const ui = SpreadsheetApp.getUi();
     try {
