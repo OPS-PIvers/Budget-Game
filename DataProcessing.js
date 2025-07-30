@@ -1486,9 +1486,7 @@ function resetExpenseDataCache(householdId = null) {
     cache.remove(cacheKey);
 
     // For good measure, remove the old generic keys if they exist from previous versions
-    cache.remove('expenseData');
-    cache.remove('budgetCategoriesData');
-    cache.remove('locationMappingData');
+    cache.removeAll(['expenseData', 'budgetCategoriesData', 'locationMappingData']);
 
     Logger.log(`Expense data cache in CacheService reset for key: ${cacheKey}`);
   } catch (e) {
