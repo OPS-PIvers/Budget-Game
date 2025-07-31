@@ -10,9 +10,9 @@
  * @return {HtmlOutput} The HTML service output.
  */
 function doGet(e) {
-  const page = e.parameter.page;
+  const view = e.parameter.view;
 
-  if (page === 'admin') {
+  if (view === 'admin') {
     if (!isCurrentUserAdmin()) {
        return HtmlService.createHtmlOutput('<!DOCTYPE html><html><head><title>Access Denied</title></head><body>Access Denied. Admin privileges required.</body></html>');
     }
@@ -21,13 +21,13 @@ function doGet(e) {
       .setTitle('Budget Game Admin')
       .addMetaTag('viewport', 'width=device-width, initial-scale=1')
       .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
-  } else if (page === 'dashboard') {
+  } else if (view === 'dashboard') {
     return HtmlService.createTemplateFromFile('Dashboard')
       .evaluate()
       .setTitle('Budget Game Dashboard')
       .addMetaTag('viewport', 'width=device-width, initial-scale=1')
       .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
-  } else if (page === 'expense') {
+  } else if (view === 'expense') {
     return HtmlService.createTemplateFromFile('ExpenseTracker')
       .evaluate()
       .setTitle('Budget Game Expense Tracker')
@@ -78,6 +78,21 @@ function getScriptUrl() {
      Logger.log("getScriptUrl called outside of deployment context. Returning placeholder.");
      return "#"; // Return a placeholder or handle appropriately
   }
+}
+
+/**
+ * Gets client-side configuration data needed by the web app interface.
+ * Called by HTML templates to inject CONFIG data into client-side JavaScript.
+ * @return {Object} Configuration object with client-needed settings.
+ */
+function getClientConfig() {
+  return {
+    HOUSEHOLD_SETTINGS: {
+      ENABLED: CONFIG.HOUSEHOLD_SETTINGS.ENABLED
+    },
+    SHEET_NAMES: CONFIG.SHEET_NAMES,
+    CATEGORIES: CONFIG.CATEGORIES
+  };
 }
 
 

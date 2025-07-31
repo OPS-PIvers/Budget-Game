@@ -854,7 +854,7 @@
                 <p><strong>Next steps:</strong></p>
               </div>
               <div class="goal-tracking-actions">
-                <a href="${getScriptUrl()}?page=admin" class="goal-tracking-btn primary">Create Goals (Admin)</a>
+                <a href="${getScriptUrl()}?view=admin" class="goal-tracking-btn primary">Create Goals (Admin)</a>
                 <button class="goal-tracking-btn secondary" onclick="checkGoalsDiagnostic()">Run Diagnostic</button>
               </div>
             </div>
@@ -1077,7 +1077,7 @@
         html += `
             <div class="diagnostic-actions">
               <button class="goal-tracking-btn primary" onclick="loadGoalTracking()">Reload Goals</button>
-              <a href="${getScriptUrl()}?page=admin" class="goal-tracking-btn secondary">Go to Admin</a>
+              <a href="${getScriptUrl()}?view=admin" class="goal-tracking-btn secondary">Go to Admin</a>
             </div>
           </div>
         `;
