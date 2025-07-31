@@ -101,7 +101,7 @@ HOUSEHOLD_SETTINGS: {
 ## Common Tasks
 
 ### Adding New Activities
-1. Use Admin interface at `?page=admin` or
+1. Use Admin interface at `?view=admin` or
 2. Edit Points Reference sheet directly (triggers cache refresh)
 
 ### Modifying Categories
