@@ -10,22 +10,37 @@
  * @return {HtmlOutput} The HTML service output.
  */
 function doGet(e) {
-  const view = e.parameter.view;
+  const page = e.parameter.page;
 
-  if (view === 'admin') {
-    // Ensure admin access if needed (using helper from HouseholdManagement.gs)
+  if (page === 'admin') {
     if (!isCurrentUserAdmin()) {
        return HtmlService.createHtmlOutput('<!DOCTYPE html><html><head><title>Access Denied</title></head><body>Access Denied. Admin privileges required.</body></html>');
     }
-    return createPageOutput('Admin', 'Budget Game Admin');
-  } else if (view === 'dashboard') {
-    return createPageOutput('Dashboard', 'Budget Game Dashboard');
-  } else if (view === 'expense') {
-    return createPageOutput('ExpenseTracker', 'Budget Game Expense Tracker');
+    return HtmlService.createTemplateFromFile('Admin')
+      .evaluate()
+      .setTitle('Budget Game Admin')
+      .addMetaTag('viewport', 'width=device-width, initial-scale=1')
+      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+  } else if (page === 'dashboard') {
+    return HtmlService.createTemplateFromFile('Dashboard')
+      .evaluate()
+      .setTitle('Budget Game Dashboard')
+      .addMetaTag('viewport', 'width=device-width, initial-scale=1')
+      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+  } else if (page === 'expense') {
+    return HtmlService.createTemplateFromFile('ExpenseTracker')
+      .evaluate()
+      .setTitle('Budget Game Expense Tracker')
+      .addMetaTag('viewport', 'width=device-width, initial-scale=1')
+      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
   }
 
-  // Default to the activity tracker (main landing page)
-  return createPageOutput('ActivityTracker', 'Budget Game Tracker');
+  // Default to the activity tracker
+  return HtmlService.createTemplateFromFile('ActivityTracker')
+      .evaluate()
+      .setTitle('Budget Game Tracker')
+      .addMetaTag('viewport', 'width=device-width, initial-scale=1')
+      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
 /**
