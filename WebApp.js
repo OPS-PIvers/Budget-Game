@@ -107,7 +107,7 @@ function getTodayData() {
     // Logger.log(`getTodayData: Found ${householdEmails.length} members in household ${householdId} for ${email}`);
   } else {
     householdEmails = [email]; // Use individual email if no household or households disabled
-    // Logger.log(`getTodayData: No household found or households disabled for ${email, using individual data`);
+    // Logger.log(`getTodayData: No household found or households disabled for ${email}, using individual data`);
   }
 
   const ss = SpreadsheetApp.getActiveSpreadsheet();
