@@ -96,6 +96,74 @@ function getClientConfig() {
 }
 
 
+/**
+ * Gets all data needed for the web app in a single call to improve performance.
+ * This function consolidates multiple data fetching functions into one server roundtrip.
+ * It uses CacheService to cache the consolidated data on a per-user/household basis.
+ * @return {Object} A consolidated data object for the entire web app.
+ */
+function getConsolidatedData() {
+  const email = Session.getEffectiveUser().getEmail();
+  const householdId = getUserHouseholdId(email);
+  // Sanitize email for cache key
+  const cacheKey = `consolidatedData_v2_${householdId || email.replace(/[@.]/g, '_')}`;
+  const cache = CacheService.getUserCache();
+
+  try {
+    const cachedData = cache.get(cacheKey);
+    if (cachedData) {
+      const data = JSON.parse(cachedData);
+      // Check if the cache is recent enough (e.g., within 5 minutes)
+      const age = (new Date().getTime() - (data.timestamp || 0)) / 1000;
+      if (age < 300) {
+         Logger.log(`Returning consolidated data from cache for key: ${cacheKey}`);
+         return data;
+      }
+    }
+  } catch (e) {
+    Logger.log(`Error reading from cache for key ${cacheKey}: ${e}`);
+  }
+
+  Logger.log(`Fetching fresh consolidated data for key: ${cacheKey}`);
+
+  // Fetch all data components
+  const clientConfig = getClientConfig();
+  const webAppActivityData = _getWebAppActivityData();
+  const todayData = _getTodayData();
+  const weekData = _getWeekData();
+  const historicalData = _getHistoricalData();
+  const weeklyGoalsData = _getWeeklyGoalsData();
+  const goalAchievementHistory = _getGoalAchievementHistory();
+  const detailedGoalData = _getDetailedGoalData();
+  const expenseTrackerData = _getExpenseTrackerData();
+
+  // Assemble the consolidated object
+  const consolidatedData = {
+    success: true, // Add a success flag for client-side checks
+    clientConfig: clientConfig,
+    webAppActivityData: webAppActivityData,
+    todayData: todayData,
+    weekData: weekData,
+    historicalData: historicalData,
+    weeklyGoalsData: weeklyGoalsData,
+    goalAchievementHistory: goalAchievementHistory,
+    detailedGoalData: detailedGoalData,
+    expenseTrackerData: expenseTrackerData,
+    timestamp: new Date().getTime() // For cache age debugging
+  };
+
+  try {
+    // Cache the fresh data for 5 minutes (300 seconds)
+    cache.put(cacheKey, JSON.stringify(consolidatedData), 300);
+    Logger.log(`Stored fresh consolidated data in cache for key: ${cacheKey}`);
+  } catch (e) {
+    Logger.log(`Error writing to cache for key ${cacheKey}: ${e}`);
+  }
+
+  return consolidatedData;
+}
+
+
 // --- Functions Called by Client-Side JavaScript ---
 
 /**
@@ -103,7 +171,7 @@ function getClientConfig() {
  * Called by ActivityTracker.html.
  * @return {Object} Object containing { activityData: { pointValues, categories }, categoriesList: Array<string> }.
  */
-function getWebAppActivityData() {
+function _getWebAppActivityData() {
   // getActivityDataCached is in DataProcessing.gs
   const activityData = getActivityDataCached();
   // Get the potentially custom category order
@@ -121,7 +189,7 @@ function getWebAppActivityData() {
  * Called by ActivityTracker.html.
  * @return {Object} Current day totals and activities for the household { points, activities, householdId, householdName, members }.
  */
-function getTodayData() {
+function _getTodayData() {
   const today = new Date();
   const formattedDate = formatDateYMD(today); // Utility function
 
@@ -213,7 +281,7 @@ function getTodayData() {
  * Called by ActivityTracker.html.
  * @return {Object} Weekly totals and averages { weeklyTotal, positiveCount, negativeCount, topActivity, dailyAverage, weeklyAverage, householdId, householdName }.
  */
-function getWeekData() {
+function _getWeekData() {
   try {
     const email = Session.getEffectiveUser().getEmail();
     const householdId = getUserHouseholdId(email);
@@ -840,7 +908,7 @@ function updateActivitiesCategory(oldCategory, newCategory) {
  * Called by Dashboard.html.
  * @return {Object} Data for charts including daily and weekly trends and current streak settings.
  */
-function getHistoricalData() {
+function _getHistoricalData() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const dashboardSheet = ss.getSheetByName(CONFIG.SHEET_NAMES.DASHBOARD);
   // Default structure including a place for streak settings
@@ -981,7 +1049,7 @@ function getHistoricalData() {
  * Called by Dashboard.html.
  * @return {Object} Goal status object { higherThanPrevious: {...}, doublePoints: {...} }.
  */
-function getWeeklyGoalsData() {
+function _getWeeklyGoalsData() {
   const email = Session.getEffectiveUser().getEmail();
   const householdId = getUserHouseholdId(email);
   return calculateDashboardGoalStatus(householdId);
@@ -1011,7 +1079,7 @@ function forceSendDailyDigest() {
  * Wrapper function callable from the client-side.
  * @return {Object} Data about goal achievements over time.
  */
-function getGoalAchievementHistory() {
+function _getGoalAchievementHistory() {
   const email = Session.getEffectiveUser().getEmail();
   const householdId = getUserHouseholdId(email);
   return calculateGoalAchievementHistory(householdId); // In DataProcessing.gs
@@ -1515,7 +1583,7 @@ function getGoalSummaryData() {
  * Called by Dashboard.html
  * @return {Object} Detailed goal calculations
  */
-function getDetailedGoalData() {
+function _getDetailedGoalData() {
   try {
     const email = Session.getEffectiveUser().getEmail();
     Logger.log(`[GOALS DEBUG] getDetailedGoalData called for email: ${email}`);
@@ -1702,7 +1770,7 @@ function runGoalsDiagnostic() {
  * Called by ExpenseTracker.html
  * @return {Object} Expense tracker data for the current user's household
  */
-function getExpenseTrackerData() {
+function _getExpenseTrackerData() {
   try {
     const email = Session.getEffectiveUser().getEmail();
     const householdId = getUserHouseholdId(email);

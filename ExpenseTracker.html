@@ -563,15 +563,22 @@
 
       // --- Data Loading Functions ---
       function loadExpenseData() {
-        console.log('Loading expense tracker data...');
+        console.log('Loading consolidated data for expense tracker...');
         google.script.run
           .withSuccessHandler(handleExpenseDataLoaded)
           .withFailureHandler(handleError)
-          .getExpenseTrackerData();
+          .getConsolidatedData();
       }
 
-      function handleExpenseDataLoaded(data) {
-        console.log('Expense data loaded:', data);
+      function handleExpenseDataLoaded(consolidatedData) {
+        if (!consolidatedData || !consolidatedData.success) {
+            handleError({ message: consolidatedData ? consolidatedData.message : "Failed to load consolidated data." });
+            return;
+        }
+
+        const data = consolidatedData.expenseTrackerData;
+        console.log('Expense data loaded from consolidated object:', data);
+
         if (data.success) {
           expenseData = data;
           budgetCategories = data.budgetCategories.categories || [];
