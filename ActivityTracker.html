@@ -98,24 +98,27 @@
       let currentDayPoints = 0; // Points logged by household today (before current selections)
       let weeklyPoints = 0; // Points logged by household this week (before current selections)
 
-      // --- Flags and Temp Storage for Initialization ---
-      let isActivityDataLoaded = false;
-      let isTodayDataLoaded = false;
-      let isWeekDataLoaded = false;
-      let todayDataInternal = null; // Temporary store for today's data
-      let weekDataInternal = null; // Temporary store for week's data
-
       // --- Define all functions first ---
 
       /**
-       * Handles activity definitions AND category list received from the server.
-       * Initializes the activityState object.
-       * Sets flag and tries to render the page if all data is ready.
-       * @param {Object} response - The response object { activityData: { pointValues, categories }, categoriesList: Array<string> }.
+       * Handles the consolidated data object received from the server.
+       * This function is the single entry point for processing data on page load.
+       * @param {Object} data - The consolidated data object from getConsolidatedData.
        */
-      function handleActivityData(response) {
-        activityData = response?.activityData || { pointValues: {}, categories: {}, requiredActivities: {} };
-        appCategories = response?.categoriesList || [];
+      function handleConsolidatedData(data) {
+        if (!data || !data.success) {
+          // Use the generic error handler
+          handleError({ message: data ? data.message : "Failed to load consolidated data. Response was empty." });
+          return;
+        }
+        console.log("Consolidated data received.", data);
+
+        // --- Extract and process data from the consolidated object ---
+
+        // 1. Process Activity Data (replaces handleActivityData)
+        const webAppActivityData = data.webAppActivityData;
+        activityData = webAppActivityData?.activityData || { pointValues: {}, categories: {}, requiredActivities: {} };
+        appCategories = webAppActivityData?.categoriesList || [];
 
         // Initialize activityState based on fetched activities
         activityState = {}; // Reset state
@@ -124,97 +127,42 @@
                activityState[activityName] = { selected: false, count: 0, skipped: false };
            });
         }
-        // console.log(`Activity data loaded. Categories: ${appCategories.length}. Initialized activityState with ${Object.keys(activityState).length} activities.`);
 
-        isActivityDataLoaded = true;
-        tryRenderPage(); // Attempt to render the page
-      }
-
-      /**
-       * Handles today's aggregated data (points, logged activities, household info).
-       * Stores data, sets flag, and tries to render the page.
-       * @param {Object} data - Object like { points, activities, householdId, householdName, members }.
-       */
-      function handleTodayData(data) {
-        // console.log("Today's data received:", data);
-        todayDataInternal = data; // Store it temporarily
-        isTodayDataLoaded = true;
-        tryRenderPage(); // Attempt to render the page
-      }
-
-      /**
-       * Handles current week's aggregated data.
-       * Stores data, sets flag, and tries to render the page.
-       * @param {Object} data - Object like { weeklyTotal, dailyAverage, weeklyAverage, ... }.
-       */
-       function handleWeekData(data) {
-         // console.log("Weekly data received:", data);
-         weekDataInternal = data; // Store it temporarily
-         isWeekDataLoaded = true;
-         tryRenderPage(); // Attempt to render the page
-       }
-
-      /**
-       * Central function called after each data fetch.
-       * Checks if all required data is loaded, then processes it and renders the UI.
-       */
-      function tryRenderPage() {
-        // Exit if not all data has arrived yet
-        if (!isActivityDataLoaded || !isTodayDataLoaded || !isWeekDataLoaded) {
-           // console.log(`Waiting for data... Activity:${isActivityDataLoaded}, Today:${isTodayDataLoaded}, Week:${isWeekDataLoaded}`);
-           return;
-        }
-
-        console.log("All initial data loaded. Processing and rendering page.");
-
-        // --- Process Stored Data ---
-        // Process Week Data first
+        // 2. Process Week Data (replaces handleWeekData)
+        const weekDataInternal = data.weekData;
         weeklyPoints = weekDataInternal?.weeklyTotal ?? 0;
         updateScoreDisplay('weekly-score', weeklyPoints);
         document.getElementById('daily-average').textContent = weekDataInternal?.dailyAverage ?? '0';
         document.getElementById('weekly-average').textContent = weekDataInternal?.weeklyAverage ?? '0';
-        // console.log("Weekly data processed. Initial weeklyPoints global:", weeklyPoints);
 
-        // Process Today Data
-        const data = todayDataInternal; // Use stored today data
-        if (data.householdId && data.householdName) {
-          displayHouseholdInfo(data); // Pass full data object
-        } else if (!data.householdId && CONFIG?.HOUSEHOLD_SETTINGS?.ENABLED) {
+        // 3. Process Today Data (replaces handleTodayData)
+        const todayDataInternal = data.todayData;
+        if (todayDataInternal.householdId && todayDataInternal.householdName) {
+          displayHouseholdInfo(todayDataInternal);
+        } else if (!todayDataInternal.householdId && CONFIG?.HOUSEHOLD_SETTINGS?.ENABLED) {
           console.warn("User not assigned to a household, but households are enabled.");
-          displayNoHouseholdError(); // Show specific error message
+          displayNoHouseholdError();
         } else {
-           // Households disabled or no household assigned - clear any existing info
            clearHouseholdInfo();
         }
 
-        currentDayPoints = data.points || 0;
+        currentDayPoints = todayDataInternal.points || 0;
         updateScoreDisplay('daily-score', currentDayPoints);
-        // console.log("Today's data processed. Initial currentDayPoints global:", currentDayPoints);
 
         // Determine activities already logged today by the household
         const alreadyLoggedToday = new Set();
-        if (data.activities && data.activities.length > 0) {
-          data.activities.forEach(activity => {
+        if (todayDataInternal.activities && todayDataInternal.activities.length > 0) {
+          todayDataInternal.activities.forEach(activity => {
             if (activity && activity.name) alreadyLoggedToday.add(activity.name);
           });
-           // console.log("Activities already logged today by household:", Array.from(alreadyLoggedToday));
         }
 
-        // --- Render UI Components ---
-        // Render sections now that all data is confirmed loaded and processed
-        renderActivitySections(alreadyLoggedToday); // Uses globals activityData & appCategories
-
-        // Update totals based on the initial loaded state (no new selections yet)
-        updatePointTotals(); // Recalculates potential display based on globals
-
-        // Enable buttons now that rendering is complete and data is available
-        // Submit button state is handled dynamically by updateSubmitButtonState
-        // Ensure reset button is enabled if selectable chips exist
+        // --- Render UI (replaces tryRenderPage) ---
+        console.log("All data processed. Rendering page...");
+        renderActivitySections(alreadyLoggedToday);
+        updatePointTotals();
         document.getElementById('reset-button').disabled = (document.querySelectorAll('.activity-chip:not(.logged)').length === 0);
-
-        // Re-check submit button state based on current selections (should be empty initially)
         updateSubmitButtonState();
-
       }
 
 
@@ -952,17 +900,15 @@
        * Initializes the Activity Tracker application. Fetches necessary data from the server.
        */
       function initializeApp() {
-        console.log("Initializing app...");
+        console.log("Initializing app with consolidated data fetch...");
         toggleSubmitButtons(true); // Disable submit initially
-        // Reset flags
-        isActivityDataLoaded = false; isTodayDataLoaded = false; isWeekDataLoaded = false;
-        todayDataInternal = null; weekDataInternal = null;
         activityState = {}; // Clear state on full init
 
-        // Fetch data in parallel - handlers will call tryRenderPage
-        google.script.run.withSuccessHandler(handleWeekData).withFailureHandler(handleError).getWeekData();
-        google.script.run.withSuccessHandler(handleActivityData).withFailureHandler(handleError).getWebAppActivityData();
-        google.script.run.withSuccessHandler(handleTodayData).withFailureHandler(handleError).getTodayData();
+        // Fetch all data in a single call
+        google.script.run
+          .withSuccessHandler(handleConsolidatedData)
+          .withFailureHandler(handleError)
+          .getConsolidatedData();
 
         // --- Set up event listeners ---
         // Static buttons

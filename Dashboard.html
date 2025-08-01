@@ -151,7 +151,6 @@
 <script>
       // Global variables
       let charts = {}; // Store chart instances
-      let dashboardDataCache = null; // Cache fetched historical data
       let configData = null; // Store CONFIG data for reference if needed
 
       // Wait for DOM and Chart.js to be fully loaded
@@ -161,13 +160,7 @@
        * Initializes the dashboard with all data and visualizations
        */
       function initializeDashboard() {
-        console.log("Initializing dashboard...");
-        const refreshGoals = localStorage.getItem('refreshGoals') === 'true';
-        if (refreshGoals) {
-          console.log("Goals refresh flag detected, clearing flag.");
-          localStorage.removeItem('refreshGoals');
-          // Goal refresh will happen naturally during loadSecondaryData
-        }
+        console.log("Initializing dashboard with consolidated data fetch...");
 
         // Set up static button listeners
         const emailBtn = document.getElementById('email-button');
@@ -179,65 +172,50 @@
         const goalUpdateForm = document.getElementById('goal-update-form');
         if (goalUpdateForm) goalUpdateForm.addEventListener('submit', handleGoalUpdate);
 
-        // Load primary dashboard data (historical trends, streaks, counts, settings)
-        loadDashboardData(); // Fetches historical, calls renderDashboard -> loadSecondaryData
+        // Load all dashboard data in a single call
+        setLoadingState(true);
+        google.script.run
+          .withSuccessHandler(handleConsolidatedData)
+          .withFailureHandler(handleDashboardError)
+          .getConsolidatedData();
 
         // Set up polling for goal refresh (if needed)
         setInterval(() => {
           const needsRefresh = localStorage.getItem('refreshGoals') === 'true';
           if (needsRefresh) {
-            console.log("Goals refresh detected during polling");
+            console.log("Goals refresh detected during polling, re-fetching data...");
             localStorage.removeItem('refreshGoals');
-            loadWeeklyGoals(); // Reload just the goals section
+            // Re-fetch all data to ensure consistency
+            setLoadingState(true);
+            google.script.run
+              .withSuccessHandler(handleConsolidatedData)
+              .withFailureHandler(handleDashboardError)
+              .getConsolidatedData();
           }
         }, 60000); // Check every minute
       }
 
       /**
-       * Loads primary dashboard data (historical trends, streaks, counts, config)
+       * Handles the consolidated data response from the server.
+       * @param {object} data - The consolidated data object.
        */
-      function loadDashboardData() {
-        setLoadingState(true);
-        const cacheExpiry = 5 * 60 * 1000; // 5 minutes
-
-        // Check cache
-        if (dashboardDataCache && (Date.now() - dashboardDataCache.timestamp < cacheExpiry)) {
-            console.log("Using cached dashboard data.");
-            renderDashboard(dashboardDataCache.data); // Pass the whole cached data object
-            loadSecondaryData(); // Load goals separately
-            setLoadingState(false);
-            return;
+      function handleConsolidatedData(data) {
+        if (!data || !data.success) {
+          handleDashboardError({ message: (data && data.message) || "Failed to load consolidated data." });
+          return;
         }
+        console.log("Consolidated data received:", data);
 
-        console.log("Fetching fresh dashboard data from server...");
-        google.script.run
-          .withSuccessHandler(response => {
-              console.log("Full dashboard response received:", response);
-              // Basic validation of received structure
-              if (!response || !response.success) {
-                 handleDashboardError({ message: response?.message || "Failed to load dashboard data structure." });
-                 return;
-              }
-              // Cache the successful response
-              dashboardDataCache = { data: response, timestamp: Date.now() };
-              // Store config separately if needed elsewhere
-              configData = { categories: response.categories, streakSettings: response.currentStreakSettings };
+        // Store config if needed
+        configData = data.clientConfig;
 
-              renderDashboard(response); // Pass the whole successful response object
-              loadSecondaryData(); // Load goals
-              setLoadingState(false);
-          })
-          .withFailureHandler(handleDashboardError) // Handles network/script errors
-          .getHistoricalData(); // In WebApp.gs
-      }
+        // Call rendering functions with their respective data slices
+        renderDashboard(data.historicalData);
+        renderWeeklyGoals(data.weeklyGoalsData);
+        renderGoalHistory(data.goalAchievementHistory);
+        renderGoalTracking(data.detailedGoalData);
 
-      /**
-       * Loads secondary data sections (goals, goal history, goal tracking)
-       */
-      function loadSecondaryData() {
-           loadWeeklyGoals();
-           loadGoalHistory();
-           loadGoalTracking();
+        setLoadingState(false);
       }
 
       /**
@@ -286,12 +264,17 @@
         try {
           console.log("Rendering dashboard...");
 
-          // Data validation passed in loadDashboardData (checking data.success)
+          if (!data || !data.success) {
+            // If historicalData part of payload is missing or failed, show errors in charts but don't crash.
+            console.error("Historical data part of payload is missing or failed.");
+            handleDashboardError({ message: (data && data.message) || "Failed to load historical data." });
+            return;
+          }
 
           // Display household info if available
           if (data.householdId && data.householdName) {
             displayHouseholdInfo({ householdId: data.householdId, householdName: data.householdName, members: [] }); // Pass required fields
-          } else if (!data.householdId && data.config?.HOUSEHOLD_SETTINGS?.ENABLED) {
+          } else if (!data.householdId && configData?.HOUSEHOLD_SETTINGS?.ENABLED) {
              console.warn("User has no household assigned, but households are enabled.");
              displayNoHouseholdError();
           } else {
@@ -659,15 +642,6 @@
 
       // --- Goal Rendering ---
 
-      /** Loads and renders the status of the two specific dashboard goals */
-      function loadWeeklyGoals() {
-        const goalsContainer = document.getElementById('weekly-goals-container'); if (!goalsContainer) return; goalsContainer.innerHTML = '<p class="loading">Loading goal status...</p>';
-        google.script.run
-          .withSuccessHandler(renderWeeklyGoals)
-          .withFailureHandler(err => { console.error("Error loading weekly goal status:", err); goalsContainer.innerHTML = `<div class="error-message">Failed to load goal status: ${err.message || 'Unknown error'}</div>`; })
-          .getWeeklyGoalsData(); // In WebApp.gs
-      }
-
       /** Renders the two dashboard goals */
       function renderWeeklyGoals(data) {
           // console.log("Weekly goal status data received:", data);
@@ -745,15 +719,6 @@
 
       // --- Goal History Rendering ---
 
-      /** Loads and renders the historical goal achievement section */
-      function loadGoalHistory() {
-            const historyContainer = document.getElementById('goal-history-container'); if (!historyContainer) return; historyContainer.innerHTML = '<p class="loading">Loading goal history...</p>';
-            google.script.run
-              .withSuccessHandler(renderGoalHistory)
-              .withFailureHandler(err => { console.error("Error loading goal history:", err); historyContainer.innerHTML = `<div class="error-message">Failed to load goal history: ${err.message || 'Unknown error'}</div>`; })
-              .getGoalAchievementHistory(); // In WebApp.gs
-      }
-
       /** Renders the goal history cards, chart, and details */
       function renderGoalHistory(data) {
             // console.log("Goal history data received:", data);
@@ -822,16 +787,6 @@
       }
 
       // --- Goal Tracking Functions ---
-
-      /**
-       * Loads and renders goal tracking data
-       */
-      function loadGoalTracking() {
-        google.script.run
-          .withSuccessHandler(renderGoalTracking)
-          .withFailureHandler(handleGoalTrackingError)
-          .getDetailedGoalData();
-      }
 
       /**
        * Renders the goal tracking section
