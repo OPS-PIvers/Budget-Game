@@ -64,7 +64,7 @@ function setupAllTriggers() {
   } catch (e) { Logger.log(`FAIL ${CONFIG.TRIGGERS.WEEKLY_DIGEST}: ${e}`); triggerErrors.push(`Create ${CONFIG.TRIGGERS.WEEKLY_DIGEST}: ${e.message}`); }
 
 
-  // 4. Points Reference Edit
+  // 4. Spreadsheet Edit Trigger
   try {
      ScriptApp.newTrigger(CONFIG.TRIGGERS.POINTS_EDIT)
       .forSpreadsheet(ss).onEdit().create();

@@ -50,7 +50,7 @@ const CONFIG = {
     ON_OPEN: 'onOpen', // For menu creation
     DAILY_DIGEST: 'sendDailyDigest',
     WEEKLY_DIGEST: 'sendWeeklyDigestEmail',
-    POINTS_EDIT: 'handlePointsReferenceEdit',
+    POINTS_EDIT: 'handleSheetEdit',
     // RESPONSES_EDIT: 'handleFormResponsesEdit' // Obsolete - Removed
     // FORM_SUBMIT: 'handleFormSubmit' // Obsolete - Removed
   },

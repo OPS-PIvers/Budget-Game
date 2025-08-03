@@ -531,6 +531,7 @@
       let selectedStore = null;
       let selectedCategory = null;
       let householdInfo = null;
+      let lastKnownRemainingBudget = null; // For polling
 
       // Initialization flags
       let isDataLoaded = false;
@@ -582,6 +583,11 @@
             members: data.members
           };
           
+          // Update the global state for polling check
+          if (data.budgetCategories) {
+            lastKnownRemainingBudget = data.budgetCategories.totalRemaining;
+          }
+
           updatePayPeriodInfo(data.currentPayPeriod);
           updateBudgetOverview();
           updateBudgetMeters();
@@ -966,6 +972,34 @@
             submitExpense();
           }
         });
+
+        // --- Client-Side Polling for Bi-Directional Sync ---
+        let lastKnownRemainingBudget = null;
+
+        // Function to handle polled data
+        function handlePollingUpdate(data) {
+          if (data && data.success && data.budgetCategories) {
+            const newRemainingBudget = data.budgetCategories.totalRemaining;
+
+            // If the budget has changed, reload the UI.
+            // lastKnownRemainingBudget is updated by handleExpenseDataLoaded.
+            if (lastKnownRemainingBudget !== null && newRemainingBudget !== lastKnownRemainingBudget) {
+              console.log('Change detected, reloading UI.', { old: lastKnownRemainingBudget, new: newRemainingBudget });
+              // Re-use the main data loading function to update the entire UI
+              handleExpenseDataLoaded(data);
+              showNotification('Budget updated automatically!', 'info');
+            }
+          }
+        }
+
+        // Add a polling interval to check for changes
+        setInterval(() => {
+          // Silently poll for data in the background
+          google.script.run
+            .withSuccessHandler(handlePollingUpdate)
+            .withFailureHandler((err) => console.error("Polling failed: ", err))
+            .getExpenseTrackerData();
+        }, 7000); // Poll every 7 seconds
       });
     </script>
   </body>

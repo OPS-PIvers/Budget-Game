@@ -2074,3 +2074,79 @@ function cleanupLegacyCacheKeys() {
     return { success: false, message: `Error during legacy cache cleanup: ${e.message}` };
   }
 }
+
+/**
+ * Recalculates all budget spending totals from scratch based on the Expense Tracker sheet.
+ * This is a robust way to ensure data consistency after any change (add, edit, delete).
+ */
+function recalculateAllBudgets() {
+  Logger.log("Starting full budget recalculation...");
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const expenseSheet = ss.getSheetByName(CONFIG.SHEET_NAMES.EXPENSE_TRACKER);
+  const budgetSheet = ss.getSheetByName(CONFIG.SHEET_NAMES.BUDGET_CATEGORIES);
+
+  if (!expenseSheet || !budgetSheet) {
+    Logger.log("Recalculation failed: Expense Tracker or Budget Categories sheet not found.");
+    return;
+  }
+
+  // --- 1. Calculate actual totals from Expense Tracker ---
+  const expenseLastRow = expenseSheet.getLastRow();
+  const householdCategoryTotals = new Map(); // { householdId -> { category -> total } }
+
+  if (expenseLastRow > 1) {
+    // Read Amount (B), Category (D), HouseholdID (G)
+    const expenseData = expenseSheet.getRange(2, 1, expenseLastRow - 1, 7).getValues();
+    expenseData.forEach(row => {
+      const amount = Number(row[1]) || 0;
+      const category = String(row[3]).trim();
+      const householdId = String(row[6] || 'default').trim();
+
+      if (category && amount > 0) {
+        if (!householdCategoryTotals.has(householdId)) {
+          householdCategoryTotals.set(householdId, new Map());
+        }
+        const categoryTotals = householdCategoryTotals.get(householdId);
+        categoryTotals.set(category, (categoryTotals.get(category) || 0) + amount);
+      }
+    });
+  }
+  Logger.log(`Calculated totals for ${householdCategoryTotals.size} households.`);
+
+  // --- 2. Update Budget Categories sheet ---
+  const budgetLastRow = budgetSheet.getLastRow();
+  if (budgetLastRow <= 1) {
+    Logger.log("No budget categories to update.");
+    return;
+  }
+
+  const budgetData = budgetSheet.getRange(2, 1, budgetLastRow - 1, 8).getValues();
+  const newPayPeriodSpentValues = [];
+  const allHouseholdIds = new Set();
+
+  // Prepare the new values for the "PayPeriodSpent" column
+  budgetData.forEach(row => {
+    const categoryName = String(row[0]).trim();
+    const householdId = String(row[6] || 'default').trim();
+    allHouseholdIds.add(householdId);
+
+    const householdTotals = householdCategoryTotals.get(householdId);
+    const newTotal = householdTotals ? (householdTotals.get(categoryName) || 0) : 0;
+
+    newPayPeriodSpentValues.push([newTotal]);
+  });
+
+  // Write the new totals to the sheet in one operation
+  if (newPayPeriodSpentValues.length > 0) {
+    budgetSheet.getRange(2, 5, newPayPeriodSpentValues.length, 1).setValues(newPayPeriodSpentValues);
+    Logger.log(`Updated ${newPayPeriodSpentValues.length} rows in Budget Categories sheet.`);
+  }
+
+  // --- 3. Clear all relevant caches ---
+  Logger.log("Clearing caches for all affected households...");
+  allHouseholdIds.forEach(householdId => {
+    resetExpenseDataCache(householdId);
+  });
+
+  Logger.log("Full budget recalculation complete.");
+}
