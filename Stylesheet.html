@@ -263,10 +263,9 @@ body {
 
 /* --- Grid Layout for Chips --- */
 .chip-container {
-  display: grid; /* CHANGE: Use grid */
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); /* CHANGE: Responsive columns */
-  gap: 10px; /* CHANGE: Slightly larger gap */
-  /* REMOVE flex-wrap */
+  display: grid; /* Use grid layout for responsive activity chips */
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); /* Responsive columns */
+  gap: 10px; /* Gap between grid items */
   padding: 5px 0;
 }
 
