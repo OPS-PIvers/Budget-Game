@@ -13,19 +13,34 @@ function doGet(e) {
   const view = e.parameter.view;
 
   if (view === 'admin') {
-    // Ensure admin access if needed (using helper from HouseholdManagement.gs)
     if (!isCurrentUserAdmin()) {
        return HtmlService.createHtmlOutput('<!DOCTYPE html><html><head><title>Access Denied</title></head><body>Access Denied. Admin privileges required.</body></html>');
     }
-    return createPageOutput('Admin', 'Budget Game Admin');
+    return HtmlService.createTemplateFromFile('Admin')
+      .evaluate()
+      .setTitle('Budget Game Admin')
+      .addMetaTag('viewport', 'width=device-width, initial-scale=1')
+      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
   } else if (view === 'dashboard') {
-    return createPageOutput('Dashboard', 'Budget Game Dashboard');
+    return HtmlService.createTemplateFromFile('Dashboard')
+      .evaluate()
+      .setTitle('Budget Game Dashboard')
+      .addMetaTag('viewport', 'width=device-width, initial-scale=1')
+      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
   } else if (view === 'expense') {
-    return createPageOutput('ExpenseTracker', 'Budget Game Expense Tracker');
+    return HtmlService.createTemplateFromFile('ExpenseTracker')
+      .evaluate()
+      .setTitle('Budget Game Expense Tracker')
+      .addMetaTag('viewport', 'width=device-width, initial-scale=1')
+      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
   }
 
-  // Default to the activity tracker (main landing page)
-  return createPageOutput('ActivityTracker', 'Budget Game Tracker');
+  // Default to the activity tracker
+  return HtmlService.createTemplateFromFile('ActivityTracker')
+      .evaluate()
+      .setTitle('Budget Game Tracker')
+      .addMetaTag('viewport', 'width=device-width, initial-scale=1')
+      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
 /**
@@ -73,6 +88,21 @@ function getScriptUrl() {
   }
 }
 
+/**
+ * Gets client-side configuration data needed by the web app interface.
+ * Called by HTML templates to inject CONFIG data into client-side JavaScript.
+ * @return {Object} Configuration object with client-needed settings.
+ */
+function getClientConfig() {
+  return {
+    HOUSEHOLD_SETTINGS: {
+      ENABLED: CONFIG.HOUSEHOLD_SETTINGS.ENABLED
+    },
+    SHEET_NAMES: CONFIG.SHEET_NAMES,
+    CATEGORIES: CONFIG.CATEGORIES
+  };
+}
+
 
 // --- Functions Called by Client-Side JavaScript ---
 
@@ -115,7 +145,7 @@ function getTodayData() {
     // Logger.log(`getTodayData: Found ${householdEmails.length} members in household ${householdId} for ${email}`);
   } else {
     householdEmails = [email]; // Use individual email if no household or households disabled
-    // Logger.log(`getTodayData: No household found or households disabled for ${email, using individual data`);
+    // Logger.log(`getTodayData: No household found or households disabled for ${email}, using individual data`);
   }
 
   const ss = SpreadsheetApp.getActiveSpreadsheet();
