@@ -154,7 +154,7 @@ function getConsolidatedData() {
 
   try {
     // Cache the fresh data for 5 minutes (300 seconds)
-    cache.put(cacheKey, JSON.stringify(consolidatedData), 300);
+    cache.put(cacheKey, JSON.stringify(consolidatedData), CACHE_EXPIRY_SECONDS);
     Logger.log(`Stored fresh consolidated data in cache for key: ${cacheKey}`);
   } catch (e) {
     Logger.log(`Error writing to cache for key ${cacheKey}: ${e}`);
