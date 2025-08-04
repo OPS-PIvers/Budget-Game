@@ -2096,11 +2096,12 @@ function recalculateAllBudgets() {
 
   if (expenseLastRow > 1) {
     // Read Amount (B), Category (D), HouseholdID (G)
-    const expenseData = expenseSheet.getRange(2, 1, expenseLastRow - 1, 7).getValues();
+    const numColumns = Math.max(EXPENSE_TRACKER_COLUMNS.AMOUNT, EXPENSE_TRACKER_COLUMNS.CATEGORY, EXPENSE_TRACKER_COLUMNS.HOUSEHOLD_ID);
+    const expenseData = expenseSheet.getRange(2, 1, expenseLastRow - 1, numColumns).getValues();
     expenseData.forEach(row => {
-      const amount = Number(row[1]) || 0;
-      const category = String(row[3]).trim();
-      const householdId = String(row[6] || 'default').trim();
+      const amount = Number(row[EXPENSE_TRACKER_COLUMNS.AMOUNT - 1]) || 0;
+      const category = String(row[EXPENSE_TRACKER_COLUMNS.CATEGORY - 1]).trim();
+      const householdId = String(row[EXPENSE_TRACKER_COLUMNS.HOUSEHOLD_ID - 1] || 'default').trim();
 
       if (category && amount > 0) {
         if (!householdCategoryTotals.has(householdId)) {
