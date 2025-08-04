@@ -2121,14 +2121,25 @@ function recalculateAllBudgets() {
     return;
   }
 
-  const budgetData = budgetSheet.getRange(2, 1, budgetLastRow - 1, 8).getValues();
+  // Read header row to get column indices
+  const budgetHeader = budgetSheet.getRange(1, 1, 1, budgetSheet.getLastColumn()).getValues()[0];
+  const budgetColIdx = {};
+  budgetHeader.forEach((colName, idx) => {
+    budgetColIdx[colName.trim()] = idx;
+  });
+  // Required columns: "Category", "HouseholdID", "PayPeriodSpent"
+  if (budgetColIdx["Category"] === undefined || budgetColIdx["HouseholdID"] === undefined || budgetColIdx["PayPeriodSpent"] === undefined) {
+    Logger.log("FATAL: Budget Categories sheet missing required columns.");
+    return;
+  }
+  const budgetData = budgetSheet.getRange(2, 1, budgetLastRow - 1, budgetHeader.length).getValues();
   const newPayPeriodSpentValues = [];
   const allHouseholdIds = new Set();
 
   // Prepare the new values for the "PayPeriodSpent" column
   budgetData.forEach(row => {
-    const categoryName = String(row[0]).trim();
-    const householdId = String(row[6] || 'default').trim();
+    const categoryName = String(row[budgetColIdx["Category"]]).trim();
+    const householdId = String(row[budgetColIdx["HouseholdID"]] || 'default').trim();
     allHouseholdIds.add(householdId);
 
     const householdTotals = householdCategoryTotals.get(householdId);
