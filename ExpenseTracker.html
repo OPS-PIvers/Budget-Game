@@ -998,7 +998,7 @@
             .withSuccessHandler(handlePollingUpdate)
             .withFailureHandler((err) => console.error("Polling failed: ", err))
             .getExpenseTrackerData();
-        }, 7000); // Poll every 7 seconds
+        }, POLLING_INTERVAL_MS);
       });
     </script>
   </body>
