@@ -2150,7 +2150,7 @@ function recalculateAllBudgets() {
 
   // Write the new totals to the sheet in one operation
   if (newPayPeriodSpentValues.length > 0) {
-    budgetSheet.getRange(2, 5, newPayPeriodSpentValues.length, 1).setValues(newPayPeriodSpentValues);
+    budgetSheet.getRange(2, budgetColIdx["PayPeriodSpent"] + 1, newPayPeriodSpentValues.length, 1).setValues(newPayPeriodSpentValues);
     Logger.log(`Updated ${newPayPeriodSpentValues.length} rows in Budget Categories sheet.`);
   }
 
