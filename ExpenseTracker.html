@@ -571,15 +571,21 @@
       }
 
       function handleExpenseDataLoaded(consolidatedData) {
-        if (!consolidatedData || !consolidatedData.success) {
-            handleError({ message: consolidatedData ? consolidatedData.message : "Failed to load consolidated data." });
-            return;
+        // Check for consolidated data fetch failure
+        if (!consolidatedData) {
+          showNotification("Failed to load consolidated data (no response).", "error");
+          return;
+        }
+        if (!consolidatedData.success) {
+          showNotification(consolidatedData.message || "Failed to load consolidated data.", "error");
+          return;
         }
 
         const data = consolidatedData.expenseTrackerData;
         console.log('Expense data loaded from consolidated object:', data);
 
-        if (data.success) {
+        // Check for expense tracker data specific failure
+        if (data && data.success) {
           expenseData = data;
           budgetCategories = data.budgetCategories.categories || [];
           locationMappings = data.locationMappings.locations || [];
