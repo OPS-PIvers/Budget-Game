@@ -115,7 +115,7 @@ function getConsolidatedData() {
       const data = JSON.parse(cachedData);
       // Check if the cache is recent enough (e.g., within 5 minutes)
       const age = (new Date().getTime() - (data.timestamp || 0)) / 1000;
-      if (age < 300) {
+      if (age < CACHE_EXPIRY_SECONDS) {
          Logger.log(`Returning consolidated data from cache for key: ${cacheKey}`);
          return data;
       }
