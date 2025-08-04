@@ -44,19 +44,18 @@ function onOpen() {
  * NOTE: No longer updates Google Form.
  * @param {GoogleAppsScript.Events.SheetsOnEdit} e The edit event object.
  */
-function handlePointsReferenceEdit(e) {
+function handleSheetEdit(e) {
   try {
     const sheet = e.source.getActiveSheet();
     const sheetName = sheet.getName();
-    const pointsRefSheetName = CONFIG.SHEET_NAMES.POINTS_REFERENCE;
+    const range = e.range;
+    const row = range.getRow();
 
-    if (sheetName === pointsRefSheetName) {
-      const range = e.range;
-      const row = range.getRow();
+    // Ignore header row edits
+    if (row === 1) return;
 
-      // Ignore header row edits
-      if (row === 1) return;
-
+    // --- Points Reference Sheet Logic ---
+    if (sheetName === CONFIG.SHEET_NAMES.POINTS_REFERENCE) {
       // Check if the edited row seems complete (basic check)
       // Columns: A=Activity, B=Points, C=Category
       const activityRange = sheet.getRange(row, 1, 1, 3);
@@ -66,24 +65,45 @@ function handlePointsReferenceEdit(e) {
       const hasCategory = values[2] && String(values[2]).trim() !== "" && CONFIG.CATEGORIES.includes(String(values[2]).trim());
 
       if (hasActivity && hasPoints && hasCategory) {
-        Logger.log(`Complete row edit detected in ${pointsRefSheetName} at row ${row}. Scheduling cache clear.`);
+        Logger.log(`Complete row edit detected in ${CONFIG.SHEET_NAMES.POINTS_REFERENCE} at row ${row}. Scheduling cache clear.`);
         // Add a delay to allow for multiple quick edits before clearing cache
         Utilities.sleep(CONFIG.POINTS_EDIT_DELAY_MS);
 
         // Clear the cache because Points Reference data has changed
-        // resetActivityDataCache is now defined in DataProcessing.gs
         resetActivityDataCache();
         Logger.log("Cleared activity data cache due to Points Reference edit.");
 
-        // Obsolete - Removed call to updateFormFromSheet();
-
       } else {
-         Logger.log(`Incomplete edit detected in ${pointsRefSheetName} at row ${row}. Cache not cleared yet.`);
+         Logger.log(`Incomplete edit detected in ${CONFIG.SHEET_NAMES.POINTS_REFERENCE} at row ${row}. Cache not cleared yet.`);
       }
     }
+
+    // --- Expense Tracker Sheet Logic ---
+    if (sheetName === CONFIG.SHEET_NAMES.EXPENSE_TRACKER) {
+      Logger.log(`Edit detected in ${CONFIG.SHEET_NAMES.EXPENSE_TRACKER}. Triggering budget recalculation.`);
+
+      // Using a lock to prevent multiple simultaneous recalculations from rapid edits
+      const lock = LockService.getScriptLock();
+      if (lock.tryLock(5000)) { // Wait up to 5 seconds for the lock
+        try {
+          // It's better to call a function that will be created in DataProcessing.js
+          if (typeof recalculateAllBudgets === "function") {
+            recalculateAllBudgets();
+            Logger.log("Budget recalculation completed.");
+          } else {
+            Logger.log("Warning: recalculateAllBudgets function not found. Cannot recalculate budgets.");
+          }
+        } finally {
+          lock.releaseLock();
+        }
+      } else {
+        Logger.log("Could not acquire lock for budget recalculation. Another process may be running.");
+      }
+    }
+
   } catch (err) {
-     Logger.log(`ERROR in handlePointsReferenceEdit: ${err}\nStack: ${err.stack}`);
+     Logger.log(`ERROR in handleSheetEdit: ${err}\nStack: ${err.stack}`);
      // Optional: Notify user of error?
-     // SpreadsheetApp.getActiveSpreadsheet().toast(`Error handling points edit: ${err.message}`, "Error", 5);
+     // SpreadsheetApp.getActiveSpreadsheet().toast(`Error handling sheet edit: ${err.message}`, "Error", 5);
   }
 }

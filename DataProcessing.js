@@ -2074,3 +2074,91 @@ function cleanupLegacyCacheKeys() {
     return { success: false, message: `Error during legacy cache cleanup: ${e.message}` };
   }
 }
+
+/**
+ * Recalculates all budget spending totals from scratch based on the Expense Tracker sheet.
+ * This is a robust way to ensure data consistency after any change (add, edit, delete).
+ */
+function recalculateAllBudgets() {
+  Logger.log("Starting full budget recalculation...");
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const expenseSheet = ss.getSheetByName(CONFIG.SHEET_NAMES.EXPENSE_TRACKER);
+  const budgetSheet = ss.getSheetByName(CONFIG.SHEET_NAMES.BUDGET_CATEGORIES);
+
+  if (!expenseSheet || !budgetSheet) {
+    Logger.log("Recalculation failed: Expense Tracker or Budget Categories sheet not found.");
+    return;
+  }
+
+  // --- 1. Calculate actual totals from Expense Tracker ---
+  const expenseLastRow = expenseSheet.getLastRow();
+  const householdCategoryTotals = new Map(); // { householdId -> { category -> total } }
+
+  if (expenseLastRow > 1) {
+    // Read Amount (B), Category (D), HouseholdID (G)
+    const numColumns = Math.max(EXPENSE_TRACKER_COLUMNS.AMOUNT, EXPENSE_TRACKER_COLUMNS.CATEGORY, EXPENSE_TRACKER_COLUMNS.HOUSEHOLD_ID);
+    const expenseData = expenseSheet.getRange(2, 1, expenseLastRow - 1, numColumns).getValues();
+    expenseData.forEach(row => {
+      const amount = Number(row[EXPENSE_TRACKER_COLUMNS.AMOUNT - 1]) || 0;
+      const category = String(row[EXPENSE_TRACKER_COLUMNS.CATEGORY - 1]).trim();
+      const householdId = String(row[EXPENSE_TRACKER_COLUMNS.HOUSEHOLD_ID - 1] || 'default').trim();
+
+      if (category && amount > 0) {
+        if (!householdCategoryTotals.has(householdId)) {
+          householdCategoryTotals.set(householdId, new Map());
+        }
+        const categoryTotals = householdCategoryTotals.get(householdId);
+        categoryTotals.set(category, (categoryTotals.get(category) || 0) + amount);
+      }
+    });
+  }
+  Logger.log(`Calculated totals for ${householdCategoryTotals.size} households.`);
+
+  // --- 2. Update Budget Categories sheet ---
+  const budgetLastRow = budgetSheet.getLastRow();
+  if (budgetLastRow <= 1) {
+    Logger.log("No budget categories to update.");
+    return;
+  }
+
+  // Read header row to get column indices
+  const budgetHeader = budgetSheet.getRange(1, 1, 1, budgetSheet.getLastColumn()).getValues()[0];
+  const budgetColIdx = {};
+  budgetHeader.forEach((colName, idx) => {
+    budgetColIdx[colName.trim()] = idx;
+  });
+  // Required columns: "Category", "HouseholdID", "PayPeriodSpent"
+  if (budgetColIdx["Category"] === undefined || budgetColIdx["HouseholdID"] === undefined || budgetColIdx["PayPeriodSpent"] === undefined) {
+    Logger.log("FATAL: Budget Categories sheet missing required columns.");
+    return;
+  }
+  const budgetData = budgetSheet.getRange(2, 1, budgetLastRow - 1, budgetHeader.length).getValues();
+  const newPayPeriodSpentValues = [];
+  const allHouseholdIds = new Set();
+
+  // Prepare the new values for the "PayPeriodSpent" column
+  budgetData.forEach(row => {
+    const categoryName = String(row[budgetColIdx["Category"]]).trim();
+    const householdId = String(row[budgetColIdx["HouseholdID"]] || 'default').trim();
+    allHouseholdIds.add(householdId);
+
+    const householdTotals = householdCategoryTotals.get(householdId);
+    const newTotal = householdTotals ? (householdTotals.get(categoryName) || 0) : 0;
+
+    newPayPeriodSpentValues.push([newTotal]);
+  });
+
+  // Write the new totals to the sheet in one operation
+  if (newPayPeriodSpentValues.length > 0) {
+    budgetSheet.getRange(2, budgetColIdx["PayPeriodSpent"] + 1, newPayPeriodSpentValues.length, 1).setValues(newPayPeriodSpentValues);
+    Logger.log(`Updated ${newPayPeriodSpentValues.length} rows in Budget Categories sheet.`);
+  }
+
+  // --- 3. Clear all relevant caches ---
+  Logger.log("Clearing caches for all affected households...");
+  allHouseholdIds.forEach(householdId => {
+    resetExpenseDataCache(householdId);
+  });
+
+  Logger.log("Full budget recalculation complete.");
+}
