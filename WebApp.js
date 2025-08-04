@@ -105,8 +105,8 @@ function getClientConfig() {
 function getConsolidatedData() {
   const email = Session.getEffectiveUser().getEmail();
   const householdId = getUserHouseholdId(email);
-  // Sanitize email for cache key
-  const cacheKey = `consolidatedData_v2_${householdId || email.replace(/[@.]/g, '_')}`;
+  // Use a hash of the email for cache key to avoid collisions and information leakage
+  const cacheKey = `consolidatedData_v2_${householdId || hashEmail(email)}`;
   const cache = CacheService.getUserCache();
 
   try {
