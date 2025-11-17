@@ -115,6 +115,9 @@
     <!-- Toast Notifications -->
     <?!= include('ToastNotifications'); ?>
 
+    <!-- Error Handling -->
+    <?!= include('ErrorHandler'); ?>
+
     <script>
       // Initialize CONFIG from server-side data
       const CONFIG = <?!= JSON.stringify(getClientConfig()) ?>;
