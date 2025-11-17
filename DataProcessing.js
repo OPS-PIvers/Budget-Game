@@ -167,20 +167,20 @@ function resetActivityDataCache() {
 }
 
 /**
- * Clears all Dashboard date-range caches when data is modified.
- * This ensures users always see fresh data after adding/editing/deleting activities.
+ * Clears Dashboard date-range caches after data modifications.
+ *
+ * IMPLEMENTATION NOTE:
+ * - Google Apps Script does not support wildcard/pattern-based cache removal
+ * - Tracking all possible date range cache keys is impractical
+ * - For IMMEDIATE cache invalidation: Increment CONFIG.CACHE_VERSION in Config.js
+ * - Otherwise: Caches expire automatically after 5 minutes (CONFIG.CACHE_EXPIRATION_SECONDS)
+ *
+ * This function is retained for API consistency and future enhancement.
  * @private
  */
 function _clearDashboardRangeCaches() {
-  try {
-    const cache = CacheService.getScriptCache();
-    // Unfortunately, Google Apps Script doesn't support wildcard cache removal
-    // So we'll use a cache version approach in the future
-    // For now, we document that caches will expire naturally within 5 minutes
-    Logger.log("Dashboard range caches will expire within 5 minutes. Consider manual refresh for immediate updates.");
-  } catch (e) {
-    Logger.log(`Warning: Error clearing Dashboard range caches: ${e}`);
-  }
+  // No-op: Rely on CACHE_VERSION for immediate invalidation or natural expiration
+  Logger.log(`Dashboard range caches will auto-expire in 5 minutes. For immediate refresh, increment CACHE_VERSION (currently: ${CONFIG.CACHE_VERSION})`);
 }
 
 
@@ -428,7 +428,9 @@ function updateDashboard(timestamp, email, activities, totalPoints) {
  * @param {Date} startDate - Start date of range (inclusive)
  * @param {Date} endDate - End date of range (inclusive)
  * @param {Array<string>} householdEmails - Optional household email filter
- * @return {Array} Filtered rows matching the date range and household
+ * @return {Array<Array>} Filtered rows matching the date range and household.
+ *   Each row is [date, points, activities, category, submittedDate, notes, email, rowIndex]
+ *   where rowIndex is the actual sheet row number (1-based, includes header).
  * @private
  */
 function _getDashboardDataByDateRange(startDate, endDate, householdEmails = null) {
@@ -470,7 +472,8 @@ function _getDashboardDataByDateRange(startDate, endDate, householdEmails = null
   const filteredData = [];
 
   // Efficient filtering with early termination
-  data.forEach(row => {
+  // Include row index to avoid re-reading sheet later
+  data.forEach((row, index) => {
     const date = row[0];
     const rowEmail = row[6] || "";
 
@@ -478,7 +481,11 @@ function _getDashboardDataByDateRange(startDate, endDate, householdEmails = null
     if (date instanceof Date && formatDateYMD(date) >= startDateStr && formatDateYMD(date) <= endDateStr) {
       // Household filtering
       if (!householdEmails || householdEmails.some(email => email.toLowerCase() === rowEmail.toLowerCase())) {
-        filteredData.push(row);
+        // Append row index as the 8th element (0-based: index 7)
+        // Actual sheet row is index + 2 (header row + 0-based index)
+        const rowWithIndex = row.slice(); // Copy array
+        rowWithIndex.push(index + 2); // Sheet row number
+        filteredData.push(rowWithIndex);
       }
     }
   });
@@ -1226,6 +1233,7 @@ function parseActivityString(activitiesString) {
  */
 function getActivityLogData(startDate, endDate) {
   // OPTIMIZATION: Use date-range-based caching helper (no household filter for activity log)
+  // The helper now includes rowIndex in the data, eliminating the need to re-read the sheet
   const data = _getDashboardDataByDateRange(startDate, endDate, null);
 
   if (data.length === 0) {
@@ -1235,64 +1243,30 @@ function getActivityLogData(startDate, endDate) {
 
   const result = [];
 
-  // Process the pre-filtered data (already filtered by date range)
-  // Note: We need to reconstruct rowIndex since we lost it during filtering
-  // We'll need to read the sheet again to get accurate row indices
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const dashboardSheet = ss.getSheetByName(CONFIG.SHEET_NAMES.DASHBOARD);
+  // Process the pre-filtered data (already includes row indices from cache)
+  // Format: [date, points, activities, category, submittedDate, notes, email, rowIndex]
+  data.forEach(row => {
+    const rowIndex = row[7]; // Row index appended by _getDashboardDataByDateRange
+    const date = row[0];
+    const totalRowPoints = Number(row[1]) || 0;
+    const activitiesString = row[2] || "";
+    const email = row[6] || "";
 
-  if (!dashboardSheet) {
-    Logger.log("Dashboard sheet not found in getActivityLogData.");
-    return [];
-  }
+    // Parse the activities string into individual activities
+    const individualActivities = parseActivityString(activitiesString);
 
-  const startDateStr = formatDateYMD(startDate);
-  const endDateStr = formatDateYMD(endDate);
-  const lastRow = dashboardSheet.getLastRow();
-
-  if (lastRow <= 1) {
-    return [];
-  }
-
-  // For activity log, we need accurate row indices for editing
-  // So we'll do a lightweight read of just dates and emails to match rows
-  const allDates = dashboardSheet.getRange(2, 1, lastRow - 1, 1).getValues();
-  const allEmails = dashboardSheet.getRange(2, 7, lastRow - 1, 1).getValues();
-
-  // Match filtered data to row indices
-  data.forEach(filteredRow => {
-    const filteredDate = filteredRow[0];
-    const filteredEmail = filteredRow[6] || "";
-    const filteredDateStr = formatDateYMD(filteredDate);
-
-    // Find the matching row index
-    for (let i = 0; i < allDates.length; i++) {
-      const sheetDate = allDates[i][0];
-      const sheetEmail = allEmails[i][0] || "";
-
-      if (sheetDate instanceof Date && formatDateYMD(sheetDate) === filteredDateStr &&
-          sheetEmail.toLowerCase() === filteredEmail.toLowerCase()) {
-        const rowIndex = i + 2; // Actual sheet row
-        const totalRowPoints = Number(filteredRow[1]) || 0; // Points from column B
-        const activitiesString = filteredRow[2] || ""; // Activities from column C
-
-        // Parse the activities string into individual activities
-        const individualActivities = parseActivityString(activitiesString);
-
-        // Create an entry with the row data and individual activities
-        result.push({
-          rowIndex: rowIndex,
-          date: filteredDateStr,
-          email: filteredEmail,
-          totalPoints: totalRowPoints,
-          activitiesString: activitiesString,
-          activities: individualActivities
-        });
-        break; // Found the match, move to next filtered row
-      }
-    }
+    // Create an entry with the row data and individual activities
+    result.push({
+      rowIndex: rowIndex,
+      date: formatDateYMD(date),
+      email: email,
+      totalPoints: totalRowPoints,
+      activitiesString: activitiesString,
+      activities: individualActivities
+    });
   });
 
+  Logger.log(`Activity log data processed: ${result.length} entries (no sheet re-read needed)`);
   return result;
 }
 

@@ -46,101 +46,6 @@
         color: var(--primary-color);
       }
 
-      /* Account Switcher Styles */
-      .account-switcher {
-        position: relative;
-        margin-right: 12px;
-      }
-
-      .account-avatar {
-        width: 36px;
-        height: 36px;
-        border-radius: 50%;
-        background: var(--primary-color);
-        color: white;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-weight: 600;
-        font-size: 14px;
-        cursor: pointer;
-        transition: box-shadow 0.2s;
-        border: 2px solid transparent;
-      }
-
-      .account-avatar:hover {
-        box-shadow: 0 0 0 4px rgba(66, 133, 244, 0.1);
-      }
-
-      .account-menu {
-        position: absolute;
-        top: calc(100% + 8px);
-        right: 0;
-        background: white;
-        border-radius: 8px;
-        box-shadow: 0 2px 4px -1px rgba(60, 64, 67, 0.2), 0 4px 5px 0 rgba(60, 64, 67, 0.14);
-        min-width: 280px;
-        z-index: 1000;
-        display: none;
-        opacity: 0;
-        transform: translateY(-10px);
-        transition: opacity 0.2s, transform 0.2s;
-      }
-
-      .account-menu.show {
-        display: block;
-        opacity: 1;
-        transform: translateY(0);
-      }
-
-      .account-menu-header {
-        padding: 16px;
-        border-bottom: 1px solid var(--border-color);
-      }
-
-      .account-email {
-        font-size: 14px;
-        color: #202124;
-        font-weight: 500;
-        margin-bottom: 4px;
-      }
-
-      .account-name {
-        font-size: 12px;
-        color: var(--text-secondary);
-      }
-
-      .account-menu-actions {
-        padding: 8px;
-      }
-
-      .account-menu-item {
-        display: flex;
-        align-items: center;
-        padding: 12px 16px;
-        color: #202124;
-        text-decoration: none;
-        border-radius: 4px;
-        cursor: pointer;
-        transition: background-color 0.2s;
-        font-size: 14px;
-        border: none;
-        background: none;
-        width: 100%;
-        text-align: left;
-      }
-
-      .account-menu-item:hover {
-        background-color: #f8f9fa;
-      }
-
-      .account-menu-item svg {
-        width: 20px;
-        height: 20px;
-        margin-right: 12px;
-        fill: currentColor;
-      }
-
       .return-nav {
         display: flex;
         gap: 8px;
@@ -277,32 +182,7 @@
       <header>
         <h1>Budget Game Admin</h1>
         <div class="return-nav">
-          <div class="account-switcher" id="account-switcher">
-            <button
-              class="account-avatar"
-              id="account-avatar"
-              aria-label="Account menu"
-              aria-haspopup="true"
-              aria-expanded="false"
-              tabindex="0"
-            >
-              <span id="account-initials">?</span>
-            </button>
-            <div class="account-menu" id="account-menu" role="menu" aria-label="Account options">
-              <div class="account-menu-header">
-                <div class="account-email" id="account-email">Loading...</div>
-                <div class="account-name" id="account-name">Please wait</div>
-              </div>
-              <div class="account-menu-actions">
-                <button class="account-menu-item" onclick="switchAccount()" role="menuitem">
-                  <svg viewBox="0 0 24 24">
-                    <path d="M16 17v2H2v-2s0-4 7-4 7 4 7 4m-3.5-9.5A3.5 3.5 0 1 0 9 11a3.5 3.5 0 0 0 3.5-3.5m3.44 5.5A5.32 5.32 0 0 1 18 17v2h4v-2s0-3.63-6.06-4M15 4a3.4 3.4 0 0 0-1.93.59 5 5 0 0 1 0 5.82A3.4 3.4 0 0 0 15 11a3.5 3.5 0 0 0 0-7z"/>
-                  </svg>
-                  Switch Account
-                </button>
-              </div>
-            </div>
-          </div>
+          <?!= include('AccountSwitcher'); ?>
           <a href="<?= getScriptUrl() ?>?view=activity" class="back-btn">Activity Tracker</a>
           <a href="<?= getScriptUrl() ?>?view=dashboard" class="back-btn">Dashboard</a>
           <a href="<?= getScriptUrl() ?>?view=expense" class="back-btn">Expense Tracker</a>
@@ -650,14 +530,9 @@
       // Drag and Drop State
       let draggedItem = null;
 
-      // Account Switcher State
-      let userInfo = null;
-      let accountMenuOpen = false;
-
       // Initialize on page load
       document.addEventListener('DOMContentLoaded', function() {
         initializeAdmin();
-        initAccountSwitcher();
       });
 
       function initializeAdmin() {
@@ -764,163 +639,6 @@
         // Load households when the admin page is initialized
         loadHouseholds(); // Calls the function below
       }
-
-      // --- ACCOUNT SWITCHER FUNCTIONS ---
-
-      /**
-       * Initializes the account switcher
-       */
-      function initAccountSwitcher() {
-        // Load user information
-        loadUserInfo();
-
-        // Set up event listeners
-        const avatar = document.getElementById('account-avatar');
-        const menu = document.getElementById('account-menu');
-
-        if (avatar) {
-          avatar.addEventListener('click', toggleAccountMenu);
-          avatar.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault();
-              toggleAccountMenu();
-            }
-          });
-        }
-
-        // Close menu when clicking outside
-        document.addEventListener('click', function(e) {
-          if (accountMenuOpen && !document.getElementById('account-switcher').contains(e.target)) {
-            closeAccountMenu();
-          }
-        });
-
-        // Close menu on Escape key
-        document.addEventListener('keydown', function(e) {
-          if (e.key === 'Escape' && accountMenuOpen) {
-            closeAccountMenu();
-          }
-        });
-      }
-
-      /**
-       * Loads user information from the server
-       */
-      function loadUserInfo() {
-        google.script.run
-          .withSuccessHandler(function(info) {
-            userInfo = info;
-            updateAccountDisplay(info);
-          })
-          .withFailureHandler(function(error) {
-            console.error('Failed to load user info:', error);
-            userInfo = {
-              email: 'Error loading account',
-              name: 'Unknown User',
-              initials: '?'
-            };
-            updateAccountDisplay(userInfo);
-          })
-          .getCurrentUserInfo();
-      }
-
-      /**
-       * Updates the account display with user information
-       */
-      function updateAccountDisplay(info) {
-        const initialsEl = document.getElementById('account-initials');
-        const emailEl = document.getElementById('account-email');
-        const nameEl = document.getElementById('account-name');
-
-        if (initialsEl) {
-          initialsEl.textContent = info.initials || '?';
-        }
-
-        if (emailEl) {
-          emailEl.textContent = info.email || 'Unknown';
-        }
-
-        if (nameEl) {
-          nameEl.textContent = info.name || 'Unknown User';
-        }
-
-        // Update aria-label
-        const avatar = document.getElementById('account-avatar');
-        if (avatar) {
-          avatar.setAttribute('aria-label', 'Account menu for ' + (info.email || 'user'));
-        }
-      }
-
-      /**
-       * Toggles the account menu open/closed
-       */
-      function toggleAccountMenu() {
-        if (accountMenuOpen) {
-          closeAccountMenu();
-        } else {
-          openAccountMenu();
-        }
-      }
-
-      /**
-       * Opens the account menu
-       */
-      function openAccountMenu() {
-        const menu = document.getElementById('account-menu');
-        const avatar = document.getElementById('account-avatar');
-
-        if (menu) {
-          menu.classList.add('show');
-          accountMenuOpen = true;
-
-          if (avatar) {
-            avatar.setAttribute('aria-expanded', 'true');
-          }
-        }
-      }
-
-      /**
-       * Closes the account menu
-       */
-      function closeAccountMenu() {
-        const menu = document.getElementById('account-menu');
-        const avatar = document.getElementById('account-avatar');
-
-        if (menu) {
-          menu.classList.remove('show');
-          accountMenuOpen = false;
-
-          if (avatar) {
-            avatar.setAttribute('aria-expanded', 'false');
-          }
-        }
-      }
-
-      /**
-       * Switches to a different Google account
-       */
-      function switchAccount() {
-        closeAccountMenu();
-
-        // Show loading message
-        showNotification('Switching accounts...', 'info');
-
-        // Get the switch URL and redirect
-        google.script.run
-          .withSuccessHandler(function(url) {
-            // Add a small delay to show the notification
-            setTimeout(function() {
-              window.top.location.href = url;
-            }, 500);
-          })
-          .withFailureHandler(function(error) {
-            console.error('Failed to get switch URL:', error);
-            showNotification('Failed to switch accounts. Please try refreshing the page.', 'error');
-          })
-          .getAccountSwitchUrl();
-      }
-
-      // --- END ACCOUNT SWITCHER FUNCTIONS ---
 
       /**
        * Processes the config data received from the server for Admin UI

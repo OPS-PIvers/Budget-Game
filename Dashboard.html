@@ -49,7 +49,7 @@
       <!-- Date Range Selector -->
       <div class="date-range-selector">
         <label for="date-range-select">Time Period:</label>
-        <select id="date-range-select" onchange="handleDateRangeChange()">
+        <select id="date-range-select">
           <option value="30">Last 30 Days</option>
           <option value="90" selected>Last 90 Days</option>
           <option value="180">Last 6 Months</option>
@@ -195,10 +195,14 @@
         if (emailBtn) emailBtn.addEventListener('click', sendDailyDigest);
         const mobileEmailBtn = document.getElementById('mobile-email-button');
         if (mobileEmailBtn) mobileEmailBtn.addEventListener('click', sendDailyDigest);
-        
+
         // Set up goal update form listener
         const goalUpdateForm = document.getElementById('goal-update-form');
         if (goalUpdateForm) goalUpdateForm.addEventListener('submit', handleGoalUpdate);
+
+        // Set up date range selector listener
+        const dateRangeSelect = document.getElementById('date-range-select');
+        if (dateRangeSelect) dateRangeSelect.addEventListener('change', handleDateRangeChange);
 
         // Load primary dashboard data (historical trends, streaks, counts, settings)
         loadDashboardData(); // Fetches historical, calls renderDashboard -> loadSecondaryData
