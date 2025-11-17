@@ -71,27 +71,29 @@
 
       const errorMessage = (error.message || '').toLowerCase();
 
-      // Network errors
-      if (!isOnline || errorMessage.includes('network') ||
-          errorMessage.includes('fetch') || errorMessage.includes('offline')) {
-        return ERROR_TYPES.NETWORK;
-      }
+      // Check more specific errors first to avoid overlaps
 
-      // Permission errors
+      // Permission errors (check first - highly specific)
       if (errorMessage.includes('permission') || errorMessage.includes('unauthorized') ||
           errorMessage.includes('forbidden') || error.code === 403) {
         return ERROR_TYPES.PERMISSION;
       }
 
-      // Validation errors
-      if (errorMessage.includes('invalid') || errorMessage.includes('validation') ||
-          error.code === 400) {
+      // Validation errors (check before network - prevents "invalid network" matching network)
+      if (errorMessage.includes('validation') || error.code === 400 ||
+          (errorMessage.includes('invalid') && !errorMessage.includes('network'))) {
         return ERROR_TYPES.VALIDATION;
       }
 
-      // Timeout errors
+      // Timeout errors (specific type of failure)
       if (errorMessage.includes('timeout') || errorMessage.includes('timed out')) {
         return ERROR_TYPES.TIMEOUT;
+      }
+
+      // Network errors (check after validation to avoid overlaps)
+      if (!isOnline || errorMessage.includes('network') ||
+          errorMessage.includes('fetch') || errorMessage.includes('offline')) {
+        return ERROR_TYPES.NETWORK;
       }
 
       // Not found errors

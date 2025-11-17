@@ -905,6 +905,11 @@ function getHistoricalData(daysBack = 90) {
     data.forEach(row => {
       const dateObj = row[0];
       // No need to filter - data is already filtered by date range and household
+      // Validate date object before processing
+      if (!(dateObj instanceof Date) || isNaN(dateObj.getTime())) {
+        Logger.log(`Warning: Invalid date object in row, skipping: ${dateObj}`);
+        return;
+      }
       const dateStr = formatDateYMD(dateObj);
       const points = Number(row[1]) || 0;
       const posCount = Number(row[3]) || 0; // Direct count from Col D

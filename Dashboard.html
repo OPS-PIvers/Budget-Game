@@ -287,7 +287,8 @@
         const dateText = dateRange.startDate && dateRange.endDate ?
           `${dateRange.startDate} to ${dateRange.endDate}` : '';
 
-        infoSpan.textContent = `${dateText} ${rowsText}`;
+        // Use filter to avoid awkward leading/trailing spaces
+        infoSpan.textContent = [dateText, rowsText].filter(Boolean).join(' ');
       }
 
       /**

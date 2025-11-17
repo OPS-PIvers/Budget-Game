@@ -132,11 +132,15 @@ function getActivityDataCached() {
       const lock = LockService.getScriptLock();
       try {
         // Wait up to 1 second for the lock
-        lock.waitLock(1000);
+        const gotLock = lock.waitLock(1000);
 
-        const cache = CacheService.getScriptCache();
-        cache.put(cacheKey, JSON.stringify(freshData), CONFIG.CACHE_EXPIRATION_SECONDS);
-        Logger.log(`Activity data cache WRITE success (${CONFIG.CACHE_VERSION})`);
+        if (gotLock) {
+          const cache = CacheService.getScriptCache();
+          cache.put(cacheKey, JSON.stringify(freshData), CONFIG.CACHE_EXPIRATION_SECONDS);
+          Logger.log(`Activity data cache WRITE success (${CONFIG.CACHE_VERSION})`);
+        } else {
+          Logger.log('Warning: Could not acquire lock to write activity data to CacheService.');
+        }
       } finally {
         lock.releaseLock();
       }
@@ -497,11 +501,15 @@ function _getDashboardDataByDateRange(startDate, endDate, householdEmails = null
     const lock = LockService.getScriptLock();
     try {
       // Wait up to 1 second for the lock
-      lock.waitLock(1000);
+      const gotLock = lock.waitLock(1000);
 
-      const cache = CacheService.getScriptCache();
-      cache.put(cacheKey, JSON.stringify(filteredData), 300); // 5 minute cache
-      Logger.log(`Cache WRITE success for ${cacheKey.substring(0, 50)}...`);
+      if (gotLock) {
+        const cache = CacheService.getScriptCache();
+        cache.put(cacheKey, JSON.stringify(filteredData), 300); // 5 minute cache
+        Logger.log(`Cache WRITE success for ${cacheKey.substring(0, 50)}...`);
+      } else {
+        Logger.log('Warning: Failed to acquire lock for cache write; skipping cache update.');
+      }
     } finally {
       lock.releaseLock();
     }
@@ -550,7 +558,7 @@ function getHouseholdWeeklyTotals(householdEmails) {
 
   if (data.length === 0) {
     Logger.log("No data rows found for current week.");
-    return defaultSummary;
+    return { ...defaultSummary, isEmpty: true };
   }
 
   // Process the pre-filtered data (already filtered by date range and household)

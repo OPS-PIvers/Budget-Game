@@ -11,7 +11,6 @@
 
     // Toast queue to manage multiple toasts
     const toastQueue = [];
-    let toastIdCounter = 0;
 
     /**
      * Shows a toast notification
@@ -27,7 +26,8 @@
         return;
       }
 
-      const toastId = 'toast-' + (++toastIdCounter);
+      // Use Date.now() + random for robust ID generation (prevents race conditions)
+      const toastId = 'toast-' + Date.now() + '-' + Math.random().toString(36).substring(2, 9);
 
       // Create toast element
       const toast = document.createElement('div');
@@ -46,14 +46,39 @@
 
       const icon = icons[type] || icons.info;
 
-      toast.innerHTML = `
-        ${icon}
-        <div class="toast-content">
-          ${title ? `<div class="toast-title">${escapeHtml(title)}</div>` : ''}
-          <div class="toast-message">${escapeHtml(message)}</div>
-        </div>
-        <button class="toast-close" onclick="closeToast('${toastId}')" aria-label="Close notification">×</button>
-      `;
+      // Build DOM programmatically to avoid innerHTML XSS concerns
+      // Insert icon SVG
+      const iconDiv = document.createElement('div');
+      iconDiv.innerHTML = icon;
+      toast.appendChild(iconDiv.firstElementChild);
+
+      // Create content div
+      const contentDiv = document.createElement('div');
+      contentDiv.className = 'toast-content';
+
+      // Add title if provided (using textContent for safety)
+      if (title) {
+        const titleDiv = document.createElement('div');
+        titleDiv.className = 'toast-title';
+        titleDiv.textContent = title; // Safe from XSS
+        contentDiv.appendChild(titleDiv);
+      }
+
+      // Add message (using textContent for safety)
+      const messageDiv = document.createElement('div');
+      messageDiv.className = 'toast-message';
+      messageDiv.textContent = message; // Safe from XSS
+      contentDiv.appendChild(messageDiv);
+
+      toast.appendChild(contentDiv);
+
+      // Add close button
+      const closeBtn = document.createElement('button');
+      closeBtn.className = 'toast-close';
+      closeBtn.setAttribute('aria-label', 'Close notification');
+      closeBtn.textContent = '×';
+      closeBtn.addEventListener('click', () => closeToast(toastId));
+      toast.appendChild(closeBtn);
 
       // Add to container
       container.appendChild(toast);
@@ -142,15 +167,6 @@
     window.showLoading = function(message, title = 'Loading') {
       return showToast(message, 'info', 0, title);
     };
-
-    /**
-     * Escapes HTML to prevent XSS
-     */
-    function escapeHtml(text) {
-      const div = document.createElement('div');
-      div.textContent = text;
-      return div.innerHTML;
-    }
 
     // Update old showNotification calls to use new toast system
     // This provides backward compatibility
