@@ -2055,3 +2055,37 @@ function saveBudgetCategoriesData(categories) {
     return { success: false, message: `Error saving: ${error.message}` };
   }
 }
+
+// --- ACCOUNT SWITCHING FUNCTIONS ---
+
+/**
+ * Gets current user information for display in account switcher
+ * Called by client-side JavaScript
+ * @return {Object} User info { email, name, initials }
+ */
+function getCurrentUserInfo() {
+  try {
+    return getUserInfo(); // From Utilities.js
+  } catch (error) {
+    Logger.log(`Error getting current user info: ${error.message}`);
+    return {
+      email: 'Unknown',
+      name: 'Unknown User',
+      initials: '?'
+    };
+  }
+}
+
+/**
+ * Gets the URL for account switching (re-authentication)
+ * Called by client-side JavaScript
+ * @return {string} The auth URL
+ */
+function getAccountSwitchUrl() {
+  try {
+    return getAuthUrl(); // From Utilities.js
+  } catch (error) {
+    Logger.log(`Error getting account switch URL: ${error.message}`);
+    return ScriptApp.getService().getUrl();
+  }
+}

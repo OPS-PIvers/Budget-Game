@@ -201,3 +201,80 @@ function getCurrentCategoryOrder() {
 
   return finalOrder;
 }
+
+/**
+ * Gets current user information for account display
+ * @return {Object} User info { email, name, photoUrl }
+ */
+function getUserInfo() {
+  try {
+    const user = Session.getEffectiveUser();
+    const email = user.getEmail();
+
+    // Try to get display name from household or use email
+    let displayName = email.split('@')[0]; // Default to email prefix
+
+    // Try to get from UserService (if available)
+    try {
+      const userService = Session.getActiveUser();
+      if (userService && userService.getEmail() === email) {
+        // If it's the active user, we can try to get more info
+        displayName = email.split('@')[0]; // Still use email as fallback
+      }
+    } catch (e) {
+      // UserService might not be available
+      Logger.log('UserService not available: ' + e);
+    }
+
+    return {
+      email: email,
+      name: displayName,
+      // Google Apps Script doesn't provide photo URLs directly
+      photoUrl: null,
+      initials: getInitials(displayName)
+    };
+  } catch (error) {
+    Logger.log('Error getting user info: ' + error);
+    return {
+      email: 'Unknown',
+      name: 'Unknown User',
+      photoUrl: null,
+      initials: '?'
+    };
+  }
+}
+
+/**
+ * Gets initials from a name for avatar display
+ * @param {string} name The user's name
+ * @return {string} Initials (max 2 characters)
+ */
+function getInitials(name) {
+  if (!name) return '?';
+
+  const parts = name.trim().split(/\s+/);
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  } else if (parts.length === 1 && parts[0].length > 0) {
+    return parts[0].substring(0, 2).toUpperCase();
+  }
+
+  return '?';
+}
+
+/**
+ * Gets the URL for re-authentication (account switching)
+ * This forces the user to re-select their Google account
+ * @return {string} The web app URL with auth prompt
+ */
+function getAuthUrl() {
+  try {
+    const scriptUrl = ScriptApp.getService().getUrl();
+    // Add authuser parameter to force account selection
+    // The -1 value forces Google to show account chooser
+    return scriptUrl + '?authuser=-1';
+  } catch (error) {
+    Logger.log('Error getting auth URL: ' + error);
+    return ScriptApp.getService().getUrl();
+  }
+}
