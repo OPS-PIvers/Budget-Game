@@ -89,9 +89,11 @@ function getActivityDataCached() {
   }
 
   // 2. Check CacheService (persists briefly across executions)
+  // OPTIMIZED: Use versioned cache key for selective invalidation
+  const cacheKey = `${CONFIG.CACHE_VERSION}_${CONFIG.CACHE_KEYS.ACTIVITY_DATA}`;
   try {
     const cache = CacheService.getScriptCache();
-    const cachedJson = cache.get('activityData');
+    const cachedJson = cache.get(cacheKey);
     if (cachedJson) {
       try {
         const parsedData = JSON.parse(cachedJson);
@@ -102,14 +104,15 @@ function getActivityDataCached() {
             parsedData.requiredActivities = {};
           }
           activityDataCache = parsedData; // Update script global cache
+          Logger.log(`Activity data cache HIT (${CONFIG.CACHE_VERSION})`);
           return activityDataCache;
         } else {
            Logger.log(`Parsed activity data from CacheService is invalid or empty. Refetching.`);
-           cache.remove('activityData'); // Remove invalid data from cache
+           cache.remove(cacheKey); // Remove invalid data from cache
         }
       } catch (parseError) {
         Logger.log(`Error parsing activity data from CacheService: ${parseError}. Refetching.`);
-        cache.remove('activityData'); // Remove potentially corrupt data
+        cache.remove(cacheKey); // Remove potentially corrupt data
       }
     }
   } catch (cacheError) {
@@ -117,17 +120,26 @@ function getActivityDataCached() {
   }
 
   // 3. If no cache hit or valid data found, read fresh data
-  Logger.log("Cache miss or invalid cache data. Reading fresh activity data from sheet.");
+  Logger.log(`Cache MISS (${CONFIG.CACHE_VERSION}) - Reading fresh activity data from sheet.`);
   const freshData = readActivityData();
 
   // Store in script cache
   activityDataCache = freshData;
 
-  // Store in CacheService, but only if data is valid and not empty
+  // Store in CacheService with thread-safe write using LockService
   if (freshData && freshData.pointValues && Object.keys(freshData.pointValues).length > 0) {
     try {
-      const cache = CacheService.getScriptCache();
-      cache.put('activityData', JSON.stringify(freshData), CONFIG.CACHE_EXPIRATION_SECONDS);
+      const lock = LockService.getScriptLock();
+      try {
+        // Wait up to 1 second for the lock
+        lock.waitLock(1000);
+
+        const cache = CacheService.getScriptCache();
+        cache.put(cacheKey, JSON.stringify(freshData), CONFIG.CACHE_EXPIRATION_SECONDS);
+        Logger.log(`Activity data cache WRITE success (${CONFIG.CACHE_VERSION})`);
+      } finally {
+        lock.releaseLock();
+      }
     } catch (e) {
       Logger.log(`Warning: Error saving activity data to CacheService: ${e}`);
     }
@@ -140,13 +152,15 @@ function getActivityDataCached() {
 
 /**
  * Resets the global activity data cache to prevent stale data.
+ * OPTIMIZED: Uses versioned cache key for selective invalidation.
  * Should be called at the beginning and end of functions that modify activity data.
  */
 function resetActivityDataCache() {
   activityDataCache = null; // Reset script-global variable
   try {
-    CacheService.getScriptCache().remove('activityData');
-    Logger.log("Activity data cache reset (Script Global & CacheService).");
+    const cacheKey = `${CONFIG.CACHE_VERSION}_${CONFIG.CACHE_KEYS.ACTIVITY_DATA}`;
+    CacheService.getScriptCache().remove(cacheKey);
+    Logger.log(`Activity data cache reset (${CONFIG.CACHE_VERSION}) - Script Global & CacheService.`);
   } catch (e) {
     Logger.log(`Warning: Error clearing activity data from CacheService during reset: ${e}`);
   }
@@ -409,6 +423,7 @@ function updateDashboard(timestamp, email, activities, totalPoints) {
 
 /**
  * Efficiently reads Dashboard data for a specific date range with caching.
+ * OPTIMIZED: Uses cache versioning for selective invalidation.
  * This helper function reduces redundant sheet reads by 70%+ through smart caching.
  * @param {Date} startDate - Start date of range (inclusive)
  * @param {Date} endDate - End date of range (inclusive)
@@ -430,11 +445,11 @@ function _getDashboardDataByDateRange(startDate, endDate, householdEmails = null
     return [];
   }
 
-  // Create cache key based on date range and household
+  // Create versioned cache key based on date range and household
   const startDateStr = formatDateYMD(startDate);
   const endDateStr = formatDateYMD(endDate);
   const householdKey = householdEmails ? householdEmails.sort().join(',') : 'all';
-  const cacheKey = `dashboardRange_${startDateStr}_${endDateStr}_${householdKey}`;
+  const cacheKey = `${CONFIG.CACHE_VERSION}_${CONFIG.CACHE_KEYS.DASHBOARD_RANGE}_${startDateStr}_${endDateStr}_${householdKey}`;
 
   // Check CacheService for this specific date range
   try {
@@ -442,7 +457,7 @@ function _getDashboardDataByDateRange(startDate, endDate, householdEmails = null
     const cachedJson = cache.get(cacheKey);
     if (cachedJson) {
       const parsedData = JSON.parse(cachedJson);
-      Logger.log(`Cache HIT for date range ${startDateStr} to ${endDateStr} (${parsedData.length} rows)`);
+      Logger.log(`Cache HIT (${CONFIG.CACHE_VERSION}) for date range ${startDateStr} to ${endDateStr} (${parsedData.length} rows)`);
       return parsedData;
     }
   } catch (e) {
@@ -450,7 +465,7 @@ function _getDashboardDataByDateRange(startDate, endDate, householdEmails = null
   }
 
   // Cache miss - read from sheet
-  Logger.log(`Cache MISS - Reading Dashboard for ${startDateStr} to ${endDateStr} (${lastRow - 1} total rows)`);
+  Logger.log(`Cache MISS (${CONFIG.CACHE_VERSION}) - Reading Dashboard for ${startDateStr} to ${endDateStr} (${lastRow - 1} total rows)`);
   const data = dashboardSheet.getRange(2, 1, lastRow - 1, 7).getValues();
   const filteredData = [];
 
@@ -470,10 +485,19 @@ function _getDashboardDataByDateRange(startDate, endDate, householdEmails = null
 
   Logger.log(`Filtered to ${filteredData.length} rows for date range ${startDateStr} to ${endDateStr}`);
 
-  // Cache the filtered results (expires in 5 minutes)
+  // Cache the filtered results with thread-safe write using LockService
   try {
-    const cache = CacheService.getScriptCache();
-    cache.put(cacheKey, JSON.stringify(filteredData), 300); // 5 minute cache
+    const lock = LockService.getScriptLock();
+    try {
+      // Wait up to 1 second for the lock
+      lock.waitLock(1000);
+
+      const cache = CacheService.getScriptCache();
+      cache.put(cacheKey, JSON.stringify(filteredData), 300); // 5 minute cache
+      Logger.log(`Cache WRITE success for ${cacheKey.substring(0, 50)}...`);
+    } finally {
+      lock.releaseLock();
+    }
   } catch (e) {
     Logger.log(`Cache write error for ${cacheKey}: ${e}`);
   }
