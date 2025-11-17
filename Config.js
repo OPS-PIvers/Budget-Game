@@ -130,7 +130,7 @@ const CONFIG = {
     HOUSEHOLD_DATA: 'householdData',
     GOAL_DATA: 'goalData',
     EXPENSE_DATA: 'expenseData'
-  }
+  },
 
 };
 
