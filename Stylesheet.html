@@ -1033,21 +1033,218 @@ body {
 
 /* Responsive */
 @media (max-width: 768px) {
-  .scoreboard { flex-direction: column; }
-  /* .dashboard-row handled above */
-  .actions { flex-direction: column; }
-  .action-buttons { display: none; } /* Hide desktop buttons */
-  .mobile-actions { display: flex; margin-top: 16px; justify-content: center; gap: 16px; padding-bottom: 16px; } /* Make visible */
-  .streaks-container { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); } /* Adjust min streak card width */
-  .chip-container { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); } /* Adjust min chip width */
+  /* Layout adjustments */
+  .scoreboard {
+    flex-direction: column;
+    gap: 16px;
+  }
 
+  .score-box {
+    margin-bottom: 0;
+  }
+
+  .dashboard-row {
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .actions {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  /* Header adjustments */
+  .header-content {
+    padding: 0 12px;
+  }
+
+  .app-title {
+    font-size: 18px;
+  }
+
+  .action-buttons {
+    display: none;
+  }
+
+  .mobile-actions {
+    display: flex;
+    margin-top: 16px;
+    justify-content: center;
+    gap: 12px;
+    padding-bottom: 16px;
+    flex-direction: column;
+  }
+
+  .mobile-actions .btn {
+    width: 100%;
+  }
+
+  /* Navigation adjustments */
+  .main-nav {
+    justify-content: space-around;
+  }
+
+  .nav-link {
+    padding: 12px 8px;
+    font-size: 12px;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .nav-icon {
+    width: 24px;
+    height: 24px;
+  }
+
+  /* Activity chips - larger touch targets */
+  .activity-chip {
+    min-height: 44px;
+    padding: 10px 18px;
+    font-size: 16px; /* Prevent iOS zoom on input focus */
+  }
+
+  /* Grid adjustments */
+  .streaks-container {
+    grid-template-columns: 1fr;
+  }
+
+  .chip-container {
+    grid-template-columns: 1fr;
+  }
+
+  /* Container padding */
+  .container {
+    padding: 16px 12px;
+  }
+
+  .main-content {
+    padding: 16px 12px;
+  }
+
+  /* Toast notifications */
+  .toast-container {
+    left: 12px;
+    right: 12px;
+    top: 70px;
+  }
+
+  .toast {
+    min-width: auto;
+    max-width: none;
+  }
+
+  /* Account switcher in header */
+  .account-switcher {
+    order: -1; /* Move to the left on mobile */
+  }
+}
+
+/* Tablet adjustments */
+@media (min-width: 481px) and (max-width: 768px) {
+  .scoreboard {
+    flex-direction: row;
+  }
+
+  .activity-chip {
+    display: inline-flex;
+  }
+
+  .chip-container {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  }
+}
+
+/* Small phones */
+@media (max-width: 480px) {
+  .app-title {
+    font-size: 16px;
+  }
+
+  .score-box h2 {
+    font-size: 14px;
+  }
+
+  .score {
+    font-size: 32px;
+  }
+
+  .average {
+    font-size: 12px;
+  }
+
+  /* Full-width buttons */
+  .submit-btn,
+  .reset-btn {
+    width: 100%;
+    padding: 14px 24px;
+  }
+
+  /* Account menu full width */
+  .account-menu {
+    left: 0;
+    right: 0;
+    min-width: calc(100vw - 24px);
+    margin: 0 12px;
+  }
 }
 
 /* Hide mobile actions on larger screens */
 @media (min-width: 769px) {
-    .mobile-actions {
-        display: none;
-    }
+  .mobile-actions {
+    display: none;
+  }
+}
+
+/* Large screens - max width constraint */
+@media (min-width: 1200px) {
+  .container {
+    max-width: 1200px;
+  }
+}
+
+/* High DPI screens - sharper rendering */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  .activity-chip,
+  .btn,
+  .score-box {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+/* Landscape phone orientation */
+@media (max-height: 500px) and (orientation: landscape) {
+  .header-content {
+    height: 48px;
+  }
+
+  .nav-link {
+    padding: 8px 12px;
+  }
+
+  .main-content {
+    padding-top: 12px;
+  }
+}
+
+/* Print styles */
+@media print {
+  .app-header,
+  .nav-container,
+  .action-buttons,
+  .mobile-actions,
+  .toast-container,
+  .account-switcher {
+    display: none !important;
+  }
+
+  .container {
+    max-width: none;
+  }
+
+  .dashboard-section {
+    page-break-inside: avoid;
+  }
 }
 
 </style>
