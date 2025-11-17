@@ -69,8 +69,33 @@
       -->
 
       <div class="activity-sections" id="activity-container">
-        <!-- Will be populated via JavaScript -->
-        <div class="loading">Loading activities...</div>
+        <!-- Skeleton loading state -->
+        <div class="skeleton-loader">
+          <div class="skeleton-text medium" style="margin-bottom: 16px;"></div>
+          <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 32px;">
+            <div class="skeleton skeleton-chip"></div>
+            <div class="skeleton skeleton-chip"></div>
+            <div class="skeleton skeleton-chip"></div>
+            <div class="skeleton skeleton-chip"></div>
+            <div class="skeleton skeleton-chip"></div>
+            <div class="skeleton skeleton-chip"></div>
+          </div>
+          <div class="skeleton-text medium" style="margin-bottom: 16px;"></div>
+          <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 32px;">
+            <div class="skeleton skeleton-chip"></div>
+            <div class="skeleton skeleton-chip"></div>
+            <div class="skeleton skeleton-chip"></div>
+            <div class="skeleton skeleton-chip"></div>
+          </div>
+          <div class="skeleton-text medium" style="margin-bottom: 16px;"></div>
+          <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+            <div class="skeleton skeleton-chip"></div>
+            <div class="skeleton skeleton-chip"></div>
+            <div class="skeleton skeleton-chip"></div>
+            <div class="skeleton skeleton-chip"></div>
+            <div class="skeleton skeleton-chip"></div>
+          </div>
+        </div>
       </div>
 
       <div class="actions">
@@ -86,6 +111,9 @@
     </div>
 
     <div id="notification" class="notification hidden"></div>
+
+    <!-- Toast Notifications -->
+    <?!= include('ToastNotifications'); ?>
 
     <script>
       // Initialize CONFIG from server-side data
