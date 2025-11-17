@@ -46,6 +46,19 @@
        <!-- Household Info Placeholder -->
        <div id="household-info-placeholder"></div>
 
+      <!-- Date Range Selector -->
+      <div class="date-range-selector">
+        <label for="date-range-select">Time Period:</label>
+        <select id="date-range-select" onchange="handleDateRangeChange()">
+          <option value="30">Last 30 Days</option>
+          <option value="90" selected>Last 90 Days</option>
+          <option value="180">Last 6 Months</option>
+          <option value="365">Last Year</option>
+          <option value="0">All Time</option>
+        </select>
+        <span id="date-range-info" class="date-range-info"></span>
+      </div>
+
       <div class="dashboard-section">
         <h3>Points Trend</h3>
         <div class="chart-container">
@@ -160,6 +173,7 @@
       let charts = {}; // Store chart instances
       let dashboardDataCache = null; // Cache fetched historical data
       let configData = null; // Store CONFIG data for reference if needed
+      let currentDateRange = 90; // Default to 90 days (Last 3 Months)
 
       // Wait for DOM and Chart.js to be fully loaded
       document.addEventListener('DOMContentLoaded', initializeDashboard);
@@ -202,21 +216,26 @@
 
       /**
        * Loads primary dashboard data (historical trends, streaks, counts, config)
+       * OPTIMIZED: Now accepts date range parameter for pagination
        */
       function loadDashboardData() {
         setLoadingState(true);
         const cacheExpiry = 5 * 60 * 1000; // 5 minutes
 
-        // Check cache
-        if (dashboardDataCache && (Date.now() - dashboardDataCache.timestamp < cacheExpiry)) {
-            console.log("Using cached dashboard data.");
+        // Check cache (include date range in cache key)
+        const cacheKey = `dashboard_${currentDateRange}`;
+        if (dashboardDataCache &&
+            dashboardDataCache.key === cacheKey &&
+            (Date.now() - dashboardDataCache.timestamp < cacheExpiry)) {
+            console.log(`Using cached dashboard data for ${currentDateRange}-day range.`);
             renderDashboard(dashboardDataCache.data); // Pass the whole cached data object
+            updateDateRangeInfo(dashboardDataCache.data.dateRange);
             loadSecondaryData(); // Load goals separately
             setLoadingState(false);
             return;
         }
 
-        console.log("Fetching fresh dashboard data from server...");
+        console.log(`Fetching dashboard data for ${currentDateRange > 0 ? currentDateRange + ' days' : 'all time'}...`);
         google.script.run
           .withSuccessHandler(response => {
               console.log("Full dashboard response received:", response);
@@ -225,17 +244,46 @@
                  handleDashboardError({ message: response?.message || "Failed to load dashboard data structure." });
                  return;
               }
-              // Cache the successful response
-              dashboardDataCache = { data: response, timestamp: Date.now() };
+              // Cache the successful response with date range key
+              dashboardDataCache = { key: cacheKey, data: response, timestamp: Date.now() };
               // Store config separately if needed elsewhere
               configData = { categories: response.categories, streakSettings: response.currentStreakSettings };
 
               renderDashboard(response); // Pass the whole successful response object
+              updateDateRangeInfo(response.dateRange); // Update info display
               loadSecondaryData(); // Load goals
               setLoadingState(false);
           })
           .withFailureHandler(handleDashboardError) // Handles network/script errors
-          .getHistoricalData(); // In WebApp.gs
+          .getHistoricalData(currentDateRange); // Pass date range parameter
+      }
+
+      /**
+       * Handles date range selector changes
+       */
+      function handleDateRangeChange() {
+        const selector = document.getElementById('date-range-select');
+        currentDateRange = parseInt(selector.value);
+        console.log(`Date range changed to: ${currentDateRange} days`);
+
+        // Invalidate cache and reload data
+        dashboardDataCache = null;
+        loadDashboardData();
+      }
+
+      /**
+       * Updates the date range info display
+       */
+      function updateDateRangeInfo(dateRange) {
+        const infoSpan = document.getElementById('date-range-info');
+        if (!infoSpan || !dateRange) return;
+
+        const rowsText = dateRange.rowsLoaded !== undefined ?
+          `(${dateRange.rowsLoaded} row${dateRange.rowsLoaded !== 1 ? 's' : ''} loaded)` : '';
+        const dateText = dateRange.startDate && dateRange.endDate ?
+          `${dateRange.startDate} to ${dateRange.endDate}` : '';
+
+        infoSpan.textContent = `${dateText} ${rowsText}`;
       }
 
       /**
