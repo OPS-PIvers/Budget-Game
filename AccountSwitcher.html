@@ -32,23 +32,49 @@
   (function() {
     'use strict';
 
+    // State
     let userInfo = null;
     let accountMenuOpen = false;
+
+    // Cached DOM element references (initialized after DOM is ready)
+    let elements = {
+      switcher: null,
+      avatar: null,
+      menu: null,
+      initialsEl: null,
+      emailEl: null,
+      nameEl: null,
+      switchAccountBtn: null
+    };
+
+    /**
+     * Caches DOM element references for reuse
+     * @private
+     */
+    function cacheDOMElements() {
+      elements.switcher = document.getElementById('account-switcher');
+      elements.avatar = document.getElementById('account-avatar');
+      elements.menu = document.getElementById('account-menu');
+      elements.initialsEl = document.getElementById('account-initials');
+      elements.emailEl = document.getElementById('account-email');
+      elements.nameEl = document.getElementById('account-name');
+      elements.switchAccountBtn = document.getElementById('switch-account-btn');
+    }
 
     /**
      * Initializes the account switcher
      */
     function initAccountSwitcher() {
+      // Cache all DOM element references
+      cacheDOMElements();
+
       // Load user information
       loadUserInfo();
 
       // Set up event listeners
-      const avatar = document.getElementById('account-avatar');
-      const switchAccountBtn = document.getElementById('switch-account-btn');
-
-      if (avatar) {
-        avatar.addEventListener('click', toggleAccountMenu);
-        avatar.addEventListener('keydown', function(e) {
+      if (elements.avatar) {
+        elements.avatar.addEventListener('click', toggleAccountMenu);
+        elements.avatar.addEventListener('keydown', function(e) {
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
             toggleAccountMenu();
@@ -57,13 +83,13 @@
       }
 
       // Add event listener for switch account button
-      if (switchAccountBtn) {
-        switchAccountBtn.addEventListener('click', switchAccount);
+      if (elements.switchAccountBtn) {
+        elements.switchAccountBtn.addEventListener('click', switchAccount);
       }
 
       // Close menu when clicking outside
       document.addEventListener('click', function(e) {
-        if (accountMenuOpen && !document.getElementById('account-switcher').contains(e.target)) {
+        if (accountMenuOpen && elements.switcher && !elements.switcher.contains(e.target)) {
           closeAccountMenu();
         }
       });
@@ -99,28 +125,24 @@
 
     /**
      * Updates the account display with user information
+     * Uses cached DOM references for better performance
      */
     function updateAccountDisplay(info) {
-      const initialsEl = document.getElementById('account-initials');
-      const emailEl = document.getElementById('account-email');
-      const nameEl = document.getElementById('account-name');
-
-      if (initialsEl) {
-        initialsEl.textContent = info.initials || '?';
+      if (elements.initialsEl) {
+        elements.initialsEl.textContent = info.initials || '?';
       }
 
-      if (emailEl) {
-        emailEl.textContent = info.email || 'Unknown';
+      if (elements.emailEl) {
+        elements.emailEl.textContent = info.email || 'Unknown';
       }
 
-      if (nameEl) {
-        nameEl.textContent = info.name || 'Unknown User';
+      if (elements.nameEl) {
+        elements.nameEl.textContent = info.name || 'Unknown User';
       }
 
       // Update aria-label
-      const avatar = document.getElementById('account-avatar');
-      if (avatar) {
-        avatar.setAttribute('aria-label', `Account menu for ${info.email || 'user'}`);
+      if (elements.avatar) {
+        elements.avatar.setAttribute('aria-label', `Account menu for ${info.email || 'user'}`);
       }
     }
 
@@ -137,50 +159,44 @@
 
     /**
      * Opens the account menu
+     * Uses cached DOM references for better performance
      */
     function openAccountMenu() {
-      const menu = document.getElementById('account-menu');
-      const avatar = document.getElementById('account-avatar');
-
-      if (menu) {
-        menu.classList.add('show');
+      if (elements.menu) {
+        elements.menu.classList.add('show');
         accountMenuOpen = true;
 
-        if (avatar) {
-          avatar.setAttribute('aria-expanded', 'true');
+        if (elements.avatar) {
+          elements.avatar.setAttribute('aria-expanded', 'true');
         }
       }
     }
 
     /**
      * Closes the account menu
+     * Uses cached DOM references for better performance
      */
     function closeAccountMenu() {
-      const menu = document.getElementById('account-menu');
-      const avatar = document.getElementById('account-avatar');
-
-      if (menu) {
-        menu.classList.remove('show');
+      if (elements.menu) {
+        elements.menu.classList.remove('show');
         accountMenuOpen = false;
 
-        if (avatar) {
-          avatar.setAttribute('aria-expanded', 'false');
+        if (elements.avatar) {
+          elements.avatar.setAttribute('aria-expanded', 'false');
         }
       }
     }
 
     /**
      * Switches to a different Google account
+     * Uses the ToastNotifications system for user feedback
      */
     function switchAccount() {
       closeAccountMenu();
 
-      // Show loading message
-      const notification = document.getElementById('notification');
-      if (notification) {
-        notification.textContent = 'Switching accounts...';
-        notification.className = 'notification info';
-        notification.classList.remove('hidden');
+      // Use modern toast notification system if available, fallback to old method
+      if (window.showInfo) {
+        window.showInfo('Switching accounts...');
       }
 
       // Get the switch URL and redirect
@@ -193,9 +209,17 @@
         })
         .withFailureHandler(function(error) {
           console.error('Failed to get switch URL:', error);
-          if (notification) {
-            notification.textContent = 'Failed to switch accounts. Please try refreshing the page.';
-            notification.className = 'notification error';
+
+          // Use modern toast notification system if available
+          if (window.showError) {
+            window.showError('Failed to switch accounts. Please try refreshing the page.');
+          } else {
+            // Fallback to old notification system
+            const notification = document.getElementById('notification');
+            if (notification) {
+              notification.textContent = 'Failed to switch accounts. Please try refreshing the page.';
+              notification.className = 'notification error';
+            }
           }
         })
         .getAccountSwitchUrl();
