@@ -118,6 +118,20 @@ const CONFIG = {
   REBUILD_SLEEP_MS: 50, // Small delay during rebuild loop
   POINTS_EDIT_DELAY_MS: 2000, // Delay after points ref edit before updating form
 
+  // --- Cache Versioning ---
+  // Increment this version to invalidate ALL caches globally
+  // Useful for major data structure changes or bug fixes requiring fresh data
+  CACHE_VERSION: 'v1.0',  // Format: v{major}.{minor}
+
+  // Cache key prefixes for different data types
+  CACHE_KEYS: {
+    ACTIVITY_DATA: 'activityData',
+    DASHBOARD_RANGE: 'dashboardRange',
+    HOUSEHOLD_DATA: 'householdData',
+    GOAL_DATA: 'goalData',
+    EXPENSE_DATA: 'expenseData'
+  },
+
 };
 
 // --- Global Cache Variable ---

@@ -408,6 +408,7 @@
       <div class="header-content">
         <a href="<?= getScriptUrl() ?>?view=activity" class="app-title">Budget Game Tracker</a>
         <div class="action-buttons">
+          <?!= include('AccountSwitcher'); ?>
           <button id="email-button" class="btn btn-outline">Send Daily Digest</button>
           <a href="<?= getScriptUrl() ?>?view=admin" class="btn btn-outline">Admin</a>
         </div>
@@ -522,6 +523,12 @@
     </div>
 
     <div id="notification" class="notification hidden"></div>
+
+    <!-- Toast Notifications -->
+    <?!= include('ToastNotifications'); ?>
+
+    <!-- Error Handling -->
+    <?!= include('ErrorHandler'); ?>
 
     <script>
       // Global state

@@ -1,0 +1,185 @@
+<!-- ToastNotifications.html - Reusable Toast Notification System -->
+<div class="toast-container" id="toast-container"></div>
+
+<script>
+  /**
+   * Toast Notification System
+   * Provides user-friendly, auto-dismissing notifications
+   */
+  (function() {
+    'use strict';
+
+    // Toast queue to manage multiple toasts
+    const toastQueue = [];
+
+    /**
+     * Shows a toast notification
+     * @param {string} message - The message to display
+     * @param {string} type - Type: 'success', 'error', 'warning', 'info'
+     * @param {number} duration - How long to show (ms), 0 = no auto-dismiss
+     * @param {string} title - Optional title for the toast
+     */
+    window.showToast = function(message, type = 'info', duration = 5000, title = '') {
+      const container = document.getElementById('toast-container');
+      if (!container) {
+        console.error('Toast container not found');
+        return;
+      }
+
+      // Use Date.now() + random for robust ID generation (prevents race conditions)
+      const toastId = 'toast-' + Date.now() + '-' + Math.random().toString(36).substring(2, 9);
+
+      // Create toast element
+      const toast = document.createElement('div');
+      toast.className = `toast ${type}`;
+      toast.id = toastId;
+      toast.setAttribute('role', 'alert');
+      toast.setAttribute('aria-live', 'polite');
+
+      // Icon SVGs
+      const icons = {
+        success: '<svg class="toast-icon success" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>',
+        error: '<svg class="toast-icon error" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>',
+        warning: '<svg class="toast-icon warning" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>',
+        info: '<svg class="toast-icon info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>'
+      };
+
+      const icon = icons[type] || icons.info;
+
+      // Build DOM programmatically to avoid innerHTML XSS concerns
+      // Insert icon SVG
+      const iconDiv = document.createElement('div');
+      iconDiv.innerHTML = icon;
+      toast.appendChild(iconDiv.firstElementChild);
+
+      // Create content div
+      const contentDiv = document.createElement('div');
+      contentDiv.className = 'toast-content';
+
+      // Add title if provided (using textContent for safety)
+      if (title) {
+        const titleDiv = document.createElement('div');
+        titleDiv.className = 'toast-title';
+        titleDiv.textContent = title; // Safe from XSS
+        contentDiv.appendChild(titleDiv);
+      }
+
+      // Add message (using textContent for safety)
+      const messageDiv = document.createElement('div');
+      messageDiv.className = 'toast-message';
+      messageDiv.textContent = message; // Safe from XSS
+      contentDiv.appendChild(messageDiv);
+
+      toast.appendChild(contentDiv);
+
+      // Add close button
+      const closeBtn = document.createElement('button');
+      closeBtn.className = 'toast-close';
+      closeBtn.setAttribute('aria-label', 'Close notification');
+      closeBtn.textContent = '×';
+      closeBtn.addEventListener('click', () => closeToast(toastId));
+      toast.appendChild(closeBtn);
+
+      // Add to container
+      container.appendChild(toast);
+
+      // Trigger animation
+      requestAnimationFrame(() => {
+        toast.classList.add('show');
+      });
+
+      // Auto-dismiss if duration is set
+      if (duration > 0) {
+        setTimeout(() => {
+          closeToast(toastId);
+        }, duration);
+      }
+
+      // Add to queue
+      toastQueue.push(toastId);
+
+      return toastId;
+    };
+
+    /**
+     * Closes a specific toast
+     * @param {string} toastId - The ID of the toast to close
+     */
+    window.closeToast = function(toastId) {
+      const toast = document.getElementById(toastId);
+      if (!toast) return;
+
+      toast.classList.remove('show');
+
+      // Remove from DOM after animation
+      setTimeout(() => {
+        if (toast.parentNode) {
+          toast.parentNode.removeChild(toast);
+        }
+
+        // Remove from queue
+        const index = toastQueue.indexOf(toastId);
+        if (index > -1) {
+          toastQueue.splice(index, 1);
+        }
+      }, 300); // Match CSS transition duration
+    };
+
+    /**
+     * Closes all toasts
+     */
+    window.closeAllToasts = function() {
+      const toasts = [...toastQueue]; // Create copy to avoid mutation during iteration
+      toasts.forEach(toastId => closeToast(toastId));
+    };
+
+    /**
+     * Shows a success toast
+     */
+    window.showSuccess = function(message, title = 'Success') {
+      return showToast(message, 'success', 5000, title);
+    };
+
+    /**
+     * Shows an error toast
+     */
+    window.showError = function(message, title = 'Error') {
+      return showToast(message, 'error', 7000, title);
+    };
+
+    /**
+     * Shows a warning toast
+     */
+    window.showWarning = function(message, title = 'Warning') {
+      return showToast(message, 'warning', 6000, title);
+    };
+
+    /**
+     * Shows an info toast
+     */
+    window.showInfo = function(message, title = '') {
+      return showToast(message, 'info', 5000, title);
+    };
+
+    /**
+     * Shows a loading toast (doesn't auto-dismiss)
+     */
+    window.showLoading = function(message, title = 'Loading') {
+      return showToast(message, 'info', 0, title);
+    };
+
+    // Update old showNotification calls to use new toast system
+    // This provides backward compatibility
+    if (!window.showNotification) {
+      window.showNotification = function(message, type = 'info') {
+        const typeMap = {
+          'success': 'success',
+          'error': 'error',
+          'warning': 'warning',
+          'info': 'info'
+        };
+        showToast(message, typeMap[type] || 'info');
+      };
+    }
+  })();
+</script>

@@ -1,0 +1,235 @@
+<!-- AccountSwitcher.html - Reusable Account Switcher Component -->
+<div class="account-switcher" id="account-switcher">
+  <button
+    class="account-avatar"
+    id="account-avatar"
+    aria-label="Account menu"
+    aria-haspopup="true"
+    aria-expanded="false"
+    tabindex="0"
+  >
+    <span id="account-initials">?</span>
+  </button>
+
+  <div class="account-menu" id="account-menu" role="menu" aria-label="Account options">
+    <div class="account-menu-header">
+      <div class="account-email" id="account-email">Loading...</div>
+      <div class="account-name" id="account-name">Please wait</div>
+    </div>
+    <div class="account-menu-actions">
+      <button class="account-menu-item" id="switch-account-btn" role="menuitem">
+        <svg viewBox="0 0 24 24">
+          <path d="M16 17v2H2v-2s0-4 7-4 7 4 7 4m-3.5-9.5A3.5 3.5 0 1 0 9 11a3.5 3.5 0 0 0 3.5-3.5m3.44 5.5A5.32 5.32 0 0 1 18 17v2h4v-2s0-3.63-6.06-4M15 4a3.4 3.4 0 0 0-1.93.59 5 5 0 0 1 0 5.82A3.4 3.4 0 0 0 15 11a3.5 3.5 0 0 0 0-7z"/>
+        </svg>
+        Switch Account
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Account Switcher JavaScript
+  (function() {
+    'use strict';
+
+    // State
+    let userInfo = null;
+    let accountMenuOpen = false;
+
+    // Cached DOM element references (initialized after DOM is ready)
+    let elements = {
+      switcher: null,
+      avatar: null,
+      menu: null,
+      initialsEl: null,
+      emailEl: null,
+      nameEl: null,
+      switchAccountBtn: null
+    };
+
+    /**
+     * Caches DOM element references for reuse
+     * @private
+     */
+    function cacheDOMElements() {
+      elements.switcher = document.getElementById('account-switcher');
+      elements.avatar = document.getElementById('account-avatar');
+      elements.menu = document.getElementById('account-menu');
+      elements.initialsEl = document.getElementById('account-initials');
+      elements.emailEl = document.getElementById('account-email');
+      elements.nameEl = document.getElementById('account-name');
+      elements.switchAccountBtn = document.getElementById('switch-account-btn');
+    }
+
+    /**
+     * Initializes the account switcher
+     */
+    function initAccountSwitcher() {
+      // Cache all DOM element references
+      cacheDOMElements();
+
+      // Load user information
+      loadUserInfo();
+
+      // Set up event listeners
+      if (elements.avatar) {
+        elements.avatar.addEventListener('click', toggleAccountMenu);
+        elements.avatar.addEventListener('keydown', function(e) {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            toggleAccountMenu();
+          }
+        });
+      }
+
+      // Add event listener for switch account button
+      if (elements.switchAccountBtn) {
+        elements.switchAccountBtn.addEventListener('click', switchAccount);
+      }
+
+      // Close menu when clicking outside
+      document.addEventListener('click', function(e) {
+        if (accountMenuOpen && elements.switcher && !elements.switcher.contains(e.target)) {
+          closeAccountMenu();
+        }
+      });
+
+      // Close menu on Escape key
+      document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && accountMenuOpen) {
+          closeAccountMenu();
+        }
+      });
+    }
+
+    /**
+     * Loads user information from the server
+     */
+    function loadUserInfo() {
+      google.script.run
+        .withSuccessHandler(function(info) {
+          userInfo = info;
+          updateAccountDisplay(info);
+        })
+        .withFailureHandler(function(error) {
+          console.error('Failed to load user info:', error);
+          userInfo = {
+            email: 'Error loading account',
+            name: 'Unknown User',
+            initials: '?'
+          };
+          updateAccountDisplay(userInfo);
+        })
+        .getCurrentUserInfo();
+    }
+
+    /**
+     * Updates the account display with user information
+     * Uses cached DOM references for better performance
+     */
+    function updateAccountDisplay(info) {
+      if (elements.initialsEl) {
+        elements.initialsEl.textContent = info.initials || '?';
+      }
+
+      if (elements.emailEl) {
+        elements.emailEl.textContent = info.email || 'Unknown';
+      }
+
+      if (elements.nameEl) {
+        elements.nameEl.textContent = info.name || 'Unknown User';
+      }
+
+      // Update aria-label
+      if (elements.avatar) {
+        elements.avatar.setAttribute('aria-label', `Account menu for ${info.email || 'user'}`);
+      }
+    }
+
+    /**
+     * Toggles the account menu open/closed
+     */
+    function toggleAccountMenu() {
+      if (accountMenuOpen) {
+        closeAccountMenu();
+      } else {
+        openAccountMenu();
+      }
+    }
+
+    /**
+     * Opens the account menu
+     * Uses cached DOM references for better performance
+     */
+    function openAccountMenu() {
+      if (elements.menu) {
+        elements.menu.classList.add('show');
+        accountMenuOpen = true;
+
+        if (elements.avatar) {
+          elements.avatar.setAttribute('aria-expanded', 'true');
+        }
+      }
+    }
+
+    /**
+     * Closes the account menu
+     * Uses cached DOM references for better performance
+     */
+    function closeAccountMenu() {
+      if (elements.menu) {
+        elements.menu.classList.remove('show');
+        accountMenuOpen = false;
+
+        if (elements.avatar) {
+          elements.avatar.setAttribute('aria-expanded', 'false');
+        }
+      }
+    }
+
+    /**
+     * Switches to a different Google account
+     * Uses the ToastNotifications system for user feedback
+     */
+    function switchAccount() {
+      closeAccountMenu();
+
+      // Use modern toast notification system if available, fallback to old method
+      if (window.showInfo) {
+        window.showInfo('Switching accounts...');
+      }
+
+      // Get the switch URL and redirect
+      google.script.run
+        .withSuccessHandler(function(url) {
+          // Add a small delay to show the notification
+          setTimeout(function() {
+            window.top.location.href = url;
+          }, 500);
+        })
+        .withFailureHandler(function(error) {
+          console.error('Failed to get switch URL:', error);
+
+          // Use modern toast notification system if available
+          if (window.showError) {
+            window.showError('Failed to switch accounts. Please try refreshing the page.');
+          } else {
+            // Fallback to old notification system
+            const notification = document.getElementById('notification');
+            if (notification) {
+              notification.textContent = 'Failed to switch accounts. Please try refreshing the page.';
+              notification.className = 'notification error';
+            }
+          }
+        })
+        .getAccountSwitchUrl();
+    }
+
+    // Initialize when DOM is ready
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initAccountSwitcher);
+    } else {
+      initAccountSwitcher();
+    }
+  })();
+</script>

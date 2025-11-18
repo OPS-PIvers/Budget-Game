@@ -46,6 +46,12 @@
         color: var(--primary-color);
       }
 
+      .return-nav {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+
       .back-btn {
         padding: 8px 16px;
         background-color: #f1f3f4;
@@ -176,6 +182,7 @@
       <header>
         <h1>Budget Game Admin</h1>
         <div class="return-nav">
+          <?!= include('AccountSwitcher'); ?>
           <a href="<?= getScriptUrl() ?>?view=activity" class="back-btn">Activity Tracker</a>
           <a href="<?= getScriptUrl() ?>?view=dashboard" class="back-btn">Dashboard</a>
           <a href="<?= getScriptUrl() ?>?view=expense" class="back-btn">Expense Tracker</a>
@@ -500,7 +507,13 @@
         </form>
       </div>
     </div>
-    
+
+    <!-- Toast Notifications -->
+    <?!= include('ToastNotifications'); ?>
+
+    <!-- Error Handling -->
+    <?!= include('ErrorHandler'); ?>
+
     <script>
       // Global state
       let activitiesData = [];
@@ -518,7 +531,9 @@
       let draggedItem = null;
 
       // Initialize on page load
-      document.addEventListener('DOMContentLoaded', initializeAdmin);
+      document.addEventListener('DOMContentLoaded', function() {
+        initializeAdmin();
+      });
 
       function initializeAdmin() {
         // Set up event listeners

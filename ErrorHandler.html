@@ -1,0 +1,365 @@
+<!-- ErrorHandler.html - Comprehensive Error Handling System -->
+<script>
+  /**
+   * Error Handling System
+   * Provides user-friendly error messages, retry logic, and network detection
+   */
+  (function() {
+    'use strict';
+
+    // Error type constants
+    const ERROR_TYPES = {
+      NETWORK: 'NETWORK',
+      PERMISSION: 'PERMISSION',
+      VALIDATION: 'VALIDATION',
+      SERVER: 'SERVER',
+      TIMEOUT: 'TIMEOUT',
+      NOT_FOUND: 'NOT_FOUND',
+      CONFLICT: 'CONFLICT'
+    };
+
+    // User-friendly error messages
+    const ERROR_MESSAGES = {
+      NETWORK: {
+        title: 'Connection Error',
+        message: 'Unable to connect. Please check your internet connection and try again.',
+        action: 'Retry'
+      },
+      PERMISSION: {
+        title: 'Permission Denied',
+        message: 'You don\'t have permission to perform this action. Please contact an administrator.',
+        action: 'Go Back'
+      },
+      VALIDATION: {
+        title: 'Invalid Input',
+        message: 'Please check your inputs and try again.',
+        action: 'Correct Inputs'
+      },
+      SERVER: {
+        title: 'Server Error',
+        message: 'Something went wrong on our end. Our team has been notified.',
+        action: 'Try Again Later'
+      },
+      TIMEOUT: {
+        title: 'Request Timeout',
+        message: 'This is taking longer than usual. The operation may still complete in the background.',
+        action: 'Retry'
+      },
+      NOT_FOUND: {
+        title: 'Not Found',
+        message: 'The requested resource could not be found.',
+        action: 'Go Back'
+      },
+      CONFLICT: {
+        title: 'Data Conflict',
+        message: 'This data has been modified by another user. Please refresh and try again.',
+        action: 'Refresh'
+      }
+    };
+
+    // Network status tracking
+    let isOnline = navigator.onLine;
+    let networkCheckInterval = null;
+
+    /**
+     * Classifies an error into a specific type
+     * @param {Error|Object} error - The error object
+     * @returns {string} ERROR_TYPE constant
+     */
+    function classifyError(error) {
+      if (!error) return ERROR_TYPES.SERVER;
+
+      const errorMessage = (error.message || '').toLowerCase();
+
+      // Check more specific errors first to avoid overlaps
+
+      // Permission errors (check first - highly specific)
+      if (errorMessage.includes('permission') || errorMessage.includes('unauthorized') ||
+          errorMessage.includes('forbidden') || error.code === 403) {
+        return ERROR_TYPES.PERMISSION;
+      }
+
+      // Validation errors (check before network - prevents "invalid network" matching network)
+      if (errorMessage.includes('validation') || error.code === 400 ||
+          (errorMessage.includes('invalid') && !errorMessage.includes('network'))) {
+        return ERROR_TYPES.VALIDATION;
+      }
+
+      // Timeout errors (specific type of failure)
+      if (errorMessage.includes('timeout') || errorMessage.includes('timed out')) {
+        return ERROR_TYPES.TIMEOUT;
+      }
+
+      // Network errors (check after validation to avoid overlaps)
+      if (!isOnline || errorMessage.includes('network') ||
+          errorMessage.includes('fetch') || errorMessage.includes('offline')) {
+        return ERROR_TYPES.NETWORK;
+      }
+
+      // Not found errors
+      if (errorMessage.includes('not found') || error.code === 404) {
+        return ERROR_TYPES.NOT_FOUND;
+      }
+
+      // Conflict errors
+      if (errorMessage.includes('conflict') || error.code === 409) {
+        return ERROR_TYPES.CONFLICT;
+      }
+
+      // Default to server error
+      return ERROR_TYPES.SERVER;
+    }
+
+    /**
+     * Handles an error and shows appropriate user feedback
+     * @param {Error|Object} error - The error object
+     * @param {Object} options - Options for error handling
+     * @param {Function} options.onRetry - Callback for retry action
+     * @param {string} options.context - Context description for logging
+     * @param {boolean} options.showToast - Whether to show toast notification
+     */
+    window.handleError = function(error, options = {}) {
+      const {
+        onRetry = null,
+        context = 'operation',
+        showToast = true
+      } = options;
+
+      const errorType = classifyError(error);
+      const errorInfo = ERROR_MESSAGES[errorType];
+
+      // Log technical details for debugging
+      console.error(`[Error in ${context}]:`, error);
+      if (error && error.stack) {
+        console.error('Stack trace:', error.stack);
+      }
+
+      // Show user-friendly notification
+      if (showToast && window.showError) {
+        let message = errorInfo.message;
+
+        // Add technical details in development mode (optional)
+        if (window.location.hostname === 'localhost' || window.location.hostname.includes('script.google.com')) {
+          if (error && error.message) {
+            message += `\n\nTechnical details: ${error.message}`;
+          }
+        }
+
+        window.showError(message, errorInfo.title);
+      }
+
+      return {
+        type: errorType,
+        userMessage: errorInfo.message,
+        action: errorInfo.action,
+        canRetry: errorType === ERROR_TYPES.NETWORK || errorType === ERROR_TYPES.TIMEOUT
+      };
+    };
+
+    /**
+     * Executes a function with retry logic
+     * @param {Function} fn - Function to execute (should return a Promise)
+     * @param {Object} options - Retry options
+     * @param {number} options.maxRetries - Maximum number of retries
+     * @param {number} options.baseDelay - Base delay in ms (doubles each retry)
+     * @param {Function} options.onRetry - Callback called before each retry
+     * @param {string} options.context - Context for error logging
+     * @returns {Promise} The function result
+     */
+    window.withRetry = async function(fn, options = {}) {
+      const {
+        maxRetries = 3,
+        baseDelay = 1000,
+        onRetry = null,
+        context = 'operation'
+      } = options;
+
+      let lastError = null;
+
+      for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+          const result = await fn();
+          return result;
+        } catch (error) {
+          lastError = error;
+          const errorType = classifyError(error);
+
+          // Don't retry on permission or validation errors
+          if (errorType === ERROR_TYPES.PERMISSION ||
+              errorType === ERROR_TYPES.VALIDATION) {
+            throw error;
+          }
+
+          if (attempt < maxRetries) {
+            const delay = baseDelay * Math.pow(2, attempt); // Exponential backoff
+
+            if (window.showInfo) {
+              window.showInfo(
+                `Retrying... (attempt ${attempt + 1} of ${maxRetries})`,
+                'Retry',
+                delay
+              );
+            }
+
+            if (onRetry) {
+              onRetry(attempt + 1, maxRetries, delay);
+            }
+
+            console.log(`[Retry ${attempt + 1}/${maxRetries}] Waiting ${delay}ms before retry...`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+          }
+        }
+      }
+
+      // All retries failed
+      handleError(lastError, { context, showToast: true });
+      throw lastError;
+    };
+
+    /**
+     * Wraps a Google Apps Script server call with error handling and retry logic
+     * @param {string} functionName - Name of the server function
+     * @param {Array} args - Arguments to pass to the function
+     * @param {Object} options - Options
+     * @param {boolean} options.retry - Whether to retry on failure
+     * @param {string} options.loadingMessage - Message to show while loading
+     * @param {string} options.successMessage - Message to show on success
+     * @param {Function} options.onSuccess - Success callback
+     * @returns {Promise} The function result
+     */
+    window.callServer = function(functionName, args = [], options = {}) {
+      const {
+        retry = true,
+        loadingMessage = null,
+        successMessage = null,
+        onSuccess = null
+      } = options;
+
+      return new Promise((resolve, reject) => {
+        let loadingToastId = null;
+
+        // Show loading message
+        if (loadingMessage && window.showLoading) {
+          loadingToastId = window.showLoading(loadingMessage);
+        }
+
+        const serverCall = () => {
+          return new Promise((innerResolve, innerReject) => {
+            google.script.run
+              .withSuccessHandler((result) => {
+                // Close loading toast
+                if (loadingToastId && window.closeToast) {
+                  window.closeToast(loadingToastId);
+                }
+
+                // Show success message
+                if (successMessage && window.showSuccess) {
+                  window.showSuccess(successMessage);
+                }
+
+                // Call success callback
+                if (onSuccess) {
+                  onSuccess(result);
+                }
+
+                innerResolve(result);
+                resolve(result);
+              })
+              .withFailureHandler((error) => {
+                // Close loading toast
+                if (loadingToastId && window.closeToast) {
+                  window.closeToast(loadingToastId);
+                }
+
+                innerReject(error);
+              })
+              [functionName](...args);
+          });
+        };
+
+        if (retry) {
+          withRetry(serverCall, {
+            context: functionName,
+            maxRetries: 3,
+            baseDelay: 1000
+          })
+            .then(resolve)
+            .catch(reject);
+        } else {
+          serverCall()
+            .then(resolve)
+            .catch((error) => {
+              handleError(error, { context: functionName });
+              reject(error);
+            });
+        }
+      });
+    };
+
+    /**
+     * Initialize network monitoring
+     */
+    function initNetworkMonitoring() {
+      // Listen for online/offline events
+      window.addEventListener('online', () => {
+        isOnline = true;
+        if (window.showSuccess) {
+          window.showSuccess('Back online! You can continue working.', 'Connected');
+        }
+        console.log('[Network] Connection restored');
+      });
+
+      window.addEventListener('offline', () => {
+        isOnline = false;
+        if (window.showWarning) {
+          window.showWarning(
+            'You appear to be offline. Changes will sync when reconnected.',
+            'No Connection',
+            0 // Don't auto-dismiss
+          );
+        }
+        console.log('[Network] Connection lost');
+      });
+
+      // Periodic network check (fallback for browsers that don't fire events reliably)
+      networkCheckInterval = setInterval(() => {
+        const previousState = isOnline;
+        isOnline = navigator.onLine;
+
+        if (previousState !== isOnline) {
+          if (isOnline) {
+            window.dispatchEvent(new Event('online'));
+          } else {
+            window.dispatchEvent(new Event('offline'));
+          }
+        }
+      }, 30000); // Check every 30 seconds
+    }
+
+    /**
+     * Get current network status
+     * @returns {boolean} True if online
+     */
+    window.isNetworkOnline = function() {
+      return isOnline;
+    };
+
+    // Initialize on load
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initNetworkMonitoring);
+    } else {
+      initNetworkMonitoring();
+    }
+
+    // Cleanup on page unload
+    window.addEventListener('unload', () => {
+      if (networkCheckInterval) {
+        clearInterval(networkCheckInterval);
+      }
+    });
+
+    // Export error types for external use
+    window.ERROR_TYPES = ERROR_TYPES;
+
+  })();
+</script>
