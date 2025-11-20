@@ -381,7 +381,10 @@
           <button class="btn btn-primary" id="add-household-btn">Add New Household</button>
           <input type="text" id="search-households" placeholder="Search households...">
         </div>
-        <div id="household-list" class="household-list"><p class="loading">Loading households...</p></div>
+        <div id="household-list" class="household-list">
+            <div class="skeleton skeleton-card"></div>
+            <div class="skeleton skeleton-card"></div>
+        </div>
       </div>
     </div>
     <div id="notification" class="notification hidden"></div>
@@ -1029,7 +1032,10 @@
 
       function loadHouseholds() {
         const householdList = document.getElementById('household-list');
-        householdList.innerHTML = '<p class="loading">Loading households...</p>';
+        householdList.innerHTML = `
+            <div class="skeleton skeleton-card"></div>
+            <div class="skeleton skeleton-card"></div>
+        `;
 
         google.script.run
           .withSuccessHandler(renderHouseholds)
