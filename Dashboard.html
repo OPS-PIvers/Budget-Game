@@ -70,7 +70,7 @@
       <div class="dashboard-section">
         <h3>Weekly Performance</h3>
         <div class="chart-container" id="weekly-chart-container">
-           <div class="skeleton skeleton-chart"></div>
+          <div class="skeleton skeleton-chart"></div>
           <canvas id="weekly-chart" style="display:none;"></canvas>
         </div>
       </div>
@@ -79,7 +79,7 @@
         <div class="dashboard-section half">
           <h3>Daily Distribution</h3>
           <div class="chart-container" id="daily-distribution-chart-container">
-             <div class="skeleton skeleton-chart"></div>
+            <div class="skeleton skeleton-chart"></div>
             <canvas id="daily-distribution-chart" style="display:none;"></canvas>
           </div>
         </div>
@@ -87,7 +87,7 @@
         <div class="dashboard-section half">
           <h3>Positive vs Negative</h3>
           <div class="chart-container" id="activity-ratio-chart-container">
-             <div class="skeleton skeleton-chart"></div>
+            <div class="skeleton skeleton-chart"></div>
             <canvas id="activity-ratio-chart" style="display:none;"></canvas>
           </div>
         </div>
@@ -121,7 +121,7 @@
       <div class="dashboard-section">
         <h3>Lifetime Activity Frequency</h3>
         <div class="chart-container" id="lifetime-chart-container">
-           <div class="skeleton skeleton-chart"></div>
+          <div class="skeleton skeleton-chart"></div>
           <canvas id="lifetime-activity-chart" style="display:none;"></canvas>
         </div>
       </div>
@@ -129,7 +129,7 @@
       <div class="dashboard-section">
         <h3>Previous Week Activity Frequency</h3>
         <div class="chart-container" id="prev-week-chart-container">
-           <div class="skeleton skeleton-chart"></div>
+          <div class="skeleton skeleton-chart"></div>
           <canvas id="prev-week-activity-chart" style="display:none;"></canvas>
         </div>
       </div>
@@ -137,7 +137,7 @@
       <div class="dashboard-section">
         <h3>Goal Achievement History</h3>
         <div id="goal-history-container">
-           <div class="skeleton skeleton-chart"></div>
+          <div class="skeleton skeleton-chart"></div>
         </div>
       </div>
 
@@ -399,16 +399,6 @@
               hideSkeleton('prev-week-chart-container');
               document.getElementById('prev-week-activity-chart').style.display = 'block';
               renderActivityFrequencyChart('prev-week-activity-chart', data.prevWeekActivityCounts, 'Previous Week', false);
-          });
-          tryRender('Goal History', () => {
-             hideSkeleton('goal-history-container');
-             // Use renderGoalHistory if we have data in data.goalAchievementHistory?
-             // Wait, getHistoricalData response doesn't include goal history.
-             // Goal history is loaded separately via loadGoalHistory().
-             // So loadDashboardData() calling renderDashboard() doesn't deal with Goal History.
-             // loadSecondaryData() calls loadGoalHistory().
-             // And loadGoalHistory() handles the skeleton hiding inside renderGoalHistory() by overwriting innerHTML.
-             // Let's check renderGoalHistory() function.
           });
           tryRender('Streaks Display', () => renderStreaks(data.streakData, data.currentStreakSettings)); // Pass settings
 
