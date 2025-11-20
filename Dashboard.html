@@ -61,30 +61,34 @@
 
       <div class="dashboard-section">
         <h3>Points Trend</h3>
-        <div class="chart-container">
-          <canvas id="points-chart"></canvas>
+        <div class="chart-container" id="points-chart-container">
+          <div class="skeleton skeleton-chart"></div>
+          <canvas id="points-chart" style="display:none;"></canvas>
         </div>
       </div>
 
       <div class="dashboard-section">
         <h3>Weekly Performance</h3>
-        <div class="chart-container">
-          <canvas id="weekly-chart"></canvas>
+        <div class="chart-container" id="weekly-chart-container">
+          <div class="skeleton skeleton-chart"></div>
+          <canvas id="weekly-chart" style="display:none;"></canvas>
         </div>
       </div>
 
       <div class="dashboard-row">
         <div class="dashboard-section half">
           <h3>Daily Distribution</h3>
-          <div class="chart-container">
-            <canvas id="daily-distribution-chart"></canvas>
+          <div class="chart-container" id="daily-distribution-chart-container">
+            <div class="skeleton skeleton-chart"></div>
+            <canvas id="daily-distribution-chart" style="display:none;"></canvas>
           </div>
         </div>
 
         <div class="dashboard-section half">
           <h3>Positive vs Negative</h3>
-          <div class="chart-container">
-            <canvas id="activity-ratio-chart"></canvas>
+          <div class="chart-container" id="activity-ratio-chart-container">
+            <div class="skeleton skeleton-chart"></div>
+            <canvas id="activity-ratio-chart" style="display:none;"></canvas>
           </div>
         </div>
       </div>
@@ -92,7 +96,9 @@
       <div class="dashboard-section">
         <h3>Activity Streaks</h3>
         <div class="streaks-container" id="streaks-container">
-          <p class="loading">Loading streak data...</p>
+          <div class="skeleton skeleton-card"></div>
+          <div class="skeleton skeleton-card"></div>
+          <div class="skeleton skeleton-card"></div>
         </div>
       </div>
       
@@ -100,34 +106,38 @@
       <div class="dashboard-section">
         <h3>Goal Tracking</h3>
         <div id="goal-tracking-container">
-          <p class="loading">Loading goals data...</p>
+          <div class="skeleton skeleton-card"></div>
+          <div class="skeleton skeleton-card"></div>
         </div>
       </div>
       
       <div class="dashboard-section">
         <h3>Weekly Goals</h3>
         <div id="weekly-goals-container">
-          <p class="loading">Loading weekly goals data...</p>
+          <div class="skeleton skeleton-card"></div>
+          <div class="skeleton skeleton-card"></div>
         </div>
       </div>
       <div class="dashboard-section">
         <h3>Lifetime Activity Frequency</h3>
         <div class="chart-container" id="lifetime-chart-container">
-          <canvas id="lifetime-activity-chart"></canvas>
+          <div class="skeleton skeleton-chart"></div>
+          <canvas id="lifetime-activity-chart" style="display:none;"></canvas>
         </div>
       </div>
 
       <div class="dashboard-section">
         <h3>Previous Week Activity Frequency</h3>
         <div class="chart-container" id="prev-week-chart-container">
-          <canvas id="prev-week-activity-chart"></canvas>
+          <div class="skeleton skeleton-chart"></div>
+          <canvas id="prev-week-activity-chart" style="display:none;"></canvas>
         </div>
       </div>
       <!-- ADD THE GOAL HISTORY SECTION HERE -->
       <div class="dashboard-section">
         <h3>Goal Achievement History</h3>
         <div id="goal-history-container">
-          <p class="loading">Loading goal history data...</p>
+          <div class="skeleton skeleton-chart"></div>
         </div>
       </div>
 
@@ -360,12 +370,36 @@
 
           // --- Render Charts and Streaks ---
           // Wrap each rendering in its own try-catch for resilience
-          tryRender('Points Chart', () => renderPointsChart(data.dailyData, data.movingAverages));
-          tryRender('Weekly Chart', () => renderWeeklyChart(data.weeklyData));
-          tryRender('Daily Distribution Chart', () => renderDailyDistributionChart(data.weeklyData));
-          tryRender('Activity Ratio Chart', () => renderActivityRatioChart(data.lifetimeActivityCounts));
-          tryRender('Lifetime Activity Frequency Chart', () => renderActivityFrequencyChart('lifetime-activity-chart', data.lifetimeActivityCounts, 'Lifetime', true));
-          tryRender('Previous Week Activity Frequency Chart', () => renderActivityFrequencyChart('prev-week-activity-chart', data.prevWeekActivityCounts, 'Previous Week', false));
+          tryRender('Points Chart', () => {
+              hideSkeleton('points-chart-container');
+              document.getElementById('points-chart').style.display = 'block';
+              renderPointsChart(data.dailyData, data.movingAverages);
+          });
+          tryRender('Weekly Chart', () => {
+              hideSkeleton('weekly-chart-container');
+              document.getElementById('weekly-chart').style.display = 'block';
+              renderWeeklyChart(data.weeklyData);
+          });
+          tryRender('Daily Distribution Chart', () => {
+              hideSkeleton('daily-distribution-chart-container');
+              document.getElementById('daily-distribution-chart').style.display = 'block';
+              renderDailyDistributionChart(data.weeklyData);
+          });
+          tryRender('Activity Ratio Chart', () => {
+              hideSkeleton('activity-ratio-chart-container');
+              document.getElementById('activity-ratio-chart').style.display = 'block';
+              renderActivityRatioChart(data.lifetimeActivityCounts);
+          });
+          tryRender('Lifetime Activity Frequency Chart', () => {
+              hideSkeleton('lifetime-chart-container');
+              document.getElementById('lifetime-activity-chart').style.display = 'block';
+              renderActivityFrequencyChart('lifetime-activity-chart', data.lifetimeActivityCounts, 'Lifetime', true);
+          });
+          tryRender('Previous Week Activity Frequency Chart', () => {
+              hideSkeleton('prev-week-chart-container');
+              document.getElementById('prev-week-activity-chart').style.display = 'block';
+              renderActivityFrequencyChart('prev-week-activity-chart', data.prevWeekActivityCounts, 'Previous Week', false);
+          });
           tryRender('Streaks Display', () => renderStreaks(data.streakData, data.currentStreakSettings)); // Pass settings
 
         } catch (error) {
@@ -807,7 +841,14 @@
 
       /** Loads and renders the historical goal achievement section */
       function loadGoalHistory() {
-            const historyContainer = document.getElementById('goal-history-container'); if (!historyContainer) return; historyContainer.innerHTML = '<p class="loading">Loading goal history...</p>';
+            const historyContainer = document.getElementById('goal-history-container');
+            if (!historyContainer) return;
+
+            // Only show loading if not already skeleton
+            if (!historyContainer.querySelector('.skeleton')) {
+                 historyContainer.innerHTML = '<div class="skeleton skeleton-chart"></div>';
+            }
+
             google.script.run
               .withSuccessHandler(renderGoalHistory)
               .withFailureHandler(err => { console.error("Error loading goal history:", err); historyContainer.innerHTML = `<div class="error-message">Failed to load goal history: ${err.message || 'Unknown error'}</div>`; })
@@ -1320,6 +1361,14 @@
         const container = canvas ? canvas.parentElement : document.getElementById(canvasId + '-container');
         if (!container) { console.error(`Container not found for canvasId: ${canvasId}`); return; }
         container.innerHTML = `<div class="error-message" style="height: 100%; display: flex; align-items: center; justify-content: center;">${message}</div>`;
+      }
+
+      function hideSkeleton(containerId) {
+          const container = document.getElementById(containerId);
+          if (container) {
+              const skeleton = container.querySelector('.skeleton');
+              if (skeleton) skeleton.style.display = 'none';
+          }
       }
 
        /** Displays household info at the top of the dashboard */
