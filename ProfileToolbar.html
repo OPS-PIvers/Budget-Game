@@ -1,0 +1,176 @@
+<!-- ProfileToolbar.html - Consistent Profile Toolbar Component -->
+<div class="profile-toolbar" id="profile-toolbar">
+  <div class="profile-toolbar-content">
+    <div class="profile-info">
+      <div class="profile-avatar" id="profile-avatar">
+        <span id="profile-initials">?</span>
+      </div>
+      <div class="profile-details">
+        <span class="profile-email" id="profile-email">Loading...</span>
+        <span class="profile-household" id="profile-household"></span>
+      </div>
+    </div>
+    <button class="profile-switch-btn" id="profile-switch-btn" aria-label="Switch account">
+      <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+        <path fill="currentColor" d="M16 17v2H2v-2s0-4 7-4 7 4 7 4m-3.5-9.5A3.5 3.5 0 1 0 9 11a3.5 3.5 0 0 0 3.5-3.5m3.44 5.5A5.32 5.32 0 0 1 18 17v2h4v-2s0-3.63-6.06-4M15 4a3.4 3.4 0 0 0-1.93.59 5 5 0 0 1 0 5.82A3.4 3.4 0 0 0 15 11a3.5 3.5 0 0 0 0-7z"/>
+      </svg>
+      <span>Switch Account</span>
+    </button>
+  </div>
+</div>
+
+<script>
+  // Profile Toolbar JavaScript
+  (function() {
+    'use strict';
+
+    // Constants
+    const TOAST_DISPLAY_DELAY_MS = 500; // Delay before redirect to show toast notification
+
+    // Cached DOM element references
+    let profileElements = {
+      toolbar: null,
+      avatar: null,
+      initialsEl: null,
+      emailEl: null,
+      householdEl: null,
+      switchBtn: null
+    };
+
+    /**
+     * Caches DOM element references for reuse
+     */
+    function cacheProfileElements() {
+      profileElements.toolbar = document.getElementById('profile-toolbar');
+      profileElements.avatar = document.getElementById('profile-avatar');
+      profileElements.initialsEl = document.getElementById('profile-initials');
+      profileElements.emailEl = document.getElementById('profile-email');
+      profileElements.householdEl = document.getElementById('profile-household');
+      profileElements.switchBtn = document.getElementById('profile-switch-btn');
+    }
+
+    /**
+     * Initializes the profile toolbar
+     */
+    function initProfileToolbar() {
+      cacheProfileElements();
+      loadProfileInfo();
+
+      // Set up switch account button
+      if (profileElements.switchBtn) {
+        profileElements.switchBtn.addEventListener('click', switchProfileAccount);
+      }
+    }
+
+    /**
+     * Loads user information from the server
+     */
+    function loadProfileInfo() {
+      google.script.run
+        .withSuccessHandler(function(info) {
+          updateProfileDisplay(info);
+        })
+        .withFailureHandler(function(error) {
+          console.error('Failed to load user info:', error);
+          updateProfileDisplay({
+            email: 'Error loading account',
+            name: 'Unknown User',
+            initials: '?'
+          });
+        })
+        .getCurrentUserInfo();
+    }
+
+    /**
+     * Helper function to update household element display
+     * @param {string|null} householdName - The household name to display, or null to hide
+     * @private
+     */
+    function setHouseholdDisplay(householdName) {
+      if (!profileElements.householdEl) {
+        return;
+      }
+
+      if (householdName) {
+        profileElements.householdEl.textContent = householdName;
+        profileElements.householdEl.style.display = 'inline';
+      } else {
+        profileElements.householdEl.style.display = 'none';
+      }
+    }
+
+    /**
+     * Updates the profile display with user information
+     */
+    function updateProfileDisplay(info) {
+      if (profileElements.initialsEl) {
+        profileElements.initialsEl.textContent = info.initials || '?';
+      }
+
+      if (profileElements.emailEl) {
+        profileElements.emailEl.textContent = info.email || 'Unknown';
+      }
+
+      // Get household name from info or global variable
+      const householdName = info.householdName ||
+                           (typeof window.householdName !== 'undefined' ? window.householdName : null);
+      setHouseholdDisplay(householdName);
+    }
+
+    /**
+     * Switches to a different Google account
+     */
+    function switchProfileAccount() {
+      // Disable button to prevent duplicate clicks during redirect
+      if (profileElements.switchBtn) {
+        profileElements.switchBtn.disabled = true;
+      }
+
+      // Use toast notification if available
+      if (window.showInfo) {
+        window.showInfo('Switching accounts...');
+      }
+
+      // Get the switch URL and redirect
+      google.script.run
+        .withSuccessHandler(function(url) {
+          setTimeout(function() {
+            window.top.location.href = url;
+          }, TOAST_DISPLAY_DELAY_MS);
+        })
+        .withFailureHandler(function(error) {
+          console.error('Failed to get switch URL:', error);
+          // Re-enable button on failure
+          if (profileElements.switchBtn) {
+            profileElements.switchBtn.disabled = false;
+          }
+          if (window.showError) {
+            window.showError('Failed to switch accounts. Please try refreshing the page.');
+          }
+        })
+        .getAccountSwitchUrl();
+    }
+
+    // Expose function to update household info externally
+    window.updateProfileHousehold = function(householdName) {
+      // Ensure elements are cached before attempting to update
+      if (!profileElements.householdEl) {
+        // Try to cache if not already done
+        const el = document.getElementById('profile-household');
+        if (el) {
+          profileElements.householdEl = el;
+        } else {
+          return;
+        }
+      }
+      setHouseholdDisplay(householdName);
+    };
+
+    // Initialize when DOM is ready
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initProfileToolbar);
+    } else {
+      initProfileToolbar();
+    }
+  })();
+</script>
