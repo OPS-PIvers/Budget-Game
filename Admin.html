@@ -86,6 +86,81 @@
       .activities-table input, .activities-table select { width: 100%; padding: 8px; border: 1px solid var(--border-color); border-radius: 4px; }
       .activities-table input[type="number"] { text-align: right; }
 
+      /* Mobile Card View for Tables */
+      @media (max-width: 768px) {
+        .activities-table, .activities-table thead, .activities-table tbody, .activities-table th, .activities-table td, .activities-table tr {
+          display: block;
+        }
+
+        .activities-table thead tr {
+          position: absolute;
+          top: -9999px;
+          left: -9999px;
+        }
+
+        .activities-table tr {
+          border: 1px solid var(--border-color);
+          border-radius: 8px;
+          margin-bottom: 16px;
+          background: white;
+          padding: 12px;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .activities-table td {
+          border: none;
+          position: relative;
+          padding: 8px 0;
+          display: flex;
+          flex-direction: column;
+          align-items: stretch;
+        }
+
+        /* Add pseudo-labels for context */
+        .activities-table td:before {
+          content: attr(data-label); /* Will try to use data-label if present */
+          font-weight: bold;
+          font-size: 12px;
+          color: var(--text-secondary);
+          margin-bottom: 4px;
+        }
+
+        /* Specific labels for the main Activities table based on order */
+        #activities-table td:nth-of-type(1):before { content: "Activity Name"; }
+        #activities-table td:nth-of-type(2):before { content: "Points"; }
+        #activities-table td:nth-of-type(3):before { content: "Category"; }
+        #activities-table td:nth-of-type(4):before { content: "Required?"; }
+        #activities-table td:nth-of-type(5):before { content: "Actions"; }
+
+        /* Specific labels for the Categories table */
+        #categories-table td:nth-of-type(1):before { content: "Category Name"; }
+        #categories-table td:nth-of-type(2):before { content: "Actions"; }
+
+        /* Specific labels for the Goals table */
+        #goals-table td:nth-of-type(1):before { content: "Goal Name"; }
+        #goals-table td:nth-of-type(2):before { content: "Type"; }
+        #goals-table td:nth-of-type(3):before { content: "Target"; }
+        #goals-table td:nth-of-type(4):before { content: "Current"; }
+        #goals-table td:nth-of-type(5):before { content: "Progress"; }
+        #goals-table td:nth-of-type(6):before { content: "Status"; }
+        #goals-table td:nth-of-type(7):before { content: "Actions"; }
+
+        /* Specific labels for Budget Categories table */
+        #budget-categories-table td:nth-of-type(1):before { content: "Category Name"; }
+        #budget-categories-table td:nth-of-type(2):before { content: "Monthly Budget"; }
+        #budget-categories-table td:nth-of-type(3):before { content: "Pay Period Budget"; }
+        #budget-categories-table td:nth-of-type(4):before { content: "Current Spent"; }
+        #budget-categories-table td:nth-of-type(5):before { content: "Remaining"; }
+        #budget-categories-table td:nth-of-type(6):before { content: "Status"; }
+        #budget-categories-table td:nth-of-type(7):before { content: "Actions"; }
+
+        .activities-table td:last-child {
+            border-bottom: none;
+        }
+
+        .activities-table input, .activities-table select { width: 100%; }
+      }
+
       /* Form Actions */
       .form-actions { margin-top: 16px; display: flex; gap: 12px; justify-content: flex-end; }
 
