@@ -547,6 +547,11 @@ body {
   flex-shrink: 0;
 }
 
+.profile-switch-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* Mobile adjustments for profile toolbar */
 @media (max-width: 768px) {
   .profile-toolbar {
@@ -599,6 +604,10 @@ body {
   .profile-email {
     font-size: 12px;
   }
+
+  .profile-household {
+    font-size: 11px;
+  }
 }
 
 .btn {
@@ -643,7 +652,6 @@ body {
 .nav-container {
   background-color: var(--surface-color);
   border-bottom: 1px solid var(--border-color);
-  /* margin-top removed - now handled by profile-toolbar */
 }
 
 .main-nav {

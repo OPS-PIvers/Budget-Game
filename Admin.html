@@ -251,7 +251,11 @@
         .household-controls input { width: 100%; }
       }
 
-      /* Profile Toolbar - Consistent across all pages */
+      /* Profile Toolbar - Consistent across all pages
+         Note: Admin.html doesn't include Stylesheet.html, so these styles are duplicated here.
+         Differences from Stylesheet.html:
+         - margin-bottom instead of margin-top (no fixed header in Admin layout)
+         - max-width: 800px to match Admin container width (vs 1000px in main app) */
       .profile-toolbar {
         background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark, #3367D6) 100%);
         color: white;
@@ -342,6 +346,11 @@
 
       .profile-switch-btn svg {
         flex-shrink: 0;
+      }
+
+      .profile-switch-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
       }
 
       @media (max-width: 768px) {
