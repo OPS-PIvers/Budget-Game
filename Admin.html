@@ -1794,9 +1794,9 @@
         const tbody = document.getElementById('goals-body');
         tbody.innerHTML = `
           <tr>
-            <td colspan="7" style="text-align: center; color: #666; padding: 30px;">
-              <div style="margin-bottom: 10px;">🔄 Refreshing goals...</div>
-              <div style="font-size: 0.9em; color: #999;">Fetching latest goal data</div>
+            <td colspan="7" class="table-loading">
+              <div class="table-message-icon">🔄 Refreshing goals...</div>
+              <div class="table-message-text">Fetching latest goal data</div>
             </td>
           </tr>
         `;
@@ -1812,12 +1812,12 @@
             console.log('[ADMIN GOALS DEBUG] Manual refresh failed:', error);
             tbody.innerHTML = `
               <tr>
-                <td colspan="7" style="text-align: center; color: #ea4335; padding: 30px;">
-                  <div style="margin-bottom: 10px;">⚠️ Refresh failed</div>
-                  <div style="font-size: 0.9em; color: #666;">
+                <td colspan="7" class="table-error">
+                  <div class="table-message-icon">⚠️ Refresh failed</div>
+                  <div class="table-error-text">
                     ${error.message || 'Unknown error occurred'}
                   </div>
-                  <div style="margin-top: 10px;">
+                  <div class="table-retry-wrapper">
                     <button class="btn btn-primary btn-sm" onclick="refreshGoals()">Try Again</button>
                   </div>
                 </td>
@@ -1873,9 +1873,9 @@
           console.log('[ADMIN GOALS DEBUG] No goals found, showing "No goals configured" message');
           tbody.innerHTML = `
             <tr>
-              <td colspan="7" style="text-align: center; color: #666; padding: 30px;">
-                <div style="margin-bottom: 10px;">📋 No goals configured</div>
-                <div style="font-size: 0.9em; color: #999;">
+              <td colspan="7" class="table-empty">
+                <div class="table-message-icon">📋 No goals configured</div>
+                <div class="table-message-text">
                   Click "Add New Goal" above to create your first goal
                 </div>
               </td>
@@ -1889,8 +1889,8 @@
         tbody.innerHTML = goalsData.map(goal => {
           const progress = calculateProgress(goal);
           const progressBar = `
-            <div style="background: #f0f0f0; border-radius: 10px; height: 20px; overflow: hidden;">
-              <div style="background: ${getProgressColor(goal.goalType, progress)}; height: 100%; width: ${progress}%; transition: width 0.3s;"></div>
+            <div class="inline-progress-bar">
+              <div class="inline-progress-fill" style="background: ${getProgressColor(goal.goalType, progress)}; width: ${progress}%;"></div>
             </div>
             <small>${progress}%</small>
           `;
@@ -1907,7 +1907,7 @@
               </td>
               <td><input type="number" value="${goal.targetAmount}" step="0.01" onchange="updateGoalField('${goal.goalId}', 'targetAmount', parseFloat(this.value))"></td>
               <td><input type="number" value="${goal.currentAmount}" step="0.01" onchange="updateGoalField('${goal.goalId}', 'currentAmount', parseFloat(this.value))"></td>
-              <td style="text-align: center;">${progressBar}</td>
+              <td class="text-center">${progressBar}</td>
               <td>
                 <select onchange="updateGoalField('${goal.goalId}', 'status', this.value)">
                   <option value="active" ${goal.status === 'active' ? 'selected' : ''}>Active</option>
@@ -2093,9 +2093,9 @@
           const tbody = document.getElementById('budget-categories-body');
           tbody.innerHTML = `
             <tr>
-              <td colspan="7" style="text-align: center; color: #666; padding: 30px;">
-                <div style="margin-bottom: 10px;">No budget categories found</div>
-                <div style="font-size: 0.9em; color: #999;">Click "Add New Category" to create your first budget category</div>
+              <td colspan="7" class="table-empty">
+                <div class="table-message-icon">No budget categories found</div>
+                <div class="table-message-text">Click "Add New Category" to create your first budget category</div>
               </td>
             </tr>
           `;
@@ -2130,7 +2130,7 @@
             statusText = 'Near Limit';
           }
 
-          const remainingColor = category.remaining >= 0 ? 'color: #34A853' : 'color: #ea4335';
+          const remainingClass = category.remaining >= 0 ? 'text-success' : 'text-danger';
 
           return `
             <tr data-index="${index}">
@@ -2145,10 +2145,10 @@
                 <input type="number" value="${category.payPeriodBudget}" data-field="payPeriodBudget"
                        step="0.01" min="0" class="table-input">
               </td>
-              <td class="text-right" style="color: #ea4335;">
+              <td class="text-right text-danger">
                 $${category.payPeriodSpent.toFixed(2)}
               </td>
-              <td class="text-right" style="${remainingColor}">
+              <td class="text-right ${remainingClass}">
                 $${category.remaining.toFixed(2)}
               </td>
               <td>
