@@ -3,254 +3,7 @@
 <html>
   <head>
     <base target="_top">
-    <style>
-      /* Common styles shared with main app */
-      :root {
-        --positive-color: #34A853;
-        --negative-color: #EA4335;
-        --primary-color: #4285F4;
-        --section-bg: #f8f9fa;
-        --border-color: #dadce0;
-        --header-bg: #4285F4;
-        --header-fg: white;
-        --text-secondary: #5f6368; /* Added */
-      }
-
-      * {
-        box-sizing: border-box;
-        margin: 0;
-        padding: 0;
-        font-family: 'Roboto', Arial, sans-serif;
-      }
-
-      body {
-        background-color: #f1f3f4;
-        color: #202124;
-        line-height: 1.5;
-      }
-
-      .container {
-        max-width: 800px;
-        margin: 0 auto;
-        padding: 16px;
-      }
-
-      header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 20px;
-      }
-
-      header h1 {
-        color: var(--primary-color);
-      }
-
-      .return-nav {
-        display: flex;
-        gap: 8px;
-        align-items: center;
-      }
-
-      .back-btn {
-        padding: 8px 16px;
-        background-color: #f1f3f4;
-        border: 1px solid var(--border-color);
-        border-radius: 4px;
-        cursor: pointer;
-        color: #5f6368;
-        text-decoration: none;
-        display: inline-block;
-      }
-
-      .admin-section {
-        background-color: white;
-        border-radius: 8px;
-        padding: 20px;
-        margin-bottom: 24px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.12);
-      }
-
-      .section-title {
-        font-size: 18px;
-        margin-bottom: 16px;
-        color: #202124;
-        border-bottom: 1px solid var(--border-color);
-        padding-bottom: 8px;
-      }
-
-      /* Activity Table */
-      .activities-table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
-      .activities-table th { text-align: left; background-color: var(--section-bg); padding: 10px; border-bottom: 2px solid var(--border-color); }
-      .activities-table td { padding: 10px; border-bottom: 1px solid var(--border-color); }
-      .activities-table input, .activities-table select { width: 100%; padding: 8px; border: 1px solid var(--border-color); border-radius: 4px; }
-      .activities-table input[type="number"] { text-align: right; }
-
-      /* Mobile Card View for Tables */
-      @media (max-width: 768px) {
-        .activities-table, .activities-table thead, .activities-table tbody, .activities-table th, .activities-table td, .activities-table tr {
-          display: block;
-        }
-
-        .activities-table thead tr {
-          position: absolute;
-          top: -9999px;
-          left: -9999px;
-        }
-
-        .activities-table tr {
-          border: 1px solid var(--border-color);
-          border-radius: 8px;
-          margin-bottom: 16px;
-          background: white;
-          padding: 12px;
-          box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }
-
-        .activities-table td {
-          border: none;
-          position: relative;
-          padding: 8px 0;
-          display: flex;
-          flex-direction: column;
-          align-items: stretch;
-        }
-
-        /* Add pseudo-labels for context */
-        .activities-table td:before {
-          content: attr(data-label); /* Will try to use data-label if present */
-          font-weight: bold;
-          font-size: 12px;
-          color: var(--text-secondary);
-          margin-bottom: 4px;
-        }
-
-        /* Specific labels for the main Activities table based on order */
-        #activities-table td:nth-of-type(1):before { content: "Activity Name"; }
-        #activities-table td:nth-of-type(2):before { content: "Points"; }
-        #activities-table td:nth-of-type(3):before { content: "Category"; }
-        #activities-table td:nth-of-type(4):before { content: "Required?"; }
-        #activities-table td:nth-of-type(5):before { content: "Actions"; }
-
-        /* Specific labels for the Categories table */
-        #categories-table td:nth-of-type(1):before { content: "Category Name"; }
-        #categories-table td:nth-of-type(2):before { content: "Actions"; }
-
-        /* Specific labels for the Goals table */
-        #goals-table td:nth-of-type(1):before { content: "Goal Name"; }
-        #goals-table td:nth-of-type(2):before { content: "Type"; }
-        #goals-table td:nth-of-type(3):before { content: "Target"; }
-        #goals-table td:nth-of-type(4):before { content: "Current"; }
-        #goals-table td:nth-of-type(5):before { content: "Progress"; }
-        #goals-table td:nth-of-type(6):before { content: "Status"; }
-        #goals-table td:nth-of-type(7):before { content: "Actions"; }
-
-        /* Specific labels for Budget Categories table */
-        #budget-categories-table td:nth-of-type(1):before { content: "Category Name"; }
-        #budget-categories-table td:nth-of-type(2):before { content: "Monthly Budget"; }
-        #budget-categories-table td:nth-of-type(3):before { content: "Pay Period Budget"; }
-        #budget-categories-table td:nth-of-type(4):before { content: "Current Spent"; }
-        #budget-categories-table td:nth-of-type(5):before { content: "Remaining"; }
-        #budget-categories-table td:nth-of-type(6):before { content: "Status"; }
-        #budget-categories-table td:nth-of-type(7):before { content: "Actions"; }
-
-        .activities-table td:last-child {
-            border-bottom: none;
-        }
-
-        .activities-table input, .activities-table select { width: 100%; }
-      }
-
-      /* Form Actions */
-      .form-actions { margin-top: 16px; display: flex; gap: 12px; justify-content: flex-end; }
-
-      .btn { padding: 10px 20px; border-radius: 4px; cursor: pointer; font-weight: bold; border: none; } /* Simplified base */
-      .btn-primary { background-color: var(--primary-color); color: white; }
-      .btn-primary:hover:not(:disabled) { background-color: var(--primary-dark); }
-      .btn-secondary { background-color: #f1f3f4; color: #5f6368; border: 1px solid var(--border-color); }
-      .btn-secondary:hover:not(:disabled) { background-color: #e8eaed; }
-      .btn-danger { background-color: var(--negative-color); color: white; }
-      .btn-danger:hover:not(:disabled) { background-color: #d93025; }
-      .btn:disabled { opacity: 0.65; cursor: not-allowed; } /* General disabled style */
-      .btn-sm { padding: 4px 8px; font-size: 12px; height: auto; }
-
-
-      /* Settings Form */
-      .settings-form { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-      .form-group { margin-bottom: 16px; }
-      .form-group label { display: block; margin-bottom: 8px; font-weight: bold; color: #5f6368; }
-      .form-group input { width: 100%; padding: 8px; border: 1px solid var(--border-color); border-radius: 4px; }
-
-      .notification { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); padding: 12px 24px; background-color: #323232; color: white; border-radius: 4px; box-shadow: 0 3px 5px rgba(0,0,0,0.2); transition: opacity 0.3s, visibility 0.3s; z-index: 1000; }
-      .notification.hidden { opacity: 0; visibility: hidden; }
-
-      /* Activity Controls */
-      .activity-controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-
-      /* Household Management Styles */
-      .household-controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-      .household-controls input { width: 250px; padding: 8px 12px; border: 1px solid var(--border-color); border-radius: 4px; }
-      .household-list { margin-top: 20px; }
-      .household-card { background-color: white; border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 16px; overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
-      .household-header { padding: 16px; background-color: var(--section-bg); border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; }
-      .household-name { margin: 0; font-size: 18px; font-weight: 500; color: var(--primary-color); }
-      .household-actions { display: flex; gap: 8px; }
-      .household-members { padding: 16px; }
-      .household-members h4 { margin-top: 0; margin-bottom: 12px; font-size: 14px; color: var(--text-secondary); border-bottom: 1px solid #f0f0f0; padding-bottom: 8px; }
-      .household-member { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #f8f8f8; }
-      .member-email { font-weight: 500; }
-      .member-date { color: var(--text-secondary); font-size: 12px; }
-      .empty-state { text-align: center; padding: 30px; color: var(--text-secondary); background-color: #f9f9f9; border-radius: 8px; }
-
-      /* --- Category Order Styles --- */
-      #category-order-list {
-        list-style: none;
-        padding: 0;
-        margin: 0;
-        border: 1px solid var(--border-color);
-        border-radius: 4px;
-        max-height: 400px; /* Limit height */
-        overflow-y: auto; /* Enable scrolling */
-      }
-      .category-order-item {
-        padding: 10px 15px;
-        border-bottom: 1px solid var(--border-color);
-        background-color: white;
-        cursor: grab;
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        font-weight: 500;
-      }
-      .category-order-item:last-child { border-bottom: none; }
-      .category-order-item:active { cursor: grabbing; background-color: #e8f0fe; } /* Feedback while dragging */
-      .drag-handle { /* Simple drag handle icon */
-         display: inline-block;
-         width: 16px;
-         height: 16px;
-         cursor: grab;
-         background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-grip-vertical" viewBox="0 0 16 16"><path d="M7 2a1 1 0 1 1-2 0 1 1 0 0 1 2 0m3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0M7 5a1 1 0 1 1-2 0 1 1 0 0 1 2 0m3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0M7 8a1 1 0 1 1-2 0 1 1 0 0 1 2 0m3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0m-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0m3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0m-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0m3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0"/></svg>');
-         background-repeat: no-repeat;
-         background-position: center;
-         opacity: 0.5;
-      }
-      .category-order-item.dragging { /* Style for the item being dragged */
-        opacity: 0.5;
-        background: #f0f0f0;
-      }
-      .drag-over { /* Style for potential drop target */
-          border-top: 2px dashed var(--primary-color);
-          background-color: rgba(66, 133, 244, 0.05);
-      }
-      /* --- End Category Order Styles --- */
-
-      /* Responsive adjustments */
-      @media (max-width: 600px) {
-        .settings-form { grid-template-columns: 1fr; }
-        .household-controls { flex-direction: column; gap: 10px; align-items: stretch;}
-        .household-controls input { width: 100%; }
-      }
-    </style>
+    <?!= include('Stylesheet'); ?>
   </head>
   <body>
     <div class="container">
@@ -271,15 +24,15 @@
           <input type="text" id="search-activities" placeholder="Search activities...">
           <button class="btn btn-secondary" id="add-activity-btn">Add New Activity</button>
         </div>
-        <div style="max-height: 400px; overflow-y: auto;">
+        <div class="scrollable-table">
           <table class="activities-table" id="activities-table">
             <thead>
               <tr>
-                <th style="width: 40%;">Activity</th>
-                <th style="width: 12%;">Points</th>
-                <th style="width: 20%;">Category</th>
-                <th style="width: 15%;">Required</th>
-                <th style="width: 13%;">Action</th>
+                <th class="col-w-40">Activity</th>
+                <th class="col-w-12">Points</th>
+                <th class="col-w-20">Category</th>
+                <th class="col-w-15">Required</th>
+                <th class="col-w-13">Action</th>
               </tr>
             </thead>
             <tbody id="activities-body"><tr><td colspan="5">Loading activities...</td></tr></tbody>
@@ -310,7 +63,7 @@
       <!-- NEW: Category Order Section -->
       <div class="admin-section">
         <h2 class="section-title">Category Order</h2>
-        <p style="color: var(--text-secondary); font-size: 0.9em; margin-bottom: 16px;">Drag and drop categories to change their display order in the Activity Tracker view.</p>
+        <p class="info-text">Drag and drop categories to change their display order in the Activity Tracker view.</p>
         <ul id="category-order-list">
             <!-- Categories will be populated here -->
             <li class="loading">Loading categories...</li>
@@ -329,12 +82,12 @@
           <input type="text" id="search-categories" placeholder="Search categories...">
           <button class="btn btn-secondary" id="add-category-btn">Add New Category</button>
         </div>
-        <div style="max-height: 400px; overflow-y: auto;">
+        <div class="scrollable-table">
           <table class="activities-table" id="categories-table">
             <thead>
               <tr>
-                <th style="width: 70%;">Category Name</th>
-                <th style="width: 30%;">Actions</th>
+                <th class="col-w-70">Category Name</th>
+                <th class="col-w-30">Actions</th>
               </tr>
             </thead>
             <tbody id="categories-body"><tr><td colspan="2">Loading categories...</td></tr></tbody>
@@ -352,29 +105,29 @@
         <h2 class="section-title">Goal Management</h2>
         <div class="activity-controls">
           <input type="text" id="search-goals" placeholder="Search goals...">
-          <div style="display: flex; gap: 8px;">
+          <div class="form-gap">
             <button class="btn btn-secondary" id="refresh-goals-btn">🔄 Refresh</button>
             <button class="btn btn-secondary" id="add-goal-btn">Add New Goal</button>
           </div>
         </div>
-        <div style="max-height: 400px; overflow-y: auto;">
+        <div class="scrollable-table">
           <table class="activities-table" id="goals-table">
             <thead>
               <tr>
-                <th style="width: 25%;">Goal Name</th>
-                <th style="width: 12%;">Type</th>
-                <th style="width: 12%;">Target</th>
-                <th style="width: 12%;">Current</th>
-                <th style="width: 12%;">Progress</th>
-                <th style="width: 12%;">Status</th>
-                <th style="width: 15%;">Actions</th>
+                <th class="col-w-25">Goal Name</th>
+                <th class="col-w-12">Type</th>
+                <th class="col-w-12">Target</th>
+                <th class="col-w-12">Current</th>
+                <th class="col-w-12">Progress</th>
+                <th class="col-w-12">Status</th>
+                <th class="col-w-15">Actions</th>
               </tr>
             </thead>
             <tbody id="goals-body">
               <tr>
-                <td colspan="7" style="text-align: center; color: #666; padding: 30px;">
-                  <div style="margin-bottom: 10px;">⏳ Loading goals...</div>
-                  <div style="font-size: 0.9em; color: #999;">Please wait while we fetch your goal data</div>
+                <td colspan="7" class="table-loading">
+                  <div class="table-message-icon">⏳ Loading goals...</div>
+                  <div class="table-message-text">Please wait while we fetch your goal data</div>
                 </td>
               </tr>
             </tbody>
@@ -392,29 +145,29 @@
         <h2 class="section-title">Budget Category Management</h2>
         <div class="activity-controls">
           <input type="text" id="search-budget-categories" placeholder="Search budget categories...">
-          <div style="display: flex; gap: 8px;">
+          <div class="form-gap">
             <button class="btn btn-secondary" id="refresh-budget-categories-btn">🔄 Refresh</button>
             <button class="btn btn-secondary" id="add-budget-category-btn">Add New Category</button>
           </div>
         </div>
-        <div style="max-height: 400px; overflow-y: auto;">
+        <div class="scrollable-table">
           <table class="activities-table" id="budget-categories-table">
             <thead>
               <tr>
-                <th style="width: 20%;">Category Name</th>
-                <th style="width: 15%;">Monthly Budget</th>
-                <th style="width: 15%;">Pay Period Budget</th>
-                <th style="width: 15%;">Current Spent</th>
-                <th style="width: 15%;">Remaining</th>
-                <th style="width: 10%;">Status</th>
-                <th style="width: 10%;">Actions</th>
+                <th class="col-w-20">Category Name</th>
+                <th class="col-w-15">Monthly Budget</th>
+                <th class="col-w-15">Pay Period Budget</th>
+                <th class="col-w-15">Current Spent</th>
+                <th class="col-w-15">Remaining</th>
+                <th class="col-w-10">Status</th>
+                <th class="col-w-10">Actions</th>
               </tr>
             </thead>
             <tbody id="budget-categories-body">
               <tr>
-                <td colspan="7" style="text-align: center; color: #666; padding: 30px;">
-                  <div style="margin-bottom: 10px;">⏳ Loading budget categories...</div>
-                  <div style="font-size: 0.9em; color: #999;">Please wait while we fetch your budget data</div>
+                <td colspan="7" class="table-loading">
+                  <div class="table-message-icon">⏳ Loading budget categories...</div>
+                  <div class="table-message-text">Please wait while we fetch your budget data</div>
                 </td>
               </tr>
             </tbody>
@@ -433,14 +186,14 @@
           <button id="load-log-btn" class="btn btn-secondary">Load Log</button>
           <button id="add-log-entry-btn" class="btn btn-primary">Add Manual Entry</button>
         </div>
-        <div style="max-height: 500px; overflow-y: auto;">
+        <div class="scrollable-table-lg">
           <table class="activities-table" id="activity-log-table">
             <thead>
               <tr>
-                <th style="width: 12%;">Date</th>
-                <th style="width: 20%;">Email</th>
-                <th style="width: 58%;">Activities</th>
-                <th style="width: 10%;">Actions</th>
+                <th class="col-w-12">Date</th>
+                <th class="col-w-20">Email</th>
+                <th class="col-w-58">Activities</th>
+                <th class="col-w-10">Actions</th>
               </tr>
             </thead>
             <tbody id="activity-log-body">
@@ -463,9 +216,9 @@
       </div>
     </div>
     <div id="notification" class="notification hidden"></div>
-    <!-- Add Entry Modal - Add this at the end of the body -->
-    <div id="add-entry-modal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000;">
-      <div style="background: white; max-width: 500px; margin: 100px auto; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.2);">
+    <!-- Add Entry Modal -->
+    <div id="add-entry-modal" class="modal-overlay">
+      <div class="modal-content">
         <h3 id="entry-modal-title">Add Manual Entry</h3>
         <form id="entry-form">
           <div class="form-group">
@@ -490,45 +243,19 @@
         </form>
       </div>
     </div>
-    <div id="add-entry-modal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4); padding-top: 60px;">
-      <div style="background-color: #fefefe; margin: 5% auto; padding: 20px; border: 1px solid #888; border-radius: 8px; width: 90%; max-width: 500px;">
-        <h3 id="entry-modal-title">Add Manual Entry</h3>
-        <form id="entry-form">
-          <div class="form-group">
-            <label for="entry-date">Date:</label>
-            <input type="date" id="entry-date" required class="form-control" style="width: 100%; padding: 8px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 4px;">
-          </div>
-          <div class="form-group">
-            <label for="entry-email">Email:</label>
-            <input type="email" id="entry-email" required class="form-control" style="width: 100%; padding: 8px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 4px;">
-          </div>
-          <div class="form-group">
-            <label for="entry-activity">Activity:</label>
-            <select id="entry-activity" required class="form-control" style="width: 100%; padding: 8px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 4px;">
-              <option value="">Select an activity...</option>
-              <!-- Will be populated dynamically -->
-            </select>
-          </div>
-          <div class="form-actions" style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
-            <button type="button" id="entry-cancel-btn" class="btn btn-secondary">Cancel</button>
-            <button type="submit" id="entry-save-btn" class="btn btn-primary">Save Entry</button>
-          </div>
-        </form>
-      </div>
-    </div>
     
     <!-- Goal Modal -->
-    <div id="goal-modal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4); padding-top: 60px;">
-      <div style="background-color: #fefefe; margin: 5% auto; padding: 20px; border: 1px solid #888; border-radius: 8px; width: 90%; max-width: 500px;">
+    <div id="goal-modal" class="modal-overlay">
+      <div class="modal-content">
         <h3 id="goal-modal-title">Add New Goal</h3>
         <form id="goal-form">
           <div class="form-group">
             <label for="goal-name">Goal Name:</label>
-            <input type="text" id="goal-name" required class="form-control" style="width: 100%; padding: 8px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 4px;" placeholder="e.g., Emergency Fund">
+            <input type="text" id="goal-name" required class="form-control" placeholder="e.g., Emergency Fund">
           </div>
           <div class="form-group">
             <label for="goal-type">Goal Type:</label>
-            <select id="goal-type" required class="form-control" style="width: 100%; padding: 8px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 4px;">
+            <select id="goal-type" required class="form-control">
               <option value="">Select goal type...</option>
               <option value="debt">Debt Reduction</option>
               <option value="savings">Savings Goal</option>
@@ -537,17 +264,17 @@
           </div>
           <div class="form-group">
             <label for="goal-target">Target Amount:</label>
-            <input type="number" id="goal-target" required class="form-control" style="width: 100%; padding: 8px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 4px;" min="0" step="0.01" placeholder="0.00">
+            <input type="number" id="goal-target" required class="form-control" min="0" step="0.01" placeholder="0.00">
           </div>
           <div class="form-group">
             <label for="goal-current">Current Amount:</label>
-            <input type="number" id="goal-current" required class="form-control" style="width: 100%; padding: 8px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 4px;" min="0" step="0.01" placeholder="0.00">
+            <input type="number" id="goal-current" required class="form-control" min="0" step="0.01" placeholder="0.00">
           </div>
           <div class="form-group">
             <label for="goal-target-date">Target Date:</label>
-            <input type="date" id="goal-target-date" class="form-control" style="width: 100%; padding: 8px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 4px;">
+            <input type="date" id="goal-target-date" class="form-control">
           </div>
-          <div class="form-actions" style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+          <div class="form-actions">
             <button type="button" id="goal-cancel-btn" class="btn btn-secondary">Cancel</button>
             <button type="submit" id="goal-save-btn" class="btn btn-primary">Save Goal</button>
           </div>
@@ -556,29 +283,29 @@
     </div>
     
     <!-- Budget Category Modal -->
-    <div id="budget-category-modal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4); padding-top: 60px;">
-      <div style="background-color: #fefefe; margin: 5% auto; padding: 20px; border: 1px solid #888; border-radius: 8px; width: 90%; max-width: 500px;">
+    <div id="budget-category-modal" class="modal-overlay">
+      <div class="modal-content">
         <h3 id="budget-category-modal-title">Add New Budget Category</h3>
         <form id="budget-category-form">
           <div class="form-group">
             <label for="budget-category-name">Category Name:</label>
-            <input type="text" id="budget-category-name" required class="form-control" style="width: 100%; padding: 8px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 4px;" placeholder="e.g., Groceries">
+            <input type="text" id="budget-category-name" required class="form-control" placeholder="e.g., Groceries">
           </div>
           <div class="form-group">
             <label for="budget-monthly-budget">Monthly Budget:</label>
-            <input type="number" id="budget-monthly-budget" required class="form-control" style="width: 100%; padding: 8px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 4px;" min="0" step="0.01" placeholder="0.00">
+            <input type="number" id="budget-monthly-budget" required class="form-control" min="0" step="0.01" placeholder="0.00">
           </div>
           <div class="form-group">
             <label for="budget-pay-period-budget">Pay Period Budget:</label>
-            <input type="number" id="budget-pay-period-budget" required class="form-control" style="width: 100%; padding: 8px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 4px;" min="0" step="0.01" placeholder="0.00">
-            <small style="color: #666; font-size: 0.85em;">Typically half of monthly budget for bi-weekly pay periods</small>
+            <input type="number" id="budget-pay-period-budget" required class="form-control" min="0" step="0.01" placeholder="0.00">
+            <small class="helper-text">Typically half of monthly budget for bi-weekly pay periods</small>
           </div>
           <div class="form-group">
             <label for="budget-current-spent">Current Spent:</label>
-            <input type="number" id="budget-current-spent" class="form-control" style="width: 100%; padding: 8px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 4px;" min="0" step="0.01" placeholder="0.00" value="0">
-            <small style="color: #666; font-size: 0.85em;">Leave as 0 for new categories</small>
+            <input type="number" id="budget-current-spent" class="form-control" min="0" step="0.01" placeholder="0.00" value="0">
+            <small class="helper-text">Leave as 0 for new categories</small>
           </div>
-          <div class="form-actions" style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+          <div class="form-actions">
             <button type="button" id="budget-category-cancel-btn" class="btn btn-secondary">Cancel</button>
             <button type="submit" id="budget-category-save-btn" class="btn btn-primary">Save Category</button>
           </div>
@@ -671,12 +398,12 @@
             const tbody = document.getElementById('goals-body');
             tbody.innerHTML = `
               <tr>
-                <td colspan="7" style="text-align: center; color: #ea4335; padding: 30px;">
-                  <div style="margin-bottom: 10px;">⚠️ Error loading goals</div>
-                  <div style="font-size: 0.9em; color: #666;">
+                <td colspan="7" class="table-error">
+                  <div class="table-message-icon">⚠️ Error loading goals</div>
+                  <div class="table-error-text">
                     ${error.message || 'Unknown error occurred'}
                   </div>
-                  <div style="margin-top: 10px;">
+                  <div class="table-retry-wrapper">
                     <button class="btn btn-primary btn-sm" onclick="location.reload()">Retry</button>
                   </div>
                 </td>
@@ -698,12 +425,12 @@
             const tbody = document.getElementById('budget-categories-body');
             tbody.innerHTML = `
               <tr>
-                <td colspan="7" style="text-align: center; color: #ea4335; padding: 30px;">
-                  <div style="margin-bottom: 10px;">⚠️ Error loading budget categories</div>
-                  <div style="font-size: 0.9em; color: #666;">
+                <td colspan="7" class="table-error">
+                  <div class="table-message-icon">⚠️ Error loading budget categories</div>
+                  <div class="table-error-text">
                     ${error.message || 'Unknown error occurred'}
                   </div>
-                  <div style="margin-top: 10px;">
+                  <div class="table-retry-wrapper">
                     <button class="btn btn-primary btn-sm" onclick="location.reload()">Retry</button>
                   </div>
                 </td>
@@ -1820,9 +1547,9 @@
         const tbody = document.getElementById('goals-body');
         tbody.innerHTML = `
           <tr>
-            <td colspan="7" style="text-align: center; color: #666; padding: 30px;">
-              <div style="margin-bottom: 10px;">🔄 Refreshing goals...</div>
-              <div style="font-size: 0.9em; color: #999;">Fetching latest goal data</div>
+            <td colspan="7" class="table-loading">
+              <div class="table-message-icon">🔄 Refreshing goals...</div>
+              <div class="table-message-text">Fetching latest goal data</div>
             </td>
           </tr>
         `;
@@ -1838,12 +1565,12 @@
             console.log('[ADMIN GOALS DEBUG] Manual refresh failed:', error);
             tbody.innerHTML = `
               <tr>
-                <td colspan="7" style="text-align: center; color: #ea4335; padding: 30px;">
-                  <div style="margin-bottom: 10px;">⚠️ Refresh failed</div>
-                  <div style="font-size: 0.9em; color: #666;">
+                <td colspan="7" class="table-error">
+                  <div class="table-message-icon">⚠️ Refresh failed</div>
+                  <div class="table-error-text">
                     ${error.message || 'Unknown error occurred'}
                   </div>
-                  <div style="margin-top: 10px;">
+                  <div class="table-retry-wrapper">
                     <button class="btn btn-primary btn-sm" onclick="refreshGoals()">Try Again</button>
                   </div>
                 </td>
@@ -1899,9 +1626,9 @@
           console.log('[ADMIN GOALS DEBUG] No goals found, showing "No goals configured" message');
           tbody.innerHTML = `
             <tr>
-              <td colspan="7" style="text-align: center; color: #666; padding: 30px;">
-                <div style="margin-bottom: 10px;">📋 No goals configured</div>
-                <div style="font-size: 0.9em; color: #999;">
+              <td colspan="7" class="table-empty">
+                <div class="table-message-icon">📋 No goals configured</div>
+                <div class="table-message-text">
                   Click "Add New Goal" above to create your first goal
                 </div>
               </td>
@@ -1915,8 +1642,8 @@
         tbody.innerHTML = goalsData.map(goal => {
           const progress = calculateProgress(goal);
           const progressBar = `
-            <div style="background: #f0f0f0; border-radius: 10px; height: 20px; overflow: hidden;">
-              <div style="background: ${getProgressColor(goal.goalType, progress)}; height: 100%; width: ${progress}%; transition: width 0.3s;"></div>
+            <div class="inline-progress-bar">
+              <div class="inline-progress-fill" style="background: ${getProgressColor(goal.goalType, progress)}; width: ${progress}%;"></div>
             </div>
             <small>${progress}%</small>
           `;
@@ -1933,7 +1660,7 @@
               </td>
               <td><input type="number" value="${goal.targetAmount}" step="0.01" onchange="updateGoalField('${goal.goalId}', 'targetAmount', parseFloat(this.value))"></td>
               <td><input type="number" value="${goal.currentAmount}" step="0.01" onchange="updateGoalField('${goal.goalId}', 'currentAmount', parseFloat(this.value))"></td>
-              <td style="text-align: center;">${progressBar}</td>
+              <td class="text-center">${progressBar}</td>
               <td>
                 <select onchange="updateGoalField('${goal.goalId}', 'status', this.value)">
                   <option value="active" ${goal.status === 'active' ? 'selected' : ''}>Active</option>
@@ -2119,9 +1846,9 @@
           const tbody = document.getElementById('budget-categories-body');
           tbody.innerHTML = `
             <tr>
-              <td colspan="7" style="text-align: center; color: #666; padding: 30px;">
-                <div style="margin-bottom: 10px;">No budget categories found</div>
-                <div style="font-size: 0.9em; color: #999;">Click "Add New Category" to create your first budget category</div>
+              <td colspan="7" class="table-empty">
+                <div class="table-message-icon">No budget categories found</div>
+                <div class="table-message-text">Click "Add New Category" to create your first budget category</div>
               </td>
             </tr>
           `;
@@ -2130,13 +1857,13 @@
 
       function renderBudgetCategoriesTable() {
         const tbody = document.getElementById('budget-categories-body');
-        
+
         if (!budgetCategoriesData || budgetCategoriesData.length === 0) {
           tbody.innerHTML = `
             <tr>
-              <td colspan="7" style="text-align: center; color: #666; padding: 30px;">
-                <div style="margin-bottom: 10px;">No budget categories found</div>
-                <div style="font-size: 0.9em; color: #999;">Click "Add New Category" to create your first budget category</div>
+              <td colspan="7" class="table-empty">
+                <div class="table-message-icon">No budget categories found</div>
+                <div class="table-message-text">Click "Add New Category" to create your first budget category</div>
               </td>
             </tr>
           `;
@@ -2145,49 +1872,43 @@
 
         const rows = budgetCategoriesData.map((category, index) => {
           const percentUsed = category.payPeriodBudget > 0 ? (category.payPeriodSpent / category.payPeriodBudget) * 100 : 0;
-          let statusClass = 'good';
-          let statusText = 'Good';
-          
+          let statusClass = 'ok';
+          let statusText = 'OK'; // Updated to match status class naming
+
           if (percentUsed > 90) {
-            statusClass = 'danger';
+            statusClass = 'over';
             statusText = 'Over Budget';
           } else if (percentUsed > 75) {
             statusClass = 'warning';
             statusText = 'Near Limit';
           }
 
+          const remainingClass = category.remaining >= 0 ? 'text-success' : 'text-danger';
+
           return `
             <tr data-index="${index}">
               <td>
-                <input type="text" value="${category.name}" data-field="name" 
-                       style="border: 1px solid #ddd; padding: 4px; width: 100%;">
+                <input type="text" value="${category.name}" data-field="name" class="table-input">
               </td>
               <td>
-                <input type="number" value="${category.monthlyBudget}" data-field="monthlyBudget" 
-                       step="0.01" min="0" style="border: 1px solid #ddd; padding: 4px; width: 100%;">
+                <input type="number" value="${category.monthlyBudget}" data-field="monthlyBudget"
+                       step="0.01" min="0" class="table-input">
               </td>
               <td>
-                <input type="number" value="${category.payPeriodBudget}" data-field="payPeriodBudget" 
-                       step="0.01" min="0" style="border: 1px solid #ddd; padding: 4px; width: 100%;">
+                <input type="number" value="${category.payPeriodBudget}" data-field="payPeriodBudget"
+                       step="0.01" min="0" class="table-input">
               </td>
-              <td style="text-align: right; color: #ea4335;">
+              <td class="text-right text-danger">
                 $${category.payPeriodSpent.toFixed(2)}
               </td>
-              <td style="text-align: right; color: ${category.remaining >= 0 ? '#34A853' : '#ea4335'};">
+              <td class="text-right ${remainingClass}">
                 $${category.remaining.toFixed(2)}
               </td>
               <td>
-                <span class="status-badge status-${statusClass}" style="
-                  padding: 2px 8px; 
-                  border-radius: 12px; 
-                  font-size: 0.8em; 
-                  font-weight: 500;
-                  background: ${statusClass === 'danger' ? '#fce8e6' : statusClass === 'warning' ? '#fef7e0' : '#e6f4ea'};
-                  color: ${statusClass === 'danger' ? '#d93025' : statusClass === 'warning' ? '#f9ab00' : '#34a853'};
-                ">${statusText}</span>
+                <span class="status-badge status-${statusClass}">${statusText}</span>
               </td>
               <td>
-                <button class="btn btn-danger btn-sm" onclick="removeBudgetCategory(${index})" 
+                <button class="btn btn-danger btn-sm" onclick="removeBudgetCategory(${index})"
                         title="Delete Category">🗑️</button>
               </td>
             </tr>
