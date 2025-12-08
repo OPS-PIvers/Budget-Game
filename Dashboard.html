@@ -1,4 +1,4 @@
-<!-- Dashboard.html (Fixed) -->
+<!-- Dashboard.html -->
 <!DOCTYPE html>
 <html>
   <head>
@@ -43,7 +43,6 @@
     </nav>
 
     <div class="container main-content">
-       <!-- Household Info Placeholder -->
        <div id="household-info-placeholder"></div>
 
       <!-- Date Range Selector -->
@@ -75,21 +74,19 @@
         </div>
       </div>
 
-      <div class="dashboard-row">
-        <div class="dashboard-section half">
-          <h3>Daily Distribution</h3>
-          <div class="chart-container" id="daily-distribution-chart-container">
-            <div class="skeleton skeleton-chart"></div>
-            <canvas id="daily-distribution-chart" style="display:none;"></canvas>
-          </div>
+      <div class="dashboard-section">
+        <h3>Daily Distribution</h3>
+        <div class="chart-container" id="daily-distribution-chart-container">
+          <div class="skeleton skeleton-chart"></div>
+          <canvas id="daily-distribution-chart" style="display:none;"></canvas>
         </div>
+      </div>
 
-        <div class="dashboard-section half">
-          <h3>Positive vs Negative</h3>
-          <div class="chart-container" id="activity-ratio-chart-container">
-            <div class="skeleton skeleton-chart"></div>
-            <canvas id="activity-ratio-chart" style="display:none;"></canvas>
-          </div>
+      <div class="dashboard-section">
+        <h3>Positive vs Negative</h3>
+        <div class="chart-container" id="activity-ratio-chart-container">
+          <div class="skeleton skeleton-chart"></div>
+          <canvas id="activity-ratio-chart" style="display:none;"></canvas>
         </div>
       </div>
 
@@ -118,6 +115,14 @@
           <div class="skeleton skeleton-card"></div>
         </div>
       </div>
+
+      <div class="dashboard-section">
+        <h3>Goal Achievement History</h3>
+        <div id="goal-history-container">
+          <div class="skeleton skeleton-chart"></div>
+        </div>
+      </div>
+
       <div class="dashboard-section">
         <h3>Lifetime Activity Frequency</h3>
         <div class="chart-container" id="lifetime-chart-container">
@@ -133,15 +138,7 @@
           <canvas id="prev-week-activity-chart" style="display:none;"></canvas>
         </div>
       </div>
-      <!-- ADD THE GOAL HISTORY SECTION HERE -->
-      <div class="dashboard-section">
-        <h3>Goal Achievement History</h3>
-        <div id="goal-history-container">
-          <div class="skeleton skeleton-chart"></div>
-        </div>
-      </div>
 
-        <!-- Mobile actions at the bottom -->
         <div class="mobile-actions">
           <button id="mobile-email-button" class="btn btn-primary">Send Daily Digest</button>
           <a href="<?= getScriptUrl() ?>?view=admin" class="btn btn-outline">Admin</a>
@@ -162,1297 +159,333 @@
       <div class="goal-update-modal-content">
         <h3 class="goal-update-modal-title">Update Goal Amount</h3>
         <form id="goal-update-form" class="goal-update-form">
-          <div>
+          <div style="margin-bottom:15px;">
             <label for="goal-update-amount">Current Amount:</label>
             <input type="number" id="goal-update-amount" step="0.01" min="0" required>
           </div>
-          <div class="goal-update-modal-actions">
-            <button type="button" class="goal-tracking-btn" onclick="closeGoalUpdateModal()">Cancel</button>
-            <button type="submit" class="goal-tracking-btn primary">Update</button>
+          <div class="goal-update-modal-actions" style="display:flex;justify-content:flex-end;gap:10px;">
+            <button type="button" class="btn btn-secondary" onclick="closeGoalUpdateModal()">Cancel</button>
+            <button type="submit" class="btn btn-primary">Update</button>
           </div>
         </form>
       </div>
     </div>
 
-    <!-- Load Chart.js from CDN -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@2.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
 
 <script>
-      // Global variables
-      let charts = {}; // Store chart instances
-      let dashboardDataCache = null; // Cache fetched historical data
-      let configData = null; // Store CONFIG data for reference if needed
-      let currentDateRange = 90; // Default to 90 days (Last 3 Months)
+      let charts = {};
+      let dashboardDataCache = null;
+      let configData = null;
+      let currentDateRange = 90;
 
-      // Wait for DOM and Chart.js to be fully loaded
+      // BRAND COLORS
+      const COLOR_POSITIVE = '#739D5C';
+      const COLOR_POSITIVE_BG = 'rgba(115, 157, 92, 0.2)';
+      const COLOR_NEGATIVE = '#8C3B3B';
+      const COLOR_NEGATIVE_BG = 'rgba(140, 59, 59, 0.2)';
+      const COLOR_PRIMARY = '#546066';
+      const COLOR_ACCENT = '#D7BD46';
+
       document.addEventListener('DOMContentLoaded', initializeDashboard);
 
-      /**
-       * Initializes the dashboard with all data and visualizations
-       */
       function initializeDashboard() {
-        console.log("Initializing dashboard...");
         const refreshGoals = localStorage.getItem('refreshGoals') === 'true';
-        if (refreshGoals) {
-          console.log("Goals refresh flag detected, clearing flag.");
-          localStorage.removeItem('refreshGoals');
-          // Goal refresh will happen naturally during loadSecondaryData
-        }
+        if (refreshGoals) { localStorage.removeItem('refreshGoals'); }
 
-        // Set up static button listeners
         const emailBtn = document.getElementById('email-button');
         if (emailBtn) emailBtn.addEventListener('click', sendDailyDigest);
         const mobileEmailBtn = document.getElementById('mobile-email-button');
         if (mobileEmailBtn) mobileEmailBtn.addEventListener('click', sendDailyDigest);
-
-        // Set up goal update form listener
         const goalUpdateForm = document.getElementById('goal-update-form');
         if (goalUpdateForm) goalUpdateForm.addEventListener('submit', handleGoalUpdate);
-
-        // Set up date range selector listener
         const dateRangeSelect = document.getElementById('date-range-select');
         if (dateRangeSelect) dateRangeSelect.addEventListener('change', handleDateRangeChange);
 
-        // Load primary dashboard data (historical trends, streaks, counts, settings)
-        loadDashboardData(); // Fetches historical, calls renderDashboard -> loadSecondaryData
+        loadDashboardData();
 
-        // Set up polling for goal refresh (if needed)
         setInterval(() => {
-          const needsRefresh = localStorage.getItem('refreshGoals') === 'true';
-          if (needsRefresh) {
-            console.log("Goals refresh detected during polling");
+          if (localStorage.getItem('refreshGoals') === 'true') {
             localStorage.removeItem('refreshGoals');
-            loadWeeklyGoals(); // Reload just the goals section
+            loadWeeklyGoals();
           }
-        }, 60000); // Check every minute
+        }, 60000);
       }
 
-      /**
-       * Loads primary dashboard data (historical trends, streaks, counts, config)
-       * OPTIMIZED: Now accepts date range parameter for pagination
-       */
       function loadDashboardData() {
-        setLoadingState(true);
-        const cacheExpiry = 5 * 60 * 1000; // 5 minutes
-
-        // Check cache (include date range in cache key)
         const cacheKey = `dashboard_${currentDateRange}`;
-        if (dashboardDataCache &&
-            dashboardDataCache.key === cacheKey &&
-            (Date.now() - dashboardDataCache.timestamp < cacheExpiry)) {
-            console.log(`Using cached dashboard data for ${currentDateRange}-day range.`);
-            renderDashboard(dashboardDataCache.data); // Pass the whole cached data object
+        if (dashboardDataCache && dashboardDataCache.key === cacheKey && (Date.now() - dashboardDataCache.timestamp < 300000)) {
+            renderDashboard(dashboardDataCache.data);
             updateDateRangeInfo(dashboardDataCache.data.dateRange);
-            loadSecondaryData(); // Load goals separately
-            setLoadingState(false);
+            loadSecondaryData();
             return;
         }
-
-        console.log(`Fetching dashboard data for ${currentDateRange > 0 ? currentDateRange + ' days' : 'all time'}...`);
         google.script.run
           .withSuccessHandler(response => {
-              console.log("Full dashboard response received:", response);
-              // Basic validation of received structure
-              if (!response || !response.success) {
-                 handleDashboardError({ message: response?.message || "Failed to load dashboard data structure." });
-                 return;
-              }
-              // Cache the successful response with date range key
+              if (!response || !response.success) { handleDashboardError({ message: response?.message || "Failed." }); return; }
               dashboardDataCache = { key: cacheKey, data: response, timestamp: Date.now() };
-              // Store config separately if needed elsewhere
-              configData = { categories: response.categories, streakSettings: response.currentStreakSettings };
-
-              renderDashboard(response); // Pass the whole successful response object
-              updateDateRangeInfo(response.dateRange); // Update info display
-              loadSecondaryData(); // Load goals
-              setLoadingState(false);
+              renderDashboard(response);
+              updateDateRangeInfo(response.dateRange);
+              loadSecondaryData();
           })
-          .withFailureHandler(handleDashboardError) // Handles network/script errors
-          .getHistoricalData(currentDateRange); // Pass date range parameter
+          .withFailureHandler(handleDashboardError)
+          .getHistoricalData(currentDateRange);
       }
 
-      /**
-       * Handles date range selector changes
-       */
       function handleDateRangeChange() {
         const selector = document.getElementById('date-range-select');
         currentDateRange = parseInt(selector.value);
-        console.log(`Date range changed to: ${currentDateRange} days`);
-
-        // Invalidate cache and reload data
         dashboardDataCache = null;
         loadDashboardData();
       }
 
-      /**
-       * Updates the date range info display
-       */
       function updateDateRangeInfo(dateRange) {
         const infoSpan = document.getElementById('date-range-info');
         if (!infoSpan || !dateRange) return;
-
-        const rowsText = dateRange.rowsLoaded !== undefined ?
-          `(${dateRange.rowsLoaded} row${dateRange.rowsLoaded !== 1 ? 's' : ''} loaded)` : '';
-        const dateText = dateRange.startDate && dateRange.endDate ?
-          `${dateRange.startDate} to ${dateRange.endDate}` : '';
-
-        // Use filter to avoid awkward leading/trailing spaces
+        const rowsText = dateRange.rowsLoaded !== undefined ? `(${dateRange.rowsLoaded} rows loaded)` : '';
+        const dateText = dateRange.startDate && dateRange.endDate ? `${dateRange.startDate} to ${dateRange.endDate}` : '';
         infoSpan.textContent = [dateText, rowsText].filter(Boolean).join(' ');
       }
 
-      /**
-       * Loads secondary data sections (goals, goal history, goal tracking)
-       */
       function loadSecondaryData() {
            loadWeeklyGoals();
            loadGoalHistory();
            loadGoalTracking();
       }
 
-      /**
-       * Shows/Hides loading overlays on dashboard sections
-       * @param {boolean} isLoading - True to show loading, false to hide.
-       */
-      function setLoadingState(isLoading) {
-           const containers = document.querySelectorAll('.dashboard-section');
-           containers.forEach(container => {
-               let loadingDiv = container.querySelector('.loading-overlay');
-               if (isLoading) {
-                   if (!loadingDiv) {
-                       loadingDiv = document.createElement('div');
-                       loadingDiv.className = 'loading-overlay';
-                       loadingDiv.innerHTML = '<div class="spinner"></div> Loading...';
-                       container.style.position = 'relative'; // Needed for absolute positioning of overlay
-                       container.appendChild(loadingDiv);
-                   }
-                   loadingDiv.style.display = 'flex';
-               } else {
-                   if (loadingDiv) {
-                       loadingDiv.style.display = 'none';
-                   }
-               }
-           });
-           // Ensure CSS for overlay and spinner is present
-           const styleId = 'loading-overlay-style';
-           if (!document.getElementById(styleId)) {
-               const style = document.createElement('style'); style.id = styleId;
-               style.innerHTML = `
-                   .loading-overlay { position: absolute; inset: 0; background-color: rgba(255, 255, 255, 0.85); display: flex; justify-content: center; align-items: center; z-index: 10; font-size: 1.1em; color: var(--text-secondary); border-radius: 8px; }
-                   .spinner { border: 4px solid rgba(0, 0, 0, 0.1); width: 36px; height: 36px; border-radius: 50%; border-left-color: var(--primary-color); animation: spin 1s ease infinite; margin-right: 10px; }
-                   @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`;
-               document.head.appendChild(style);
-           }
-      }
-
-
-      /**
-       * Renders the main dashboard components from the fetched data object.
-       * @param {object} data - The data object received from getHistoricalData.
-       *                          Expected properties: success, dailyData, weeklyData, streakData, movingAverages,
-       *                          lifetimeActivityCounts, prevWeekActivityCounts, householdId, householdName, currentStreakSettings.
-       */
       function renderDashboard(data) {
-        try {
-          console.log("Rendering dashboard...");
+          try {
+              if (data.householdId && data.householdName) {
+                const ph = document.getElementById('household-info-placeholder');
+                if(ph) { ph.innerHTML = `<div class="info-message">🏠 ${data.householdName}</div>`; ph.style.display='block'; }
+              }
 
-          // Data validation passed in loadDashboardData (checking data.success)
-
-          // Display household info if available
-          if (data.householdId && data.householdName) {
-            displayHouseholdInfo({ householdId: data.householdId, householdName: data.householdName, members: [] }); // Pass required fields
-          } else if (!data.householdId && data.config?.HOUSEHOLD_SETTINGS?.ENABLED) {
-             console.warn("User has no household assigned, but households are enabled.");
-             displayNoHouseholdError();
-          } else {
-             clearHouseholdInfo();
-          }
-
-          // --- Render Charts and Streaks ---
-          // Wrap each rendering in its own try-catch for resilience
-          tryRender('Points Chart', () => {
               hideSkeleton('points-chart-container');
               document.getElementById('points-chart').style.display = 'block';
               renderPointsChart(data.dailyData, data.movingAverages);
-          });
-          tryRender('Weekly Chart', () => {
+
               hideSkeleton('weekly-chart-container');
               document.getElementById('weekly-chart').style.display = 'block';
               renderWeeklyChart(data.weeklyData);
-          });
-          tryRender('Daily Distribution Chart', () => {
+
               hideSkeleton('daily-distribution-chart-container');
               document.getElementById('daily-distribution-chart').style.display = 'block';
               renderDailyDistributionChart(data.weeklyData);
-          });
-          tryRender('Activity Ratio Chart', () => {
+
               hideSkeleton('activity-ratio-chart-container');
               document.getElementById('activity-ratio-chart').style.display = 'block';
               renderActivityRatioChart(data.lifetimeActivityCounts);
-          });
-          tryRender('Lifetime Activity Frequency Chart', () => {
+
               hideSkeleton('lifetime-chart-container');
               document.getElementById('lifetime-activity-chart').style.display = 'block';
               renderActivityFrequencyChart('lifetime-activity-chart', data.lifetimeActivityCounts, 'Lifetime', true);
-          });
-          tryRender('Previous Week Activity Frequency Chart', () => {
+
               hideSkeleton('prev-week-chart-container');
               document.getElementById('prev-week-activity-chart').style.display = 'block';
               renderActivityFrequencyChart('prev-week-activity-chart', data.prevWeekActivityCounts, 'Previous Week', false);
-          });
-          tryRender('Streaks Display', () => renderStreaks(data.streakData, data.currentStreakSettings)); // Pass settings
 
-        } catch (error) {
-          // Catch unexpected errors during the overall rendering process
-          console.error('Critical error rendering dashboard layout:', error);
-          showNotification('Error rendering dashboard layout: ' + error.message, true);
-          // Optionally clear all sections to show a general error state
-          const sections = document.querySelectorAll('.dashboard-section .chart-container, #streaks-container');
-          sections.forEach(el => el.innerHTML = '<p class="error-message">Failed to render section.</p>');
-        }
-      }
+              renderStreaks(data.streakData, data.currentStreakSettings);
 
-      /**
-       * Helper to wrap rendering functions in try-catch blocks.
-       * @param {string} componentName - Name for logging.
-       * @param {function} renderFn - The function to execute.
-       */
-      function tryRender(componentName, renderFn) {
-          try {
-              renderFn();
           } catch (error) {
-              console.error(`Error rendering ${componentName}:`, error);
-              // Attempt to show error within the specific component's container if possible
-              const containerIdMap = { // Map component names to container IDs
-                  'Points Chart': 'points-chart',
-                  'Weekly Chart': 'weekly-chart',
-                  'Daily Distribution Chart': 'daily-distribution-chart',
-                  'Activity Ratio Chart': 'activity-ratio-chart',
-                  'Lifetime Activity Frequency Chart': 'lifetime-activity-chart',
-                  'Previous Week Activity Frequency Chart': 'prev-week-activity-chart',
-                  'Streaks Display': 'streaks-container'
-              };
-              const elementId = containerIdMap[componentName];
-              if (elementId) {
-                  const element = document.getElementById(elementId);
-                  if (element) {
-                      // If it's a canvas, get the parent container
-                      const targetContainer = element.tagName === 'CANVAS' ? element.parentElement : element;
-                      if (targetContainer) {
-                           targetContainer.innerHTML = `<div class="error-message">Error rendering ${componentName}: ${error.message}</div>`;
-                      }
-                  }
-              } else {
-                   showNotification(`Error rendering ${componentName}: ${error.message}`, true);
-              }
+              console.error(error);
+              showNotification('Error rendering dashboard: ' + error.message, true);
           }
       }
 
-
-      // --- Chart Rendering Functions ---
-
-      /** Renders the daily points line chart */
       function renderPointsChart(dailyData, movingAverages) {
-            const canvasId = 'points-chart'; const canvas = document.getElementById(canvasId); if (!canvas) return; const ctx = canvas.getContext('2d');
-            if (!dailyData || dailyData.length === 0) { showChartError(canvasId, 'No daily point data available for this household.'); return; }
-            // Ensure data is sorted by date string
+            const ctx = document.getElementById('points-chart').getContext('2d');
+            if (!dailyData || !dailyData.length) return;
             dailyData.sort((a, b) => a.date.localeCompare(b.date));
             movingAverages.sort((a, b) => a.date.localeCompare(b.date));
 
-            const labels = dailyData.map(day => day.date); // Use YYYY-MM-DD for adapter
+            const labels = dailyData.map(day => day.date);
             const points = dailyData.map(day => day.points);
-            // Align averages with the daily data based on date
             const alignedAverages = labels.map(labelDate => {
                 const avgData = movingAverages.find(avg => avg.date === labelDate);
-                return avgData ? avgData.average : null; // Use null for gaps
+                return avgData ? avgData.average : null;
             });
 
             if (charts.pointsChart) charts.pointsChart.destroy();
             charts.pointsChart = new Chart(ctx, {
                 type: 'line',
                 data: {
-                  labels: labels, // Use YYYY-MM-DD strings
+                  labels: labels,
                   datasets: [
-                    { label: 'Daily Points', data: points, borderColor: 'rgba(66, 133, 244, 1)', backgroundColor: 'rgba(66, 133, 244, 0.1)', fill: true, tension: 0.1 },
-                    { label: '7-Day Avg', data: alignedAverages, borderColor: 'rgba(234, 67, 53, 1)', borderWidth: 2, borderDash: [5, 5], pointRadius: 0, fill: false, spanGaps: true } // spanGaps connects lines over nulls
+                    { label: 'Daily Points', data: points, borderColor: COLOR_POSITIVE, backgroundColor: COLOR_POSITIVE_BG, fill: true, tension: 0.1 },
+                    { label: '7-Day Avg', data: alignedAverages, borderColor: COLOR_ACCENT, borderWidth: 2, borderDash: [5, 5], pointRadius: 0, fill: false, spanGaps: true }
                  ]
                 },
-                options: {
-                  responsive: true, maintainAspectRatio: false,
-                  scales: {
-                    x: { type: 'time', time: { unit: 'day', tooltipFormat: 'MMM d, yyyy', displayFormats: { day: 'MMM d' } }, grid: { display: false } },
-                    y: { grid: { color: 'rgba(0, 0, 0, 0.05)' }, beginAtZero: true } // Suggest starting at zero
-                  },
-                  plugins: { title: { display: true, text: 'Daily Points Trend (Household)' } }
-                }
+                options: { responsive: true, maintainAspectRatio: false, scales: { x: { type: 'time', time: { unit: 'day' } } } }
             });
       }
 
-      /** Renders the weekly performance bar chart */
       function renderWeeklyChart(weeklyData) {
-            const canvasId = 'weekly-chart'; const canvas = document.getElementById(canvasId); if (!canvas) return; const ctx = canvas.getContext('2d');
-            if (!weeklyData || weeklyData.length === 0) { showChartError(canvasId, 'No weekly performance data available.'); return; }
-            weeklyData.sort((a, b) => a.startDate.localeCompare(b.startDate)); // Sort by start date
-            const weeks = weeklyData.map(week => week.startDate); // Use YYYY-MM-DD string
+            const ctx = document.getElementById('weekly-chart').getContext('2d');
+            if (!weeklyData || !weeklyData.length) return;
+            weeklyData.sort((a, b) => a.startDate.localeCompare(b.startDate));
+            const weeks = weeklyData.map(week => week.startDate);
             const points = weeklyData.map(week => week.totalPoints);
             if (charts.weeklyChart) charts.weeklyChart.destroy();
             charts.weeklyChart = new Chart(ctx, {
                 type: 'bar',
-                data: { labels: weeks, datasets: [{ label: 'Weekly Points', data: points, backgroundColor: points.map(p => p >= 0 ? 'rgba(52, 168, 83, 0.7)' : 'rgba(234, 67, 53, 0.7)'), borderColor: points.map(p => p >= 0 ? 'rgba(52, 168, 83, 1)' : 'rgba(234, 67, 53, 1)'), borderWidth: 1 }] },
-                options: {
-                  responsive: true, maintainAspectRatio: false,
-                  scales: {
-                    x: { type: 'time', time: { unit: 'week', tooltipFormat: "'Week of' MMM d, yyyy", displayFormats: { week: 'MMM d' } }, grid: { display: false } },
-                    y: { grid: { color: 'rgba(0, 0, 0, 0.05)' }, beginAtZero: true }
-                   },
-                   plugins: { title: { display: true, text: 'Weekly Performance (Household)' } }
-                 }
+                data: { labels: weeks, datasets: [{ label: 'Weekly Points', data: points, backgroundColor: points.map(p => p >= 0 ? COLOR_POSITIVE : COLOR_NEGATIVE) }] },
+                options: { responsive: true, maintainAspectRatio: false, scales: { x: { type: 'time', time: { unit: 'week' } } } }
             });
       }
 
-      /** Renders the daily distribution bar chart */
       function renderDailyDistributionChart(weeklyData) {
-          const canvasId = 'daily-distribution-chart';
-          const canvas = document.getElementById(canvasId); if (!canvas) return; const ctx = canvas.getContext('2d');
-
-          if (!weeklyData || weeklyData.length === 0) { showChartError(canvasId, 'No daily distribution data available.'); return; }
-
+          const ctx = document.getElementById('daily-distribution-chart').getContext('2d');
           const dayTotals = { sun: 0, mon: 0, tue: 0, wed: 0, thu: 0, fri: 0, sat: 0 };
           const dayCounts = { sun: 0, mon: 0, tue: 0, wed: 0, thu: 0, fri: 0, sat: 0 };
           const dayKeys = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
-          const dayFullNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']; // Match keys from server
+          const dayFullNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
 
           weeklyData.forEach(week => {
               const breakdown = week.dailyBreakdown;
               if (breakdown) {
                   dayFullNames.forEach((fullName, index) => {
-                      const shortKey = dayKeys[index];
-                      const points = breakdown[fullName] ?? 0; // Use full name key from server data
-                      // Only include days where points were non-zero for averaging
-                      if (points !== 0) {
-                          dayTotals[shortKey] += points;
-                          dayCounts[shortKey]++;
-                      }
+                      const points = breakdown[fullName] ?? 0;
+                      if (points !== 0) { dayTotals[dayKeys[index]] += points; dayCounts[dayKeys[index]]++; }
                   });
               }
           });
-
           const averages = dayKeys.map(key => dayCounts[key] > 0 ? (dayTotals[key] / dayCounts[key]) : 0);
-
-          if (averages.every(val => val === 0) && weeklyData.length > 0) { // Check if all averages are zero despite having data
-             showChartError(canvasId, 'No points recorded yet for daily distribution.');
-             return;
-          }
-
-          const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
           if (charts.dailyDistributionChart) charts.dailyDistributionChart.destroy();
           charts.dailyDistributionChart = new Chart(ctx, {
               type: 'bar',
-              data: {
-                  labels: days,
-                  datasets: [{
-                      label: 'Average Points',
-                      data: averages,
-                      backgroundColor: averages.map(v => v >= 0 ? 'rgba(52, 168, 83, 0.7)' : 'rgba(234, 67, 53, 0.7)'),
-                      borderColor: averages.map(v => v >= 0 ? 'rgba(52, 168, 83, 1)' : 'rgba(234, 67, 53, 1)'),
-                      borderWidth: 1
-                  }]
-              },
-              options: {
-                  responsive: true, maintainAspectRatio: false,
-                  scales: { y: { beginAtZero: true, grid: { color: 'rgba(0, 0, 0, 0.05)' } }, x: { grid: { display: false } } },
-                  plugins: { title: { display: true, text: 'Avg Points by Day (Household)' } }
-              }
+              data: { labels: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'], datasets: [{ label: 'Average Points', data: averages, backgroundColor: averages.map(v => v >= 0 ? COLOR_POSITIVE : COLOR_NEGATIVE) }] },
+              options: { responsive: true, maintainAspectRatio: false }
           });
       }
 
-      /**
-       * Renders the Positive vs Negative activity count chart using lifetime counts.
-       * @param {Object} lifetimeActivityCounts - The activity counts object from getHistoricalData.
-       *        Expected format: { activityName: { count: number, positive: boolean }, _hasData: boolean }
-       */
       function renderActivityRatioChart(lifetimeActivityCounts) {
-        const canvasId = 'activity-ratio-chart';
-        const canvas = document.getElementById(canvasId); if (!canvas) return; const ctx = canvas.getContext('2d');
-
-        let totalPositive = 0;
-        let totalNegative = 0;
-
-        // Check if data exists and is in expected format
-        if (!lifetimeActivityCounts || typeof lifetimeActivityCounts !== 'object' || !lifetimeActivityCounts._hasData) {
-           showChartError(canvasId, 'No lifetime activity data available.');
-           return;
+        const ctx = document.getElementById('activity-ratio-chart').getContext('2d');
+        let totalPositive = 0, totalNegative = 0;
+        if (!lifetimeActivityCounts) return;
+        for (const act in lifetimeActivityCounts) {
+            if (act === '_hasData') continue;
+            const data = lifetimeActivityCounts[act];
+            if (data.positive) totalPositive += data.count; else totalNegative += data.count;
         }
-
-        // Loop through activities, skipping internal flags like _hasData
-        for (const activityName in lifetimeActivityCounts) {
-            if (activityName === '_hasData') continue; // Skip internal flag
-
-            const data = lifetimeActivityCounts[activityName];
-            if (data && typeof data.count === 'number' && data.count > 0) {
-                if (data.positive) {
-                    totalPositive += data.count;
-                } else {
-                    totalNegative += data.count;
-                }
-            }
-        }
-
-        // Check if we have meaningful data after summation
-        if (totalPositive === 0 && totalNegative === 0) {
-          showChartError(canvasId, 'No positive/negative activity counts found.');
-          return;
-        }
-
         if (charts.activityRatioChart) charts.activityRatioChart.destroy();
         charts.activityRatioChart = new Chart(ctx, {
           type: 'pie',
-          data: {
-            labels: ['Positive Activities', 'Negative Activities'],
-            datasets: [{
-              data: [totalPositive, totalNegative],
-              backgroundColor: ['rgba(52, 168, 83, 0.7)', 'rgba(234, 67, 53, 0.7)'],
-              borderColor: ['rgba(52, 168, 83, 1)', 'rgba(234, 67, 53, 1)'],
-              borderWidth: 1
-            }]
-          },
-          options: {
-            responsive: true, maintainAspectRatio: false,
-            plugins: {
-              title: { display: true, text: 'Positive vs Negative Activities (Household Lifetime)' },
-              legend: { position: 'bottom' },
-              tooltip: {
-                callbacks: {
-                  label: function(context) {
-                    const label = context.label || '';
-                    const value = context.raw || 0;
-                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                    // Avoid division by zero if total is 0
-                    const percentage = total > 0 ? Math.round((value / total) * 100) : 0;
-                    return `${label}: ${value} (${percentage}%)`;
-                  }
-                }
-              }
-            }
-          }
+          data: { labels: ['Positive', 'Negative'], datasets: [{ data: [totalPositive, totalNegative], backgroundColor: [COLOR_POSITIVE, COLOR_NEGATIVE] }] },
+          options: { responsive: true, maintainAspectRatio: false }
         });
       }
 
-      /**
-       * Renders a horizontal bar chart showing activity frequency.
-       * @param {string} canvasId - The ID of the canvas element.
-       * @param {Object} activityCounts - Activity data object { activityName: { count, positive }, _hasData: boolean }.
-       * @param {string} timeframe - The timeframe label (e.g., 'Lifetime', 'Previous Week').
-       * @param {boolean} usePercentage - Whether to display as percentage of total.
-       */
-      function renderActivityFrequencyChart(canvasId, activityCounts, timeframe, usePercentage = false) {
-        const canvas = document.getElementById(canvasId); if (!canvas) return; const ctx = canvas.getContext('2d');
-        const chartContainer = canvas.parentElement;
-
-        // Check if data exists
-        if (!activityCounts || typeof activityCounts !== 'object' || !activityCounts._hasData) {
-          showChartError(canvasId, `No ${timeframe.toLowerCase()} activity data available.`);
-          return;
+      function renderActivityFrequencyChart(canvasId, activityCounts, timeframe, usePercentage) {
+        const ctx = document.getElementById(canvasId).getContext('2d');
+        if (!activityCounts) return;
+        const items = [];
+        let total = 0;
+        for (const act in activityCounts) {
+            if (act === '_hasData') continue;
+            const d = activityCounts[act];
+            items.push({ name: act, count: d.count, positive: d.positive });
+            total += d.count;
         }
-
-        const positiveActivities = [];
-        const negativeActivities = [];
-        let totalActivityCount = 0;
-
-        // Separate activities and calculate total count
-        for (const activityName in activityCounts) {
-          if (activityName === '_hasData') continue; // Skip flag
-
-          const data = activityCounts[activityName];
-          if (data && data.count > 0) {
-            totalActivityCount += data.count;
-            const item = { name: activityName, count: data.count, positive: data.positive };
-            if (data.positive) {
-              positiveActivities.push(item);
-            } else {
-              negativeActivities.push(item);
-            }
-          }
-        }
-
-        // Sort each group by count (descending)
-        positiveActivities.sort((a, b) => b.count - a.count);
-        negativeActivities.sort((a, b) => b.count - a.count);
-
-        // If no activities found after filtering
-        if (positiveActivities.length === 0 && negativeActivities.length === 0) {
-          showChartError(canvasId, `No activities recorded in ${timeframe.toLowerCase()}.`);
-          return;
-        }
-
-        // Combine top positive and top negative activities for the chart
-        const topLimit = 15; // Total activities to show
-        const combinedActivities = [
-            ...positiveActivities.slice(0, Math.ceil(topLimit * (positiveActivities.length / (positiveActivities.length + negativeActivities.length) || 1))), // Proportional positive
-            ...negativeActivities.slice(0, Math.floor(topLimit * (negativeActivities.length / (positiveActivities.length + negativeActivities.length) || 1))) // Proportional negative
-        ].sort((a, b) => b.count - a.count); // Sort combined list by count
-
-         // Prepare chart data
-         const labels = combinedActivities.map(item => item.name);
-         const dataValues = combinedActivities.map(item => {
-             if (usePercentage && totalActivityCount > 0) {
-                 return parseFloat(((item.count / totalActivityCount) * 100).toFixed(1));
-             }
-             return item.count;
-         });
-         const backgroundColors = combinedActivities.map(item => item.positive ? 'rgba(52, 168, 83, 0.7)' : 'rgba(234, 67, 53, 0.7)');
-         const borderColors = combinedActivities.map(item => item.positive ? 'rgba(52, 168, 83, 1)' : 'rgba(234, 67, 53, 1)');
-
-        // Destroy existing chart
-        const chartKey = canvasId + 'Chart';
-        if (charts[chartKey]) charts[chartKey].destroy();
-
-        // Dynamically adjust chart height based on number of labels
-        const minHeight = 200; // Minimum height
-        const heightPerLabel = 30; // Pixels per bar/label
-        const calculatedHeight = Math.max(minHeight, labels.length * heightPerLabel);
-        if (chartContainer) chartContainer.style.height = `${calculatedHeight}px`;
-
-        // Create new chart
-        charts[chartKey] = new Chart(ctx, {
+        items.sort((a,b) => b.count - a.count);
+        const sliced = items.slice(0, 15);
+        if (charts[canvasId+'Chart']) charts[canvasId+'Chart'].destroy();
+        charts[canvasId+'Chart'] = new Chart(ctx, {
           type: 'bar',
           data: {
-            labels: labels,
-            datasets: [{
-              label: timeframe + (usePercentage ? ' (%)' : ' (Count)'),
-              data: dataValues,
-              backgroundColor: backgroundColors,
-              borderColor: borderColors,
-              borderWidth: 1
-            }]
+            labels: sliced.map(i => i.name),
+            datasets: [{ label: timeframe, data: sliced.map(i => usePercentage && total > 0 ? (i.count/total)*100 : i.count), backgroundColor: sliced.map(i => i.positive ? COLOR_POSITIVE : COLOR_NEGATIVE) }]
           },
-          options: {
-            indexAxis: 'y', // Horizontal bars
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-              x: { beginAtZero: true, title: { display: true, text: usePercentage ? 'Percentage (%)' : 'Frequency Count' } },
-              y: { ticks: { autoSkip: false } } // Prevent labels skipping
-            },
-            plugins: {
-              title: { display: true, text: `${timeframe} Activity Frequency` },
-              legend: { display: false }, // Hide legend as colors indicate pos/neg
-              tooltip: {
-                 callbacks: {
-                   label: function(context) {
-                     const value = context.parsed.x;
-                     return usePercentage ? `${value}%` : `${value} times`;
-                   }
-                 }
-              }
-            }
-          }
+          options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false }
         });
       }
 
-      // --- Goal Rendering ---
-
-      /** Loads and renders the status of the two specific dashboard goals */
       function loadWeeklyGoals() {
-        const goalsContainer = document.getElementById('weekly-goals-container'); if (!goalsContainer) return; goalsContainer.innerHTML = '<p class="loading">Loading goal status...</p>';
-        google.script.run
-          .withSuccessHandler(renderWeeklyGoals)
-          .withFailureHandler(err => { console.error("Error loading weekly goal status:", err); goalsContainer.innerHTML = `<div class="error-message">Failed to load goal status: ${err.message || 'Unknown error'}</div>`; })
-          .getWeeklyGoalsData(); // In WebApp.gs
+        google.script.run.withSuccessHandler(renderWeeklyGoals).getWeeklyGoalsData();
       }
 
-      /** Renders the two dashboard goals */
       function renderWeeklyGoals(data) {
-          // console.log("Weekly goal status data received:", data);
-          const goalsContainer = document.getElementById('weekly-goals-container'); if (!goalsContainer) return; goalsContainer.innerHTML = ''; // Clear loading/previous
-          if (!data || !data.higherThanPrevious || !data.doublePoints) { goalsContainer.innerHTML = '<div class="info-message"><p>Goal status could not be determined. Ensure at least two weeks of data exist.</p></div>'; return; }
-
-          const goalsList = document.createElement('div'); goalsList.className = 'goals-list simple'; // Use simple class for styling
-
-          // Goal 1: Higher Than Previous
-          const goal1 = data.higherThanPrevious;
-          const goal1Card = document.createElement('div');
-          goal1Card.className = `goal-card simple ${goal1.achieved ? 'achieved' : 'pending'}`;
-          goal1Card.innerHTML = `
-              <div class="goal-header">
-                  <h4>${goal1.description}</h4>
-                  <span class="goal-status ${goal1.achieved ? 'status-achieved' : 'status-pending'}">${goal1.achieved ? '✅ Achieved!' : 'Pending'}</span>
-              </div>
-              <div class="goal-details simple">
-                  <span>Current: <strong>${goal1.current >= 0 ? '+' : ''}${goal1.current}</strong></span>
-                  <span>Target: <strong>> ${goal1.target >= 0 ? '+' : ''}${goal1.target}</strong></span>
-              </div>
-              ${renderProgressBar(goal1.percentComplete, goal1.achieved)}`; // Add progress bar
-          goalsList.appendChild(goal1Card);
-
-          // Goal 2: Double Points
-          const goal2 = data.doublePoints;
-          const goal2Card = document.createElement('div');
-          goal2Card.className = `goal-card simple ${goal2.achieved ? 'achieved' : 'pending'}`;
-          goal2Card.innerHTML = `
-               <div class="goal-header">
-                   <h4>${goal2.description}</h4>
-                   <span class="goal-status ${goal2.achieved ? 'status-achieved' : 'status-pending'}">${goal2.achieved ? '✅ Achieved!' : 'Pending'}</span>
-               </div>
-               <div class="goal-details simple">
-                   <span>Current: <strong>${goal2.current >= 0 ? '+' : ''}${goal2.current}</strong></span>
-                   <span>Target: <strong>≥ ${goal2.target >= 0 ? '+' : ''}${goal2.target}</strong></span>
-               </div>
-              ${renderProgressBar(goal2.percentComplete, goal2.achieved)}`; // Add progress bar
-          goalsList.appendChild(goal2Card);
-
-          goalsContainer.appendChild(goalsList);
-
-          // Ensure styles for simple layout are present
-          const styleId = 'simple-goal-style';
-          if (!document.getElementById(styleId)) {
-              const style = document.createElement('style'); style.id = styleId;
-              style.innerHTML = `
-                  .goals-list.simple{display:flex;gap:16px;flex-wrap:wrap;}
-                  .goal-card.simple{flex:1;min-width:250px;padding:12px 16px;border-left-width:4px; display: flex; flex-direction: column;}
-                  .goal-card.simple .goal-header{margin-bottom: 8px;}
-                  .goal-card.simple .goal-header h4{font-size:1em;margin-bottom:4px;}
-                  .goal-card.simple .goal-status{font-size:.8em;padding:3px 6px;}
-                  .goal-details.simple{font-size:.9em;display:flex;justify-content:space-between;color:var(--text-secondary); margin-bottom: 10px;}
-                  .goal-card.pending{border-left-color:var(--accent-color);}
-                  .goal-card.achieved{border-left-color:var(--positive-color);}
-                  .goal-card.pending .status-pending{background-color:rgba(251,188,5,.1);color:#F57C00;}
-                  .goal-card.achieved .status-achieved{background-color:rgba(52,168,83,.1);color:var(--positive-color);}
-                  .goal-progress { margin-top: auto; } /* Push progress bar to bottom */
-                  `;
-              document.head.appendChild(style);
-          }
-      }
-
-     /** Helper to render progress bar HTML */
-     function renderProgressBar(percentage, achieved) {
-        const cappedPercent = Math.min(100, Math.max(0, percentage || 0));
-        return `
-          <div class="goal-progress">
-            <div class="progress-bar">
-              <div class="progress-fill" style="width: ${cappedPercent}%;"></div>
-            </div>
-            <div class="progress-text">${achieved ? 'Goal Achieved!' : `${cappedPercent}% Complete`}</div>
-          </div>`;
-     }
-
-      // --- Goal History Rendering ---
-
-      /** Loads and renders the historical goal achievement section */
-      function loadGoalHistory() {
-            const historyContainer = document.getElementById('goal-history-container');
-            if (!historyContainer) return;
-
-            // Only show loading if not already skeleton
-            if (!historyContainer.querySelector('.skeleton')) {
-                 historyContainer.innerHTML = '<div class="skeleton skeleton-chart"></div>';
-            }
-
-            google.script.run
-              .withSuccessHandler(renderGoalHistory)
-              .withFailureHandler(err => { console.error("Error loading goal history:", err); historyContainer.innerHTML = `<div class="error-message">Failed to load goal history: ${err.message || 'Unknown error'}</div>`; })
-              .getGoalAchievementHistory(); // In WebApp.gs
-      }
-
-      /** Renders the goal history cards, chart, and details */
-      function renderGoalHistory(data) {
-            // console.log("Goal history data received:", data);
-            const historyContainer = document.getElementById('goal-history-container'); if (!historyContainer) return; historyContainer.innerHTML = '';
-            if (!data || !data.weeklyTotals || data.weeklyTotals.length === 0) { historyContainer.innerHTML = `<div class="info-message"><p>Not enough weekly data available to show goal achievement history.</p></div>`; return; }
-
-            const summaryDiv = document.createElement('div'); summaryDiv.className = 'achievement-summary';
-            summaryDiv.innerHTML = `
-              <div class="achievement-card"><h4>Higher Point Total</h4><div class="achievement-count">${data.goalAchievements?.higherThanPrevious?.totalAchieved ?? 0}</div><p>times achieved</p></div>
-              <div class="achievement-card"><h4>Double Points</h4><div class="achievement-count">${data.goalAchievements?.doublePoints?.totalAchieved ?? 0}</div><p>times achieved</p></div>`;
-            historyContainer.appendChild(summaryDiv);
-
-            const chartContainer = document.createElement('div'); chartContainer.className = 'chart-container'; chartContainer.style.height = '250px'; chartContainer.style.marginTop = '20px';
-            chartContainer.innerHTML = '<canvas id="weekly-totals-chart"></canvas>';
-            historyContainer.appendChild(chartContainer);
-
-            // Optional: Add details section if needed, currently commented as tooltip has info
-            // const detailsDiv = document.createElement('div'); detailsDiv.className = 'achievement-details simple'; detailsDiv.innerHTML = `<p style="text-align: center; color: var(--text-secondary); font-size: 0.9em;">Detailed weekly achievements can be viewed in the chart tooltips.</p>`; if ((data.goalAchievements?.higherThanPrevious?.totalAchieved > 0) || (data.goalAchievements?.doublePoints?.totalAchieved > 0)) { historyContainer.appendChild(detailsDiv); }
-
-            renderWeeklyTotalsChart(data.weeklyTotals);
-      }
-
-      /** Renders the weekly totals bar chart with previous week line */
-      function renderWeeklyTotalsChart(weeklyTotals) {
-            const canvasId = 'weekly-totals-chart'; const canvas = document.getElementById(canvasId); if (!canvas) return; const ctx = canvas.getContext('2d');
-            if (!weeklyTotals || weeklyTotals.length === 0) { showChartError(canvasId, 'No weekly totals data to display.'); return; }
-
-            // Data should already be sorted chronologically from server
-            const labels = weeklyTotals.map(week => week.week); // Expecting formatted date string like "MMM d, yyyy"
-            const totals = weeklyTotals.map(week => week.total);
-            const previousTotals = weeklyTotals.map(week => week.previousTotal);
-
-            if (charts.weeklyTotalsChart) charts.weeklyTotalsChart.destroy();
-            charts.weeklyTotalsChart = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                  labels: labels, // Use formatted labels
-                  datasets: [
-                    { label: 'Weekly Total', data: totals, backgroundColor: ctx => totals[ctx.dataIndex] >= previousTotals[ctx.dataIndex] * 2 ? 'rgba(255, 159, 64, 0.7)' : (totals[ctx.dataIndex] > previousTotals[ctx.dataIndex] ? 'rgba(52, 168, 83, 0.7)' : 'rgba(66, 133, 244, 0.7)'), borderColor: ctx => totals[ctx.dataIndex] >= previousTotals[ctx.dataIndex] * 2 ? 'rgba(255, 159, 64, 1)' : (totals[ctx.dataIndex] > previousTotals[ctx.dataIndex] ? 'rgba(52, 168, 83, 1)' : 'rgba(66, 133, 244, 1)'), borderWidth: 1 },
-                    { label: 'Previous Week', data: previousTotals, type: 'line', borderColor: 'rgba(153, 153, 153, 1)', tension: 0.1, pointRadius: 2, borderWidth: 1, borderDash: [3, 3] }
-                  ]
-                 },
-                options: {
-                  responsive: true, maintainAspectRatio: false,
-                  scales: { y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' } }, x: { grid: { display: false } } }, // Let chart.js handle x-axis labels
-                  plugins: {
-                    title: { display: true, text: 'Weekly Totals & Goal Achievements (Household)' },
-                    tooltip: {
-                      callbacks: {
-                         afterLabel: ctx => {
-                            const i = ctx.dataIndex;
-                            const current = totals[i];
-                            const prev = previousTotals[i];
-                            const goals = [];
-                            if (current > prev) goals.push("✅ Higher than previous");
-                            if ((prev > 0 && current >= prev * 2) || (prev <= 0 && current > 0)) {
-                               goals.push("🔥 Double points!");
-                            }
-                            return goals.length > 0 ? goals.join('\n') : ["No goal achieved"];
-                         }
-                      }
-                    }
-                  }
-                }
-            });
-      }
-
-      // --- Goal Tracking Functions ---
-
-      /**
-       * Loads and renders goal tracking data
-       */
-      function loadGoalTracking() {
-        google.script.run
-          .withSuccessHandler(renderGoalTracking)
-          .withFailureHandler(handleGoalTrackingError)
-          .getDetailedGoalData();
-      }
-
-      /**
-       * Renders the goal tracking section
-       */
-      function renderGoalTracking(goalData) {
-        const container = document.getElementById('goal-tracking-container');
-        
-        if (!goalData || (!goalData.activeGoals.length && !goalData.completedGoals.length)) {
-          container.innerHTML = `
-            <div class="goal-tracking-empty">
-              <div class="empty-icon">🎯</div>
-              <div class="empty-title">No Goals Found</div>
-              <div class="empty-text">
-                <p>Your goals may not be loading due to one of these reasons:</p>
-                <ul style="text-align: left; margin: 10px 0;">
-                  <li>No goals have been created yet</li>
-                  <li>Goals exist but aren't linked to your account</li>
-                  <li>Household setup is incomplete</li>
-                </ul>
-                <p><strong>Next steps:</strong></p>
-              </div>
-              <div class="goal-tracking-actions">
-                <a href="${getScriptUrl()}?view=admin" class="goal-tracking-btn primary">Create Goals (Admin)</a>
-                <button class="goal-tracking-btn secondary" onclick="checkGoalsDiagnostic()">Run Diagnostic</button>
-              </div>
-            </div>
-          `;
-          return;
-        }
-
-        let html = `<div class="goal-tracking-container">`;
-
-        // Summary section
-        const totalGoals = goalData.activeGoals.length + goalData.completedGoals.length;
-        const totalProgress = Math.round(goalData.totalProgress);
-        const criticalCount = goalData.criticalGoals.length;
-
-        html += `
-          <div class="goal-tracking-summary">
-            <h4>Goal Overview</h4>
-            <div class="summary-stats">
-              <div class="stat">
-                <div class="stat-value">${totalGoals}</div>
-                <div class="stat-label">Total Goals</div>
-              </div>
-              <div class="stat">
-                <div class="stat-value">${goalData.activeGoals.length}</div>
-                <div class="stat-label">Active</div>
-              </div>
-              <div class="stat">
-                <div class="stat-value">${goalData.completedGoals.length}</div>
-                <div class="stat-label">Completed</div>
-              </div>
-              <div class="stat">
-                <div class="stat-value">${totalProgress}%</div>
-                <div class="stat-label">Avg Progress</div>
-              </div>
-            </div>
-          </div>
-        `;
-
-        // Vacation fund notice
-        if (goalData.vacationFundStatus && goalData.vacationFundStatus.isActive) {
-          html += `
-            <div class="goal-tracking-vacation-notice">
-              <div class="notice-title">🏖️ Vacation Fund Active!</div>
-              <div class="notice-text">
-                Your ${goalData.vacationFundStatus.savingsGoalName} goal is complete. 
-                Additional savings now go to your ${goalData.vacationFundStatus.vacationGoalName}.
-              </div>
-            </div>
-          `;
-        }
-
-        // Active goals
-        if (goalData.activeGoals.length > 0) {
-          html += `<div class="goal-tracking-goals">`;
-          
-          goalData.activeGoals.forEach(goal => {
-            const progress = goal.progress || 0;
-            const progressClass = goal.progressType === 'vacation_fund_waiting' ? 'savings' : goal.progressType;
-            const cardClass = goal.progressType === 'vacation_fund_waiting' ? 'vacation_fund waiting' : goal.progressType;
-            
-            html += `
-              <div class="goal-tracking-card ${cardClass}" data-goal-id="${goal.goalId}">
-                <div class="goal-tracking-header">
-                  <h4 class="goal-tracking-title">${goal.goalName}</h4>
-                  <span class="goal-tracking-type ${goal.progressType}">${goal.progressType.replace('_', ' ')}</span>
-                </div>
-                
-                <div class="goal-tracking-progress">
-                  <div class="goal-tracking-progress-bar">
-                    <div class="goal-tracking-progress-fill ${progressClass}" style="width: ${progress}%;">
-                      <div class="goal-tracking-progress-text">${progress}%</div>
-                    </div>
-                  </div>
-                </div>
-                
-                <div class="goal-tracking-details">
-                  <div class="goal-tracking-amount">
-                    ${formatGoalAmount(goal, progress)}
-                  </div>
-                  <div class="goal-tracking-progress-percent">${progress}%</div>
-                </div>
-                
-                <div class="goal-tracking-actions">
-                  <button class="goal-tracking-btn primary" onclick="openGoalUpdateModal('${goal.goalId}', '${goal.goalName}', ${goal.currentAmount})">
-                    Update Amount
-                  </button>
-                </div>
-              </div>
-            `;
+          const c = document.getElementById('weekly-goals-container'); c.innerHTML = '';
+          if (!data || !data.higherThanPrevious) return;
+          const list = document.createElement('div'); list.className = 'goals-list simple';
+          [data.higherThanPrevious, data.doublePoints].forEach(g => {
+             list.innerHTML += `<div class="goal-card simple ${g.achieved?'achieved':'pending'}">
+               <div class="goal-header"><h4>${g.description}</h4><span class="goal-status ${g.achieved?'status-achieved':'status-pending'}">${g.achieved?'Achieved':'Pending'}</span></div>
+               <div class="goal-details simple"><span>Cur: ${g.current}</span><span>Target: ${g.target}</span></div>
+             </div>`;
           });
-          
-          html += `</div>`;
-        }
-
-        html += `</div>`;
-        container.innerHTML = html;
+          c.appendChild(list);
       }
 
-      /**
-       * Formats goal amount display based on goal type
-       */
-      function formatGoalAmount(goal, progress) {
-        const formatCurrency = (amount) => `$${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-        
-        switch (goal.progressType) {
-          case 'debt':
-            return `${formatCurrency(goal.currentAmount)} / ${formatCurrency(goal.targetAmount)} remaining`;
-          case 'savings':
-            return `${formatCurrency(goal.currentAmount)} / ${formatCurrency(goal.targetAmount)} saved`;
-          case 'vacation_fund':
-            if (goal.progress && goal.progress.currentAmount !== undefined) {
-              return `${formatCurrency(goal.progress.currentAmount)} / ${formatCurrency(goal.targetAmount)} vacation fund`;
-            }
-            return `${formatCurrency(goal.currentAmount)} / ${formatCurrency(goal.targetAmount)} vacation fund`;
-          case 'vacation_fund_waiting':
-            return `Waiting for linked savings goal to complete`;
-          default:
-            return `${formatCurrency(goal.currentAmount)} / ${formatCurrency(goal.targetAmount)}`;
-        }
+      function loadGoalHistory() {
+         google.script.run.withSuccessHandler(renderGoalHistory).getGoalAchievementHistory();
       }
 
-      /**
-       * Handles goal tracking errors
-       */
-      function handleGoalTrackingError(error) {
-        console.error('Goal tracking error:', error);
-        document.getElementById('goal-tracking-container').innerHTML = `
-          <div class="goal-tracking-error">
-            <div class="error-icon">⚠️</div>
-            <div class="error-title">Failed to Load Goals</div>
-            <div class="error-text">
-              <p>There was an error loading your goals: <strong>${error.message || 'Unknown error'}</strong></p>
-              <p>This might be due to:</p>
-              <ul style="text-align: left; margin: 10px 0;">
-                <li>Missing household setup</li>
-                <li>Goals sheet configuration issue</li>
-                <li>Permission problems</li>
-              </ul>
-            </div>
-            <div class="goal-tracking-actions">
-              <button class="goal-tracking-btn primary" onclick="loadGoalTracking()">Retry</button>
-              <button class="goal-tracking-btn secondary" onclick="checkGoalsDiagnostic()">Run Diagnostic</button>
-            </div>
-          </div>
-        `;
+      function renderGoalHistory(data) {
+         const c = document.getElementById('goal-history-container'); c.innerHTML = '';
+         if(!data || !data.weeklyTotals || !data.weeklyTotals.length) { c.innerHTML='<div class="info-message">No history available.</div>'; return; }
+         const canvas = document.createElement('canvas'); canvas.id='weekly-totals-chart';
+         const cc = document.createElement('div'); cc.className='chart-container'; cc.appendChild(canvas);
+         c.appendChild(cc);
+
+         const labels = data.weeklyTotals.map(w => w.week);
+         const totals = data.weeklyTotals.map(w => w.total);
+         const prevs = data.weeklyTotals.map(w => w.previousTotal);
+
+         if (charts.weeklyTotalsChart) charts.weeklyTotalsChart.destroy();
+         charts.weeklyTotalsChart = new Chart(canvas.getContext('2d'), {
+             type: 'bar',
+             data: {
+               labels: labels,
+               datasets: [
+                 { label: 'Total', data: totals, backgroundColor: COLOR_POSITIVE },
+                 { label: 'Prev Week', data: prevs, type:'line', borderColor: COLOR_PRIMARY }
+               ]
+             },
+             options: { responsive: true, maintainAspectRatio: false }
+         });
       }
 
-      /**
-       * Runs a diagnostic check on goals loading
-       */
-      function checkGoalsDiagnostic() {
-        const container = document.getElementById('goal-tracking-container');
-        container.innerHTML = '<div class="loading">Running diagnostic...</div>';
-        
-        google.script.run
-          .withSuccessHandler(renderGoalsDiagnostic)
-          .withFailureHandler(error => {
-            container.innerHTML = `<div class="error-message">Diagnostic failed: ${error.message}</div>`;
-          })
-          .runGoalsDiagnostic();
+      function loadGoalTracking() {
+        google.script.run.withSuccessHandler(renderGoalTracking).getDetailedGoalData();
       }
 
-      /**
-       * Renders the goals diagnostic results
-       */
-      function renderGoalsDiagnostic(diagnostic) {
-        const container = document.getElementById('goal-tracking-container');
+      function renderGoalTracking(data) {
+        const c = document.getElementById('goal-tracking-container');
+        if(!data || (!data.activeGoals.length && !data.completedGoals.length)) { c.innerHTML = '<div class="info-message">No financial goals found.</div>'; return; }
         
-        let html = `
-          <div class="diagnostic-results">
-            <div class="diagnostic-header">
-              <h4>🔍 Goals Diagnostic Results</h4>
-            </div>
-            <div class="diagnostic-info">
-              <div class="diagnostic-item">
-                <strong>Your Email:</strong> ${diagnostic.userEmail}
-              </div>
-              <div class="diagnostic-item">
-                <strong>Household ID:</strong> ${diagnostic.householdId || 'None found'}
-              </div>
-              <div class="diagnostic-item">
-                <strong>Goals Sheet Exists:</strong> ${diagnostic.goalsSheetExists ? 'Yes' : 'No'}
-              </div>
-              <div class="diagnostic-item">
-                <strong>Goals in Sheet:</strong> ${diagnostic.totalGoalsInSheet}
-              </div>
-              <div class="diagnostic-item">
-                <strong>Goals for Your Household:</strong> ${diagnostic.goalsForHousehold}
-              </div>
-              <div class="diagnostic-item">
-                <strong>Orphaned Goals:</strong> ${diagnostic.orphanedGoals}
-              </div>
-            </div>
-        `;
-        
-        if (diagnostic.issues.length > 0) {
-          html += `
-            <div class="diagnostic-issues">
-              <h5>⚠️ Issues Found:</h5>
-              <ul>
-          `;
-          for (const issue of diagnostic.issues) {
-            html += `<li>${issue}</li>`;
-          }
-          html += `</ul></div>`;
-        }
-        
-        if (diagnostic.recommendations.length > 0) {
-          html += `
-            <div class="diagnostic-recommendations">
-              <h5>💡 Recommendations:</h5>
-              <ul>
-          `;
-          for (const rec of diagnostic.recommendations) {
-            html += `<li>${rec}</li>`;
-          }
-          html += `</ul></div>`;
-        }
-        
-        html += `
-            <div class="diagnostic-actions">
-              <button class="goal-tracking-btn primary" onclick="loadGoalTracking()">Reload Goals</button>
-              <a href="${getScriptUrl()}?view=admin" class="goal-tracking-btn secondary">Go to Admin</a>
-            </div>
-          </div>
-        `;
-        
-        container.innerHTML = html;
+        let html = '<div class="goal-tracking-goals">';
+        data.activeGoals.forEach(g => {
+           const p = g.progress || 0;
+           html += `<div class="goal-tracking-card ${g.progressType}">
+             <div class="goal-tracking-header"><h4 class="goal-tracking-title">${g.goalName}</h4><span class="goal-tracking-type">${g.progressType.replace('_',' ')}</span></div>
+             <div class="goal-tracking-progress"><div class="goal-tracking-progress-bar"><div class="goal-tracking-progress-fill ${g.progressType}" style="width:${p}%"></div></div></div>
+             <div class="goal-tracking-details"><span>$${g.currentAmount} / $${g.targetAmount}</span><span>${p}%</span></div>
+             <div class="goal-tracking-actions"><button class="btn btn-primary btn-sm" onclick="openGoalUpdateModal('${g.goalId}', '${g.goalName}', ${g.currentAmount})">Update</button></div>
+           </div>`;
+        });
+        html += '</div>';
+        c.innerHTML = html;
       }
 
-      // --- Goal Update Modal Functions ---
-
-      let currentGoalId = null;
-
-      /**
-       * Opens the goal update modal
-       */
-      function openGoalUpdateModal(goalId, goalName, currentAmount) {
-        currentGoalId = goalId;
-        document.getElementById('goal-update-modal').querySelector('.goal-update-modal-title').textContent = `Update ${goalName}`;
-        document.getElementById('goal-update-amount').value = currentAmount;
-        document.getElementById('goal-update-modal').classList.add('show');
-      }
-
-      /**
-       * Closes the goal update modal
-       */
-      function closeGoalUpdateModal() {
-        document.getElementById('goal-update-modal').classList.remove('show');
-        currentGoalId = null;
-      }
-
-      /**
-       * Handles goal update form submission
-       */
-      function handleGoalUpdate(event) {
-        event.preventDefault();
-        
-        if (!currentGoalId) return;
-        
-        const newAmount = parseFloat(document.getElementById('goal-update-amount').value);
-        
-        if (isNaN(newAmount) || newAmount < 0) {
-          showNotification('Please enter a valid amount');
-          return;
-        }
-
-        const updates = [{ goalId: currentGoalId, newAmount: newAmount }];
-        
-        google.script.run
-          .withSuccessHandler(handleGoalUpdateSuccess)
-          .withFailureHandler(handleGoalUpdateError)
-          .updateGoalAmounts(updates);
-      }
-
-      /**
-       * Handles successful goal update
-       */
-      function handleGoalUpdateSuccess(result) {
-        closeGoalUpdateModal();
-        
-        if (result.success) {
-          showNotification('Goal updated successfully!');
-          loadGoalTracking(); // Refresh goal tracking display
-        } else {
-          showNotification('Error updating goal: ' + result.message);
-        }
-      }
-
-      /**
-       * Handles goal update error
-       */
-      function handleGoalUpdateError(error) {
-        console.error('Goal update error:', error);
-        showNotification('Error updating goal. Please try again.');
-      }
-
-      // --- Streak Rendering ---
-
-      /**
-       * Renders streak information in the dashboard.
-       * Uses the CURRENT streak settings object passed from getHistoricalData.
-       * Relies on LOWERCASE keys from the settings object for client-side consistency.
-       * @param {Object} streakData - Object containing { buildingStreaks, streaks }.
-       * @param {Object} currentStreakSettings - Current streak settings object (contains both cases).
-       */
       function renderStreaks(streakData, currentStreakSettings) {
-        const container = document.getElementById('streaks-container');
-        if (!container) { console.error("Streaks container not found!"); return; }
-        container.innerHTML = ''; // Clear previous content
-
-        // Validate settings object structure (using lowercase keys expected from utility)
-        if (!currentStreakSettings?.thresholds?.bonus1 || !currentStreakSettings?.bonusPoints?.bonus1) {
-           console.error("Streak settings object is missing expected properties (e.g., thresholds.bonus1). Using safe defaults.");
-           // Define safe defaults if settings are broken
-           currentStreakSettings = {
-               thresholds: { bonus1: 3, bonus2: 7, multiplier: 14 },
-               bonusPoints: { bonus1: 1, bonus2: 2 }
-           };
-        } else {
-           // console.log("Using streak settings for rendering:", currentStreakSettings); // Optional debug log
-        }
-
-        // Extract streaks data, providing defaults if missing
-        const buildingStreaks = streakData?.buildingStreaks || {};
-        const fullStreaks = streakData?.streaks || {};
-        const hasBuildingStreaks = Object.keys(buildingStreaks).length > 0;
-        const hasFullStreaks = Object.keys(fullStreaks).length > 0;
-
-        if (!hasBuildingStreaks && !hasFullStreaks) {
-          container.innerHTML = '<div class="info-message"><p>No active streaks found for this household.</p></div>';
-          return;
-        }
-
-        // Combine all streaks (building and full) into one list for unified rendering
-        const allStreakItems = [];
-        for (const activity in fullStreaks) {
-            allStreakItems.push({ name: activity, days: fullStreaks[activity], type: 'full' });
-        }
-        for (const activity in buildingStreaks) {
-            // Avoid adding building streak if a full one exists for the same activity
-            if (!fullStreaks[activity]) {
-                allStreakItems.push({ name: activity, days: buildingStreaks[activity], type: 'building' });
-            }
-        }
-
-        // Sort combined list primarily by days (descending), then alphabetically for ties
-        allStreakItems.sort((a, b) => {
-            if (b.days !== a.days) {
-                return b.days - a.days;
-            }
-            return a.name.localeCompare(b.name);
-        });
-
-        // Render sorted streaks
-        allStreakItems.forEach(streak => {
-          const card = document.createElement('div');
-          let streakClass = 'streak-card';
-          let emoji = '🔥';
-          let bonusText = '';
-          const days = streak.days;
-
-          // Determine styling and text based on thresholds (using LOWERCASE keys)
-          if (days >= currentStreakSettings.thresholds.multiplier) {
-            streakClass += ' multiplier';
-            emoji = '🔥🔥🔥';
-            bonusText = '2x Points Active!';
-          } else if (days >= currentStreakSettings.thresholds.bonus2) {
-            streakClass += ' bonus2';
-            emoji = '🔥🔥';
-            bonusText = `+${currentStreakSettings.bonusPoints.bonus2} Bonus Pts!`;
-          } else if (days >= currentStreakSettings.thresholds.bonus1) {
-            streakClass += ' bonus1';
-            bonusText = `+${currentStreakSettings.bonusPoints.bonus1} Bonus Pt!`;
-          } else if (streak.type === 'building') {
-            streakClass += ' building'; // Add specific class for building (2 days)
-            emoji = '💪'; // Different emoji for building
-            bonusText = 'Building...';
-          }
-
-          card.className = streakClass;
-          card.innerHTML = `
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-              <div style="display: flex; align-items: center;">
-                <span class="streak-days">${days}</span>
-                <span class="streak-emoji">${emoji}</span>
-              </div>
-              <div class="streak-bonus" style="font-size: 0.9em; color: var(--text-secondary);">${bonusText}</div>
-            </div>
-            <div class="streak-activity" style="font-weight: 500;">${streak.name}</div>
-          `;
-
-          container.appendChild(card);
-        });
+         const c = document.getElementById('streaks-container'); c.innerHTML = '';
+         const full = streakData?.streaks || {};
+         if(!Object.keys(full).length) { c.innerHTML='<div class="info-message">No active streaks.</div>'; return; }
+         for(const act in full) {
+            const days = full[act];
+            c.innerHTML += `<div class="streak-card"><span class="streak-days">${days}</span> ${act} 🔥</div>`;
+         }
       }
 
-
-      // --- Utility Functions ---
-
-      /** Displays an error message within a chart container */
-      function showChartError(canvasId, message) {
-        const canvas = document.getElementById(canvasId);
-        const container = canvas ? canvas.parentElement : document.getElementById(canvasId + '-container');
-        if (!container) { console.error(`Container not found for canvasId: ${canvasId}`); return; }
-        container.innerHTML = `<div class="error-message" style="height: 100%; display: flex; align-items: center; justify-content: center;">${message}</div>`;
-      }
-
-      function hideSkeleton(containerId) {
-          const container = document.getElementById(containerId);
-          if (container) {
-              const skeleton = container.querySelector('.skeleton');
-              if (skeleton) skeleton.style.display = 'none';
-          }
-      }
-
-       /** Displays household info at the top of the dashboard */
-       function displayHouseholdInfo(data) {
-            if (!data || !data.householdId || !data.householdName) { clearHouseholdInfo(); return; }
-            const placeholder = document.getElementById('household-info-placeholder');
-            if (!placeholder) return;
-            // Create or get the info div
-            let householdInfo = document.getElementById('household-info');
-            if (!householdInfo) {
-                householdInfo = document.createElement('div'); householdInfo.id = 'household-info'; householdInfo.className = 'household-info';
-                placeholder.appendChild(householdInfo);
-            }
-            householdInfo.innerHTML = `<div class="household-name"><span class="household-icon">🏠</span> ${data.householdName} (Household View)</div>`;
-            placeholder.style.display = 'block';
-       }
-
-       /** Clears the household information display */
-       function clearHouseholdInfo() {
-           const placeholder = document.getElementById('household-info-placeholder');
-           if (placeholder) { placeholder.innerHTML = ''; placeholder.style.display = 'none'; }
-       }
-
-       /** Displays error if households enabled but user not assigned */
-       function displayNoHouseholdError() {
-           const placeholder = document.getElementById('household-info-placeholder');
-           if (!placeholder) return;
-           placeholder.innerHTML = `
-               <div class="no-household-error">
-                   <span class="error-icon">⚠️</span>
-                   <h3>Household Not Assigned</h3>
-                   <p>Your account is not currently assigned to a household. Please contact an administrator.</p>
-               </div>`;
-           placeholder.style.display = 'block';
-       }
-
-      /** Handles errors during dashboard data loading */
-      function handleDashboardError(error) {
-        console.error('Dashboard loading error:', error);
-        setLoadingState(false); // Ensure loading overlays are hidden
-        showNotification('Error loading dashboard data: ' + (error?.message || 'Unknown error'), true);
-        // Display error messages in relevant sections
-        showChartError('points-chart', 'Failed to load points data.');
-        showChartError('weekly-chart', 'Failed to load weekly data.');
-        showChartError('daily-distribution-chart', 'Failed to load daily distribution data.');
-        showChartError('activity-ratio-chart', 'Failed to load activity ratio data.');
-        showChartError('lifetime-activity-chart', 'Failed to load lifetime activity data.');
-        showChartError('prev-week-activity-chart', 'Failed to load previous week activity data.');
-
-        const streaksContainer = document.getElementById('streaks-container');
-        if (streaksContainer) streaksContainer.innerHTML = '<div class="error-message">Failed to load streak data.</div>';
-        const goalsContainer = document.getElementById('weekly-goals-container');
-        if (goalsContainer) goalsContainer.innerHTML = '<div class="error-message">Failed to load goal status.</div>';
-        const historyContainer = document.getElementById('goal-history-container');
-        if (historyContainer) historyContainer.innerHTML = '<div class="error-message">Failed to load goal history.</div>';
-      }
-
-      /** Shows a notification message */
-      function showNotification(message, isError = false) {
-        const notification = document.getElementById('notification'); if (!notification) return;
-        notification.textContent = message; notification.style.backgroundColor = isError ? 'var(--negative-color)' : '#323232';
-        notification.classList.remove('hidden');
-        if(notification.timer) clearTimeout(notification.timer); // Clear existing timer
-        notification.timer = setTimeout(() => { notification.classList.add('hidden'); }, 3000);
-      }
-
-      /** Sends the daily digest */
-      function sendDailyDigest() {
-         const emailBtn = document.getElementById('email-button'); const mobileEmailBtn = document.getElementById('mobile-email-button');
-         if(emailBtn) { emailBtn.disabled = true; emailBtn.textContent = 'Sending...';}
-         if(mobileEmailBtn) { mobileEmailBtn.disabled = true; mobileEmailBtn.textContent = 'Sending...';}
-         google.script.run
-           .withSuccessHandler(function(result) {
-               if(emailBtn) { emailBtn.disabled = false; emailBtn.textContent = 'Send Daily Digest';}
-               if(mobileEmailBtn) { mobileEmailBtn.disabled = false; mobileEmailBtn.textContent = 'Send Daily Digest';}
-               showNotification(result.message || (result.success ? 'Digest sent.' : 'Failed to send.'), !result.success);
-            })
-           .withFailureHandler(function(error) {
-               if(emailBtn) { emailBtn.disabled = false; emailBtn.textContent = 'Send Daily Digest';}
-               if(mobileEmailBtn) { mobileEmailBtn.disabled = false; mobileEmailBtn.textContent = 'Send Daily Digest';}
-               handleError(error); // Use generic handler
-            })
-           .forceSendDailyDigest(); // In WebApp.gs
-       }
+      // Utils
+      function hideSkeleton(id) { const el = document.getElementById(id); if(el) { const sk = el.querySelector('.skeleton'); if(sk) sk.style.display='none'; } }
+      function handleDashboardError(e) { console.error(e); showNotification(e.message, true); }
+      function showNotification(m, err=false) { const n = document.getElementById('notification'); n.textContent=m; n.classList.remove('hidden'); if(err) n.style.backgroundColor=COLOR_NEGATIVE; setTimeout(()=>n.classList.add('hidden'),3000); }
+      function sendDailyDigest() { google.script.run.withSuccessHandler(()=>showNotification('Sent')).forceSendDailyDigest(); }
+      function openGoalUpdateModal(id, name, val) { currentGoalId=id; document.querySelector('.goal-update-modal-title').textContent=`Update ${name}`; document.getElementById('goal-update-amount').value=val; document.getElementById('goal-update-modal').classList.add('show'); }
+      function closeGoalUpdateModal() { document.getElementById('goal-update-modal').classList.remove('show'); currentGoalId=null; }
+      function handleGoalUpdate(e) { e.preventDefault(); const val = parseFloat(document.getElementById('goal-update-amount').value); google.script.run.withSuccessHandler(()=>{closeGoalUpdateModal(); loadGoalTracking(); showNotification('Updated');}).updateGoalAmounts([{goalId:currentGoalId, newAmount:val}]); }
     </script>
   </body>
 </html>

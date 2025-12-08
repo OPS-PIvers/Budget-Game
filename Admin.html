@@ -4,22 +4,55 @@
   <head>
     <base target="_top">
     <?!= include('Stylesheet'); ?>
+    <style>
+      /* Local overrides for Admin specific tables if needed,
+         though mostly covered by Stylesheet.html now */
+      .col-w-40 { width: 40%; }
+      .col-w-20 { width: 20%; }
+      .col-w-15 { width: 15%; }
+      .col-w-12 { width: 12%; }
+      .col-w-13 { width: 13%; }
+      .col-w-10 { width: 10%; }
+      .col-w-25 { width: 25%; }
+      .col-w-30 { width: 30%; }
+      .col-w-58 { width: 58%; }
+      .col-w-70 { width: 70%; }
+
+      .form-group { margin-bottom: 15px; }
+      .form-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+      .activity-controls, .household-controls { display: flex; gap: 10px; margin-bottom: 15px; }
+      .activity-controls input, .household-controls input { flex-grow: 1; }
+
+      .scrollable-table-lg { max-height: 500px; overflow-y: auto; }
+
+      .table-message-icon { font-size: 2rem; margin-bottom: 10px; display: block; text-align: center; }
+      .table-message-text { display: block; text-align: center; color: var(--text-muted); }
+      .table-empty, .table-loading, .table-error { padding: 40px; text-align: center; }
+
+      .form-gap { display: flex; gap: 10px; }
+
+      .inline-progress-bar { width: 100%; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden; margin-bottom: 2px; }
+      .inline-progress-fill { height: 100%; }
+    </style>
   </head>
   <body>
-    <div class="container">
-      <header>
-        <h1>Budget Game Admin</h1>
-        <div class="return-nav">
+    <header class="app-header">
+      <div class="header-content">
+        <span class="app-title">Budget Game Admin</span>
+        <div class="action-buttons">
           <?!= include('AccountSwitcher'); ?>
-          <a href="<?= getScriptUrl() ?>?view=activity" class="back-btn">Activity Tracker</a>
-          <a href="<?= getScriptUrl() ?>?view=dashboard" class="back-btn">Dashboard</a>
-          <a href="<?= getScriptUrl() ?>?view=expense" class="back-btn">Expense Tracker</a>
+          <a href="<?= getScriptUrl() ?>?view=activity" class="btn btn-secondary">Activity Tracker</a>
+          <a href="<?= getScriptUrl() ?>?view=dashboard" class="btn btn-secondary">Dashboard</a>
+          <a href="<?= getScriptUrl() ?>?view=expense" class="btn btn-secondary">Expense Tracker</a>
         </div>
-      </header>
+      </div>
+    </header>
+
+    <div class="container main-content">
 
       <!-- Activity Configuration -->
-      <div class="admin-section">
-        <h2 class="section-title">Activity Configuration</h2>
+      <div class="card">
+        <h3>Activity Configuration</h3>
         <div class="activity-controls">
           <input type="text" id="search-activities" placeholder="Search activities...">
           <button class="btn btn-secondary" id="add-activity-btn">Add New Activity</button>
@@ -45,8 +78,8 @@
       </div>
 
       <!-- Streak Settings -->
-      <div class="admin-section">
-        <h2 class="section-title">Streak Settings</h2>
+      <div class="card">
+        <h3>Streak Settings</h3>
         <div class="settings-form">
           <div class="form-group"><label for="threshold-bonus1">Days for Bonus 1:</label><input type="number" id="threshold-bonus1" min="2" max="30"></div>
           <div class="form-group"><label for="bonus-points1">Bonus 1 Points:</label><input type="number" id="bonus-points1" min="1" max="10"></div>
@@ -60,11 +93,11 @@
         </div>
       </div>
 
-      <!-- NEW: Category Order Section -->
-      <div class="admin-section">
-        <h2 class="section-title">Category Order</h2>
-        <p class="info-text">Drag and drop categories to change their display order in the Activity Tracker view.</p>
-        <ul id="category-order-list">
+      <!-- Category Order Section -->
+      <div class="card">
+        <h3>Category Order</h3>
+        <p class="info-message">Drag and drop categories to change their display order in the Activity Tracker view.</p>
+        <ul id="category-order-list" style="list-style: none; padding: 0;">
             <!-- Categories will be populated here -->
             <li class="loading">Loading categories...</li>
         </ul>
@@ -73,11 +106,10 @@
           <button class="btn btn-primary" id="save-category-order-btn">Save Order</button>
         </div>
       </div>
-      <!-- END: Category Order Section -->
 
-      <!-- NEW: Category Management Section -->
-      <div class="admin-section">
-        <h2 class="section-title">Category Management</h2>
+      <!-- Category Management Section -->
+      <div class="card">
+        <h3>Category Management</h3>
         <div class="activity-controls">
           <input type="text" id="search-categories" placeholder="Search categories...">
           <button class="btn btn-secondary" id="add-category-btn">Add New Category</button>
@@ -98,11 +130,10 @@
           <button class="btn btn-primary" id="save-categories-btn">Save Categories</button>
         </div>
       </div>
-      <!-- END: Category Management Section -->
       
       <!-- Goal Management Section -->
-      <div class="admin-section">
-        <h2 class="section-title">Goal Management</h2>
+      <div class="card">
+        <h3>Goal Management</h3>
         <div class="activity-controls">
           <input type="text" id="search-goals" placeholder="Search goals...">
           <div class="form-gap">
@@ -138,11 +169,10 @@
           <button class="btn btn-primary" id="save-goals-btn">Save Goals</button>
         </div>
       </div>
-      <!-- END: Goal Management Section -->
 
       <!-- Budget Category Management Section -->
-      <div class="admin-section">
-        <h2 class="section-title">Budget Category Management</h2>
+      <div class="card">
+        <h3>Budget Category Management</h3>
         <div class="activity-controls">
           <input type="text" id="search-budget-categories" placeholder="Search budget categories...">
           <div class="form-gap">
@@ -178,10 +208,10 @@
           <button class="btn btn-primary" id="save-budget-categories-btn">Save Budget Categories</button>
         </div>
       </div>
-      <!-- END: Budget Category Management Section -->
 
-      <div class="admin-section">
-        <h2 class="section-title">Recent Activity Log (Last 7 Days)</h2>
+      <!-- Recent Activity Log -->
+      <div class="card">
+        <h3>Recent Activity Log (Last 7 Days)</h3>
         <div class="activity-controls">
           <button id="load-log-btn" class="btn btn-secondary">Load Log</button>
           <button id="add-log-entry-btn" class="btn btn-primary">Add Manual Entry</button>
@@ -202,9 +232,10 @@
           </table>
         </div>
       </div>
+
       <!-- Household Management -->
-      <div class="admin-section">
-        <h2 class="section-title">Household Management</h2>
+      <div class="card">
+        <h3>Household Management</h3>
         <div class="household-controls">
           <button class="btn btn-primary" id="add-household-btn">Add New Household</button>
           <input type="text" id="search-households" placeholder="Search households...">
@@ -215,7 +246,9 @@
         </div>
       </div>
     </div>
+
     <div id="notification" class="notification hidden"></div>
+
     <!-- Add Entry Modal -->
     <div id="add-entry-modal" class="modal-overlay">
       <div class="modal-content">
@@ -223,15 +256,15 @@
         <form id="entry-form">
           <div class="form-group">
             <label for="entry-date">Date:</label>
-            <input type="date" id="entry-date" required class="form-control">
+            <input type="date" id="entry-date" required>
           </div>
           <div class="form-group">
             <label for="entry-email">Email:</label>
-            <input type="email" id="entry-email" required class="form-control">
+            <input type="email" id="entry-email" required>
           </div>
           <div class="form-group">
             <label for="entry-activity">Activity:</label>
-            <select id="entry-activity" required class="form-control">
+            <select id="entry-activity" required>
               <option value="">Select an activity...</option>
               <!-- Will be populated dynamically -->
             </select>
@@ -251,11 +284,11 @@
         <form id="goal-form">
           <div class="form-group">
             <label for="goal-name">Goal Name:</label>
-            <input type="text" id="goal-name" required class="form-control" placeholder="e.g., Emergency Fund">
+            <input type="text" id="goal-name" required placeholder="e.g., Emergency Fund">
           </div>
           <div class="form-group">
             <label for="goal-type">Goal Type:</label>
-            <select id="goal-type" required class="form-control">
+            <select id="goal-type" required>
               <option value="">Select goal type...</option>
               <option value="debt">Debt Reduction</option>
               <option value="savings">Savings Goal</option>
@@ -264,15 +297,15 @@
           </div>
           <div class="form-group">
             <label for="goal-target">Target Amount:</label>
-            <input type="number" id="goal-target" required class="form-control" min="0" step="0.01" placeholder="0.00">
+            <input type="number" id="goal-target" required min="0" step="0.01" placeholder="0.00">
           </div>
           <div class="form-group">
             <label for="goal-current">Current Amount:</label>
-            <input type="number" id="goal-current" required class="form-control" min="0" step="0.01" placeholder="0.00">
+            <input type="number" id="goal-current" required min="0" step="0.01" placeholder="0.00">
           </div>
           <div class="form-group">
             <label for="goal-target-date">Target Date:</label>
-            <input type="date" id="goal-target-date" class="form-control">
+            <input type="date" id="goal-target-date">
           </div>
           <div class="form-actions">
             <button type="button" id="goal-cancel-btn" class="btn btn-secondary">Cancel</button>
@@ -289,21 +322,21 @@
         <form id="budget-category-form">
           <div class="form-group">
             <label for="budget-category-name">Category Name:</label>
-            <input type="text" id="budget-category-name" required class="form-control" placeholder="e.g., Groceries">
+            <input type="text" id="budget-category-name" required placeholder="e.g., Groceries">
           </div>
           <div class="form-group">
             <label for="budget-monthly-budget">Monthly Budget:</label>
-            <input type="number" id="budget-monthly-budget" required class="form-control" min="0" step="0.01" placeholder="0.00">
+            <input type="number" id="budget-monthly-budget" required min="0" step="0.01" placeholder="0.00">
           </div>
           <div class="form-group">
             <label for="budget-pay-period-budget">Pay Period Budget:</label>
-            <input type="number" id="budget-pay-period-budget" required class="form-control" min="0" step="0.01" placeholder="0.00">
-            <small class="helper-text">Typically half of monthly budget for bi-weekly pay periods</small>
+            <input type="number" id="budget-pay-period-budget" required min="0" step="0.01" placeholder="0.00">
+            <small style="color:var(--text-muted); display:block; margin-top:5px;">Typically half of monthly budget for bi-weekly pay periods</small>
           </div>
           <div class="form-group">
             <label for="budget-current-spent">Current Spent:</label>
-            <input type="number" id="budget-current-spent" class="form-control" min="0" step="0.01" placeholder="0.00" value="0">
-            <small class="helper-text">Leave as 0 for new categories</small>
+            <input type="number" id="budget-current-spent" min="0" step="0.01" placeholder="0.00" value="0">
+            <small style="color:var(--text-muted); display:block; margin-top:5px;">Leave as 0 for new categories</small>
           </div>
           <div class="form-actions">
             <button type="button" id="budget-category-cancel-btn" class="btn btn-secondary">Cancel</button>
@@ -338,6 +371,7 @@
       // Initialize on page load
       document.addEventListener('DOMContentLoaded', function() {
         initializeAdmin();
+        initializeActivityLog();
       });
 
       function initializeAdmin() {
@@ -353,7 +387,7 @@
         document.getElementById('reset-category-order-btn').addEventListener('click', resetCategoryOrder);
         document.getElementById('save-category-order-btn').addEventListener('click', saveCategoryOrder);
         
-        // NEW: Category Management Listeners
+        // Category Management Listeners
         document.getElementById('add-category-btn').addEventListener('click', addNewCategory);
         document.getElementById('reset-categories-btn').addEventListener('click', resetCategories);
         document.getElementById('save-categories-btn').addEventListener('click', saveCategories);
@@ -385,81 +419,38 @@
         google.script.run
           .withSuccessHandler(handleConfigData)
           .withFailureHandler(handleError)
-          .getAdminConfigData(); // Calls the function in WebApp.gs
+          .getAdminConfigData();
 
         // Load goals data
-        console.log('[ADMIN GOALS DEBUG] Calling getGoalsData() from server...');
         google.script.run
           .withSuccessHandler(handleGoalsData)
           .withFailureHandler(function(error) {
-            console.log('[ADMIN GOALS DEBUG] Error loading goals:', error);
-            
-            // Show specific error message for goals loading
             const tbody = document.getElementById('goals-body');
-            tbody.innerHTML = `
-              <tr>
-                <td colspan="7" class="table-error">
-                  <div class="table-message-icon">⚠️ Error loading goals</div>
-                  <div class="table-error-text">
-                    ${error.message || 'Unknown error occurred'}
-                  </div>
-                  <div class="table-retry-wrapper">
-                    <button class="btn btn-primary btn-sm" onclick="location.reload()">Retry</button>
-                  </div>
-                </td>
-              </tr>
-            `;
-            
+            tbody.innerHTML = `<tr><td colspan="7" class="table-error"><div class="table-message-icon">⚠️ Error</div><div class="table-error-text">${error.message || 'Unknown error'}</div></td></tr>`;
             handleError(error);
           })
           .getGoalsData();
 
         // Load budget categories data
-        console.log('[ADMIN BUDGET DEBUG] Calling getExpenseTrackerData() from server...');
         google.script.run
           .withSuccessHandler(handleBudgetCategoriesData)
           .withFailureHandler(function(error) {
-            console.log('[ADMIN BUDGET DEBUG] Error loading budget categories:', error);
-            
-            // Show specific error message for budget categories loading
-            const tbody = document.getElementById('budget-categories-body');
-            tbody.innerHTML = `
-              <tr>
-                <td colspan="7" class="table-error">
-                  <div class="table-message-icon">⚠️ Error loading budget categories</div>
-                  <div class="table-error-text">
-                    ${error.message || 'Unknown error occurred'}
-                  </div>
-                  <div class="table-retry-wrapper">
-                    <button class="btn btn-primary btn-sm" onclick="location.reload()">Retry</button>
-                  </div>
-                </td>
-              </tr>
-            `;
-            
-            handleError(error);
+             const tbody = document.getElementById('budget-categories-body');
+             tbody.innerHTML = `<tr><td colspan="7" class="table-error"><div class="table-message-icon">⚠️ Error</div><div class="table-error-text">${error.message || 'Unknown error'}</div></td></tr>`;
+             handleError(error);
           })
           .getExpenseTrackerData();
 
-        // Load households when the admin page is initialized
-        loadHouseholds(); // Calls the function below
+        // Load households
+        loadHouseholds();
       }
 
-      /**
-       * Processes the config data received from the server for Admin UI
-       * Handles potential inconsistencies in streak settings structure
-       */
       function handleConfigData(data) {
-        console.log("Admin Config Data Received:", data);
-        // Use the ORDERED category list from the server
-        categoriesList = data.categoryOrder || data.categories || []; // Use categoryOrder first
-        originalCategoriesList = JSON.parse(JSON.stringify(categoriesList)); // Store original order
-
+        categoriesList = data.categoryOrder || data.categories || [];
+        originalCategoriesList = JSON.parse(JSON.stringify(categoriesList));
         activitiesData = data.pointsReference || [];
         originalActivitiesData = JSON.parse(JSON.stringify(activitiesData));
 
-        // --- Process Streak Settings (Handle potential case difference) ---
-        // ... (streak settings processing remains the same) ...
         const rawStreakSettings = data.streakSettings || {};
         streakSettings = { thresholds: { bonus1: 0, bonus2: 0, multiplier: 0 }, bonusPoints: { bonus1: 0, bonus2: 0 } };
         streakSettings.thresholds.bonus1 = rawStreakSettings.thresholds?.bonus1 ?? rawStreakSettings.thresholds?.BONUS_1 ?? 3;
@@ -468,1590 +459,242 @@
         streakSettings.bonusPoints.bonus1 = rawStreakSettings.bonusPoints?.bonus1 ?? rawStreakSettings.bonusPoints?.BONUS_1 ?? 1;
         streakSettings.bonusPoints.bonus2 = rawStreakSettings.bonusPoints?.bonus2 ?? rawStreakSettings.bonusPoints?.BONUS_2 ?? 2;
         originalStreakSettings = JSON.parse(JSON.stringify(streakSettings));
-        // console.log("Processed Streak Settings:", streakSettings);
 
-        // Render UI
-        renderActivitiesTable(); // Uses ORDERED categoriesList for dropdowns now
+        renderActivitiesTable();
         populateStreakSettings();
-        renderCategoryOrderList(); // Render the sortable list
-        renderCategoriesTable(); // NEW: Render the categories management table
+        renderCategoryOrderList();
+        renderCategoriesTable();
       }
 
       // --- Category Order Functions ---
-
       function renderCategoryOrderList() {
           const listElement = document.getElementById('category-order-list');
-          listElement.innerHTML = ''; // Clear loading/previous
-
-          if (!categoriesList || categoriesList.length === 0) {
-              listElement.innerHTML = '<li class="info-message">No categories found.</li>';
-              return;
-          }
-
+          listElement.innerHTML = '';
+          if (!categoriesList || categoriesList.length === 0) { listElement.innerHTML = '<li class="info-message">No categories found.</li>'; return; }
           categoriesList.forEach((category, index) => {
-              const listItem = document.createElement('li');
-              listItem.className = 'category-order-item';
-              listItem.setAttribute('draggable', 'true');
-              listItem.dataset.index = index; // Store original index if needed? Or just rely on order
-              listItem.dataset.category = category; // Store category name
-
-              listItem.innerHTML = `
-                  <span class="drag-handle" title="Drag to reorder"></span>
-                  <span class="category-name">${category}</span>
-              `;
-
-              // Add drag-and-drop event listeners
-              listItem.addEventListener('dragstart', handleDragStart);
-              listItem.addEventListener('dragover', handleDragOver);
-              listItem.addEventListener('dragenter', handleDragEnter);
-              listItem.addEventListener('dragleave', handleDragLeave);
-              listItem.addEventListener('drop', handleDrop);
-              listItem.addEventListener('dragend', handleDragEnd);
-
+              const listItem = document.createElement('li'); listItem.className = 'category-order-item';
+              listItem.setAttribute('draggable', 'true'); listItem.dataset.index = index; listItem.dataset.category = category;
+              listItem.innerHTML = `<span class="drag-handle" title="Drag to reorder"></span><span class="category-name">${category}</span>`;
+              listItem.addEventListener('dragstart', handleDragStart); listItem.addEventListener('dragover', handleDragOver);
+              listItem.addEventListener('dragenter', handleDragEnter); listItem.addEventListener('dragleave', handleDragLeave);
+              listItem.addEventListener('drop', handleDrop); listItem.addEventListener('dragend', handleDragEnd);
               listElement.appendChild(listItem);
           });
       }
-
-      function handleDragStart(e) {
-          draggedItem = this;
-          e.dataTransfer.effectAllowed = 'move';
-          e.dataTransfer.setData('text/html', this.innerHTML); // Optional: for visual feedback
-          setTimeout(() => this.classList.add('dragging'), 0); // Make original item semi-transparent
-      }
-
-      function handleDragEnd(e) {
-          this.classList.remove('dragging');
-          // Clean up any remaining drag-over styles
-          document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
-          draggedItem = null;
-      }
-
-      function handleDragOver(e) {
-          e.preventDefault(); // Necessary to allow dropping
-          e.dataTransfer.dropEffect = 'move';
-          return false;
-      }
-
-      function handleDragEnter(e) {
-          e.preventDefault();
-          // Add visual indicator only if dropping onto a different item
-          if (draggedItem && this !== draggedItem) {
-              this.classList.add('drag-over');
-          }
-      }
-
-      function handleDragLeave(e) {
-          this.classList.remove('drag-over');
-      }
-
+      function handleDragStart(e) { draggedItem = this; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/html', this.innerHTML); setTimeout(() => this.classList.add('dragging'), 0); }
+      function handleDragEnd(e) { this.classList.remove('dragging'); document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over')); draggedItem = null; }
+      function handleDragOver(e) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; return false; }
+      function handleDragEnter(e) { e.preventDefault(); if (draggedItem && this !== draggedItem) { this.classList.add('drag-over'); } }
+      function handleDragLeave(e) { this.classList.remove('drag-over'); }
       function handleDrop(e) {
-          e.stopPropagation(); // Prevent event bubbling
-
+          e.stopPropagation();
           if (draggedItem && this !== draggedItem) {
-              // Get the current order from the DOM list items
-              const list = document.getElementById('category-order-list');
-              const items = Array.from(list.children);
-              const draggedIndex = items.indexOf(draggedItem);
-              const targetIndex = items.indexOf(this);
-
-              // Reorder the DOM elements
-              if (draggedIndex < targetIndex) {
-                  list.insertBefore(draggedItem, this.nextSibling);
-              } else {
-                  list.insertBefore(draggedItem, this);
-              }
-
-              // Update the global categoriesList array based on the new DOM order
+              const list = document.getElementById('category-order-list'); const items = Array.from(list.children);
+              const draggedIndex = items.indexOf(draggedItem); const targetIndex = items.indexOf(this);
+              if (draggedIndex < targetIndex) { list.insertBefore(draggedItem, this.nextSibling); } else { list.insertBefore(draggedItem, this); }
               updateCategoriesListFromDOM();
           }
-          this.classList.remove('drag-over'); // Ensure indicator is removed
-          return false;
+          this.classList.remove('drag-over'); return false;
       }
-
       function updateCategoriesListFromDOM() {
-          const listElement = document.getElementById('category-order-list');
-          const items = listElement.querySelectorAll('.category-order-item');
+          const listElement = document.getElementById('category-order-list'); const items = listElement.querySelectorAll('.category-order-item');
           categoriesList = Array.from(items).map(item => item.dataset.category);
-          console.log("Updated categoriesList order:", categoriesList);
-          // After reordering, might need to update activity dropdowns if you allow category changes
-          // For now, just updating the order state.
       }
+      function resetCategoryOrder() { if (confirm("Reset category order back to the last saved state?")) { categoriesList = JSON.parse(JSON.stringify(originalCategoriesList)); renderCategoryOrderList(); showNotification('Category order reset.'); } }
+      function saveCategoryOrder() { toggleSaveButtons(true, 'category'); google.script.run.withSuccessHandler(handleCategoryOrderSaved).withFailureHandler((err) => handleError(err, 'category')).saveCategoryOrder(categoriesList); }
+      function handleCategoryOrderSaved(result) { toggleSaveButtons(false, 'category'); if (result.success) { showNotification(result.message); originalCategoriesList = JSON.parse(JSON.stringify(categoriesList)); } else { showNotification('Error: ' + result.message, true); } }
 
-
-      function resetCategoryOrder() {
-          if (confirm("Reset category order back to the last saved state?")) {
-              categoriesList = JSON.parse(JSON.stringify(originalCategoriesList));
-              renderCategoryOrderList();
-              showNotification('Category order reset.');
-          }
-      }
-
-      function saveCategoryOrder() {
-          // Disable buttons during save
-          toggleSaveButtons(true, 'category');
-
-          console.log("Saving category order:", categoriesList);
-          google.script.run
-              .withSuccessHandler(handleCategoryOrderSaved)
-              .withFailureHandler((err) => handleError(err, 'category'))
-              .saveCategoryOrder(categoriesList); // New server function
-      }
-
-      function handleCategoryOrderSaved(result) {
-          toggleSaveButtons(false, 'category');
-          if (result.success) {
-              showNotification(result.message);
-              // Update original order to reflect the save
-              originalCategoriesList = JSON.parse(JSON.stringify(categoriesList));
-          } else {
-              showNotification('Error: ' + result.message, true);
-              // Optionally reset UI if save failed?
-              // resetCategoryOrder();
-          }
-      }
-
-
-      // --- End Category Order Functions ---
-
+      // --- Activity Functions ---
       function renderActivitiesTable() {
-        const tbody = document.getElementById('activities-body');
-        tbody.innerHTML = ''; // Clear loading/previous
-
-        if (!activitiesData || activitiesData.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="5">No activities found. Add your first activity!</td></tr>';
-          return;
-        }
-
+        const tbody = document.getElementById('activities-body'); tbody.innerHTML = '';
+        if (!activitiesData || activitiesData.length === 0) { tbody.innerHTML = '<tr><td colspan="5">No activities found.</td></tr>'; return; }
         activitiesData.forEach((activity, index) => {
-          const tr = document.createElement('tr');
-          tr.dataset.index = index;
-
-          // Activity name cell
-          const nameCell = document.createElement('td');
-          const nameInput = document.createElement('input');
-          nameInput.type = 'text'; nameInput.value = activity.activity || '';
-          nameInput.dataset.field = 'activity'; nameInput.addEventListener('change', updateActivity);
-          nameCell.appendChild(nameInput);
-
-          // Points cell
-          const pointsCell = document.createElement('td');
-          const pointsInput = document.createElement('input');
-          pointsInput.type = 'number'; pointsInput.value = activity.points ?? 0;
-          pointsInput.dataset.field = 'points'; pointsInput.addEventListener('change', updateActivity);
-          pointsCell.appendChild(pointsInput);
-
-          // Category cell - Dropdown uses the potentially REORDERED categoriesList
-          const categoryCell = document.createElement('td');
-          const categorySelect = document.createElement('select');
-          categorySelect.dataset.field = 'category'; categorySelect.addEventListener('change', updateActivity);
-          // Ensure categoriesList is an array
+          const tr = document.createElement('tr'); tr.dataset.index = index;
+          const nameCell = document.createElement('td'); const nameInput = document.createElement('input'); nameInput.type = 'text'; nameInput.value = activity.activity || ''; nameInput.dataset.field = 'activity'; nameInput.addEventListener('change', updateActivity); nameCell.appendChild(nameInput);
+          const pointsCell = document.createElement('td'); const pointsInput = document.createElement('input'); pointsInput.type = 'number'; pointsInput.value = activity.points ?? 0; pointsInput.dataset.field = 'points'; pointsInput.addEventListener('change', updateActivity); pointsCell.appendChild(pointsInput);
+          const categoryCell = document.createElement('td'); const categorySelect = document.createElement('select'); categorySelect.dataset.field = 'category'; categorySelect.addEventListener('change', updateActivity);
           const currentCategories = Array.isArray(categoriesList) ? categoriesList : [];
-          currentCategories.forEach(category => { // Use the (potentially reordered) global list
-            const option = document.createElement('option');
-            option.value = category; option.textContent = category;
-            option.selected = category === String(activity.category || '');
-            categorySelect.appendChild(option);
-          });
-          // Add current category if it's somehow not in the main list anymore
-          const currentActivityCategory = String(activity.category || '');
-          if (currentActivityCategory && !currentCategories.includes(currentActivityCategory)) {
-              const currentOption = document.createElement('option');
-              currentOption.value = currentActivityCategory;
-              currentOption.textContent = currentActivityCategory + " (current)";
-              currentOption.selected = true;
-              categorySelect.appendChild(currentOption);
-              console.warn(`Activity "${activity.activity}" has category "${currentActivityCategory}" not in current list.`);
-          }
+          currentCategories.forEach(category => { const option = document.createElement('option'); option.value = category; option.textContent = category; option.selected = category === String(activity.category || ''); categorySelect.appendChild(option); });
+          if (activity.category && !currentCategories.includes(activity.category)) { const opt = document.createElement('option'); opt.value = activity.category; opt.textContent = activity.category + " (curr)"; opt.selected = true; categorySelect.appendChild(opt); }
           categoryCell.appendChild(categorySelect);
-
-          // Required cell
-          const requiredCell = document.createElement('td');
-          const requiredCheckbox = document.createElement('input');
-          requiredCheckbox.type = 'checkbox';
-          requiredCheckbox.checked = activity.required === true;
-          requiredCheckbox.dataset.field = 'required';
-          requiredCheckbox.addEventListener('change', updateActivity);
-          requiredCell.appendChild(requiredCheckbox);
-
-          // Action cell
-          const actionCell = document.createElement('td');
-          const deleteBtn = document.createElement('button');
-          deleteBtn.className = 'btn btn-danger btn-sm'; deleteBtn.innerHTML = '×'; deleteBtn.title = 'Delete Activity';
-          deleteBtn.addEventListener('click', deleteActivity);
-          actionCell.appendChild(deleteBtn);
-
+          const requiredCell = document.createElement('td'); const requiredCheckbox = document.createElement('input'); requiredCheckbox.type = 'checkbox'; requiredCheckbox.checked = activity.required === true; requiredCheckbox.dataset.field = 'required'; requiredCheckbox.addEventListener('change', updateActivity); requiredCell.appendChild(requiredCheckbox);
+          const actionCell = document.createElement('td'); const deleteBtn = document.createElement('button'); deleteBtn.className = 'btn btn-danger btn-sm'; deleteBtn.innerHTML = '×'; deleteBtn.addEventListener('click', deleteActivity); actionCell.appendChild(deleteBtn);
           tr.appendChild(nameCell); tr.appendChild(pointsCell); tr.appendChild(categoryCell); tr.appendChild(requiredCell); tr.appendChild(actionCell);
-          applyRowStyling(tr, parseFloat(activity.points || 0));
           tbody.appendChild(tr);
         });
       }
-
-      function applyRowStyling(rowElement, points) {
-          // ... (styling function remains the same) ...
-          if (points > 0) { rowElement.style.backgroundColor = 'rgba(52, 168, 83, 0.05)'; }
-          else if (points < 0) { rowElement.style.backgroundColor = 'rgba(234, 67, 53, 0.05)'; }
-          else { rowElement.style.backgroundColor = ''; }
+      function updateActivity(event) {
+        const inputElement = event.target; const tr = inputElement.closest('tr'); const index = parseInt(tr.dataset.index); const field = inputElement.dataset.field;
+        let value = inputElement.value; if (field === 'points') value = parseFloat(value) || 0; if (field === 'required') value = inputElement.checked;
+        if (activitiesData[index]) { activitiesData[index][field] = value; }
       }
+      function addNewActivity() { activitiesData.push({ activity: 'New Activity', points: 1, category: categoriesList[0] || 'Uncategorized', required: false }); renderActivitiesTable(); }
+      function deleteActivity(event) { const btn = event.target; const index = parseInt(btn.closest('tr').dataset.index); if (confirm(`Delete activity?`)) { activitiesData.splice(index, 1); renderActivitiesTable(); } }
+      function resetActivities() { if (confirm("Reset changes?")) { activitiesData = JSON.parse(JSON.stringify(originalActivitiesData)); renderActivitiesTable(); } }
+      function saveActivities() { toggleSaveButtons(true, 'activities'); google.script.run.withSuccessHandler(handleActivitiesSaved).withFailureHandler((err) => handleError(err, 'activities')).saveActivitiesData(activitiesData); }
+      function handleActivitiesSaved(result) { toggleSaveButtons(false, 'activities'); if (result.success) { showNotification(result.message); originalActivitiesData = JSON.parse(JSON.stringify(activitiesData)); } else { showNotification('Error: ' + result.message, true); } }
 
-
+      // --- Streak Settings ---
       function populateStreakSettings() {
-        // ... (remains the same) ...
         document.getElementById('threshold-bonus1').value = streakSettings.thresholds?.bonus1 ?? '';
         document.getElementById('threshold-bonus2').value = streakSettings.thresholds?.bonus2 ?? '';
         document.getElementById('threshold-multiplier').value = streakSettings.thresholds?.multiplier ?? '';
         document.getElementById('bonus-points1').value = streakSettings.bonusPoints?.bonus1 ?? '';
         document.getElementById('bonus-points2').value = streakSettings.bonusPoints?.bonus2 ?? '';
       }
-
-      function updateActivity(event) {
-        // ... (remains the same) ...
-        const inputElement = event.target;
-        const tr = inputElement.closest('tr'); const index = parseInt(tr.dataset.index); const field = inputElement.dataset.field;
-        let value = inputElement.value;
-        if (isNaN(index) || !field) { console.error("Could not find index or field for updated activity."); return; }
-        if (field === 'points') { value = parseFloat(value) || 0; }
-        if (field === 'required') { value = inputElement.checked; }
-        if (activitiesData[index]) { activitiesData[index][field] = value; if (field === 'points') { applyRowStyling(tr, value); } }
-        else { console.error("Activity data not found for index:", index); }
-      }
-
-      function addNewActivity() {
-        // ... (remains the same) ...
-        const newActivity = { activity: 'New Activity', points: 1, category: categoriesList[0] || 'Uncategorized', required: false };
-        activitiesData.push(newActivity); renderActivitiesTable();
-        const lastRow = document.querySelector('#activities-body tr:last-child');
-        if (lastRow) { const firstInput = lastRow.querySelector('input[type="text"]'); if (firstInput) { firstInput.focus(); firstInput.select(); } lastRow.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
-      }
-
-      function deleteActivity(event) {
-        // ... (remains the same) ...
-         const btn = event.target; const tr = btn.closest('tr'); const index = parseInt(tr.dataset.index);
-         if (isNaN(index)) { console.error("Could not find index for activity deletion."); return; }
-         const activityName = activitiesData[index]?.activity || 'this activity';
-         if (confirm(`Are you sure you want to delete "${activityName}"?`)) { activitiesData.splice(index, 1); renderActivitiesTable(); showNotification(`Deleted activity: "${activityName}"`); }
-      }
-
-      function resetActivities() {
-        // ... (remains the same) ...
-        if (confirm("Reset all activity changes back to the last saved state?")) { activitiesData = JSON.parse(JSON.stringify(originalActivitiesData)); renderActivitiesTable(); showNotification('Activities reset to last saved values'); }
-      }
-
-      function saveActivities() {
-        // ... (validation and call remain the same) ...
-        const invalidActivities = activitiesData.filter(activity => !activity.activity || activity.activity.trim() === '');
-        if (invalidActivities.length > 0) { showNotification('Error: All activities must have a name', true); return; }
-        toggleSaveButtons(true, 'activities');
-        google.script.run.withSuccessHandler(handleActivitiesSaved).withFailureHandler((err) => handleError(err, 'activities')).saveActivitiesData(activitiesData);
-      }
-
-      function handleActivitiesSaved(result) {
-        // ... (remains the same) ...
-        toggleSaveButtons(false, 'activities');
-        if (result.success) { showNotification(result.message); originalActivitiesData = JSON.parse(JSON.stringify(activitiesData)); }
-        else { showNotification('Error: ' + result.message, true); }
-      }
-
-      function resetStreakSettings() {
-        // ... (remains the same) ...
-         if (confirm("Reset streak settings back to the last saved state?")) { streakSettings = JSON.parse(JSON.stringify(originalStreakSettings)); populateStreakSettings(); showNotification('Streak settings reset to last saved values'); }
-      }
-
-      /** Saves updated streak settings - now saves only UPPERCASE */
+      function resetStreakSettings() { if (confirm("Reset streak settings?")) { streakSettings = JSON.parse(JSON.stringify(originalStreakSettings)); populateStreakSettings(); } }
       function saveStreakSettings() {
-        // ... (validation remains the same) ...
-        const newSettings = { thresholds: { bonus1: parseInt(document.getElementById('threshold-bonus1').value) || 0, bonus2: parseInt(document.getElementById('threshold-bonus2').value) || 0, multiplier: parseInt(document.getElementById('threshold-multiplier').value) || 0 }, bonusPoints: { bonus1: parseInt(document.getElementById('bonus-points1').value) || 0, bonus2: parseInt(document.getElementById('bonus-points2').value) || 0 } };
-        if (newSettings.thresholds.bonus1 < 0 || newSettings.thresholds.bonus2 < 0 || newSettings.thresholds.multiplier < 0 || newSettings.bonusPoints.bonus1 < 0 || newSettings.bonusPoints.bonus2 < 0) { showNotification('Error: All streak values must be zero or positive.', true); return; }
-        if (newSettings.thresholds.bonus1 > 0 && newSettings.thresholds.bonus2 > 0 && newSettings.thresholds.bonus1 >= newSettings.thresholds.bonus2) { showNotification('Error: Bonus 1 threshold must be less than Bonus 2 threshold (if both > 0).', true); return; }
-        if (newSettings.thresholds.bonus2 > 0 && newSettings.thresholds.multiplier > 0 && newSettings.thresholds.bonus2 >= newSettings.thresholds.multiplier) { showNotification('Error: Bonus 2 threshold must be less than Multiplier threshold (if both > 0).', true); return; }
-
+        const newSettings = { thresholds: { bonus1: parseInt(document.getElementById('threshold-bonus1').value)||0, bonus2: parseInt(document.getElementById('threshold-bonus2').value)||0, multiplier: parseInt(document.getElementById('threshold-multiplier').value)||0 }, bonusPoints: { bonus1: parseInt(document.getElementById('bonus-points1').value)||0, bonus2: parseInt(document.getElementById('bonus-points2').value)||0 } };
         toggleSaveButtons(true, 'streak');
-        // Prepare settings with only UPPERCASE keys for saving
-        const serverSettings = {
-          thresholds: { BONUS_1: newSettings.thresholds.bonus1, BONUS_2: newSettings.thresholds.bonus2, MULTIPLIER: newSettings.thresholds.multiplier },
-          bonusPoints: { BONUS_1: newSettings.bonusPoints.bonus1, BONUS_2: newSettings.bonusPoints.bonus2 }
-        };
+        const serverSettings = { thresholds: { BONUS_1: newSettings.thresholds.bonus1, BONUS_2: newSettings.thresholds.bonus2, MULTIPLIER: newSettings.thresholds.multiplier }, bonusPoints: { BONUS_1: newSettings.bonusPoints.bonus1, BONUS_2: newSettings.bonusPoints.bonus2 } };
         google.script.run.withSuccessHandler(handleStreakSettingsSaved).withFailureHandler((err) => handleError(err, 'streak')).saveStreakSettings(serverSettings);
       }
+      function handleStreakSettingsSaved(result) { toggleSaveButtons(false, 'streak'); if (result.success) { showNotification(result.message); streakSettings = { thresholds: { bonus1: parseInt(document.getElementById('threshold-bonus1').value)||0, bonus2: parseInt(document.getElementById('threshold-bonus2').value)||0, multiplier: parseInt(document.getElementById('threshold-multiplier').value)||0 }, bonusPoints: { bonus1: parseInt(document.getElementById('bonus-points1').value)||0, bonus2: parseInt(document.getElementById('bonus-points2').value)||0 } }; originalStreakSettings = JSON.parse(JSON.stringify(streakSettings)); } else { showNotification('Error: ' + result.message, true); } }
 
-      function handleStreakSettingsSaved(result) {
-        // ... (remains the same, updates local lowercase state from UI) ...
-        toggleSaveButtons(false, 'streak');
-        if (result.success) {
-          showNotification(result.message);
-          streakSettings = { thresholds: { bonus1: parseInt(document.getElementById('threshold-bonus1').value) || 0, bonus2: parseInt(document.getElementById('threshold-bonus2').value) || 0, multiplier: parseInt(document.getElementById('threshold-multiplier').value) || 0 }, bonusPoints: { bonus1: parseInt(document.getElementById('bonus-points1').value) || 0, bonus2: parseInt(document.getElementById('bonus-points2').value) || 0 } };
-          originalStreakSettings = JSON.parse(JSON.stringify(streakSettings));
-        } else { showNotification('Error: ' + result.message, true); }
-      }
-
-      function filterActivities() {
-        // ... (remains the same) ...
-        const searchTerm = document.getElementById('search-activities').value.toLowerCase();
-        const rows = document.querySelectorAll('#activities-body tr');
-        rows.forEach(row => { const nameInput = row.querySelector('input[type="text"]'); const noDataCell = row.querySelector('td[colspan="4"]'); if (noDataCell) { row.style.display = 'none'; return; } if (!nameInput) return; const activityName = nameInput.value.toLowerCase(); row.style.display = activityName.includes(searchTerm) ? '' : 'none'; });
-      }
-
-      function toggleSaveButtons(disabled, type = 'all') {
-          // ADD 'category' type
-          if (type === 'all' || type === 'activities') {
-            document.getElementById('save-activities-btn').disabled = disabled;
-            document.getElementById('reset-activities-btn').disabled = disabled;
-          }
-          if (type === 'all' || type === 'streak') {
-            document.getElementById('save-streak-btn').disabled = disabled;
-            document.getElementById('reset-streak-btn').disabled = disabled;
-          }
-          if (type === 'all' || type === 'category') { // NEW
-            document.getElementById('save-category-order-btn').disabled = disabled;
-            document.getElementById('reset-category-order-btn').disabled = disabled;
-          }
-          // ... (optional add/delete button disabling) ...
-      }
-
-
-      function showNotification(message, isError = false) {
-        const notification = document.getElementById('notification');
-        notification.textContent = message;
-        notification.style.backgroundColor = isError ? 'var(--negative-color)' : '#323232';
-        notification.classList.remove('hidden');
-
-        // Hide after 3 seconds
-        setTimeout(() => {
-          notification.classList.add('hidden');
-        }, 3000);
-      }
-
-      function handleError(error, buttonType = 'all') {
-        console.error('Error:', error);
-        showNotification('Error: ' + (error.message || 'Unknown server error'), true);
-        toggleSaveButtons(false, buttonType); // Re-enable relevant buttons
-        // Also re-enable household buttons on general error
-        if (document.getElementById('add-household-btn')) {
-            document.getElementById('add-household-btn').disabled = false;
-        }
-      }
-
-      // --- Household Management Functions ---
-
+      // --- Household Management ---
       function loadHouseholds() {
-        const householdList = document.getElementById('household-list');
-        householdList.innerHTML = `
-            <div class="skeleton skeleton-card"></div>
-            <div class="skeleton skeleton-card"></div>
-        `;
-
-        google.script.run
-          .withSuccessHandler(renderHouseholds)
-          .withFailureHandler(function(error) {
-            handleError(error); // Use generic error handler
-            householdList.innerHTML = `<div class="error-message">Failed to load households: ${error.message || 'Unknown error'}</div>`;
-          })
-          .getHouseholdAdminData(); // Calls WebApp.gs function
+        const list = document.getElementById('household-list');
+        google.script.run.withSuccessHandler(renderHouseholds).withFailureHandler(err => { handleError(err); list.innerHTML = `<div class="error-message">Failed: ${err.message}</div>`; }).getHouseholdAdminData();
       }
-
       function renderHouseholds(households) {
-        const householdList = document.getElementById('household-list');
-        householdList.innerHTML = ''; // Clear previous content or loading message
-
-        if (!households || households.length === 0) {
-          householdList.innerHTML = `
-            <div class="empty-state">
-              <p>No households found. Create your first household!</p>
-            </div>
-          `;
-          return;
-        }
-
-        households.forEach(household => {
-          const householdCard = document.createElement('div');
-          householdCard.className = 'household-card';
-          householdCard.dataset.id = household.id; // Store ID on the element
-
-          const membersList = (household.members || []).map(member => `
-            <div class="household-member">
-              <span class="member-email">${member.email || 'N/A'}</span>
-              <span class="member-date">Added: ${member.dateAdded || 'N/A'}</span>
-              <button class="btn btn-danger btn-sm remove-member-btn"
-                      data-email="${member.email || ''}"
-                      data-household="${household.id}"
-                      title="Remove ${member.email || ''}">
-                ×
-              </button>
-            </div>
-          `).join('');
-
-          householdCard.innerHTML = `
-            <div class="household-header">
-              <h3 class="household-name">${household.name}</h3>
-              <div class="household-actions">
-                <button class="btn btn-secondary btn-sm add-user-btn" data-household="${household.id}" data-name="${household.name}">Add User</button>
-                <button class="btn btn-danger btn-sm delete-household-btn" data-household="${household.id}" data-name="${household.name}">Delete Household</button>
-              </div>
-            </div>
-            <div class="household-members">
-              <h4>Members (${(household.members || []).length})</h4>
-              ${membersList || '<p>No members found.</p>'}
-            </div>
-          `;
-
-          householdList.appendChild(householdCard);
-        });
-
-        // Re-attach event listeners after rendering
-        attachHouseholdEventListeners();
-      }
-
-      function attachHouseholdEventListeners() {
-          document.querySelectorAll('.add-user-btn').forEach(btn => {
-            // Remove existing listener before adding new one to prevent duplicates if re-rendering
-            btn.replaceWith(btn.cloneNode(true));
-            document.querySelector(`.add-user-btn[data-household="${btn.dataset.household}"]`).addEventListener('click', function() {
-                const householdId = this.dataset.household;
-                const householdName = this.dataset.name;
-                showAddUserDialog(householdId, householdName);
-            });
-        });
-
-        document.querySelectorAll('.remove-member-btn').forEach(btn => {
-            btn.replaceWith(btn.cloneNode(true));
-            document.querySelector(`.remove-member-btn[data-email="${btn.dataset.email}"][data-household="${btn.dataset.household}"]`).addEventListener('click', function() {
-                const email = this.dataset.email;
-                const householdId = this.dataset.household;
-                removeUserFromHouseholdHandler(householdId, email);
-            });
-        });
-
-        document.querySelectorAll('.delete-household-btn').forEach(btn => {
-             btn.replaceWith(btn.cloneNode(true));
-            document.querySelector(`.delete-household-btn[data-household="${btn.dataset.household}"]`).addEventListener('click', function() {
-                const householdId = this.dataset.household;
-                const householdName = this.dataset.name;
-                deleteHouseholdHandler(householdId, householdName);
-            });
+        const list = document.getElementById('household-list'); list.innerHTML = '';
+        if (!households || households.length === 0) { list.innerHTML = '<div class="info-message">No households found.</div>'; return; }
+        households.forEach(h => {
+          const card = document.createElement('div'); card.className = 'household-card';
+          const membersHtml = (h.members||[]).map(m => `<div class="household-member"><span>${m.email}</span><button class="btn btn-danger btn-sm" onclick="removeUserHandler('${h.id}', '${m.email}')">×</button></div>`).join('');
+          card.innerHTML = `<div class="household-header"><h3>${h.name}</h3><div><button class="btn btn-secondary btn-sm" onclick="addUserHandler('${h.id}', '${h.name}')">Add User</button> <button class="btn btn-danger btn-sm" onclick="deleteHouseholdHandler('${h.id}', '${h.name}')">Delete</button></div></div><div class="household-members">${membersHtml}</div>`;
+          list.appendChild(card);
         });
       }
+      function addHouseholdHandler() { const name = prompt("Name:"); if(!name) return; const email = prompt("Admin Email:"); if(!email) return; google.script.run.withSuccessHandler(() => { showNotification("Household added"); loadHouseholds(); }).addHousehold(name, email); }
+      function addUserHandler(id, name) { const email = prompt(`Add email to ${name}:`); if(!email) return; google.script.run.withSuccessHandler(() => { showNotification("User added"); loadHouseholds(); }).addUserToHousehold(id, email); }
+      function removeUserHandler(id, email) { if(confirm(`Remove ${email}?`)) google.script.run.withSuccessHandler(() => { showNotification("Removed"); loadHouseholds(); }).removeUserFromHousehold(id, email); }
+      function deleteHouseholdHandler(id, name) { if(confirm(`Delete ${name}?`)) google.script.run.withSuccessHandler(() => { showNotification("Deleted"); loadHouseholds(); }).deleteHousehold(id); }
+      function filterHouseholds() { const term = document.getElementById('search-households').value.toLowerCase(); document.querySelectorAll('.household-card').forEach(c => { c.style.display = c.textContent.toLowerCase().includes(term) ? '' : 'none'; }); }
 
-
-      function addHouseholdHandler() {
-        const name = prompt("Enter name for the new household:");
-        if (!name || name.trim() === '') return; // User cancelled or entered empty name
-
-        const email = prompt(`Enter email address for the first member of "${name}":`);
-        if (!email || email.trim() === '') return; // User cancelled or empty
-
-        // Basic email validation
-        if (!validateEmail(email)) {
-          showNotification('Please enter a valid email address', true);
-          return;
-        }
-
-        // Disable add button during operation
-        const addBtn = document.getElementById('add-household-btn');
-        if (addBtn) addBtn.disabled = true;
-
-        google.script.run
-          .withSuccessHandler(function(result) {
-            if (addBtn) addBtn.disabled = false;
-            if (result.success) {
-              showNotification(result.message);
-              loadHouseholds(); // Refresh the list
-            } else {
-              showNotification('Error: ' + result.message, true);
-            }
-          })
-          .withFailureHandler(function(error) {
-            if (addBtn) addBtn.disabled = false;
-            handleError(error); // Use generic handler
-          })
-          .addHousehold(name.trim(), email.trim()); // Calls WebApp.gs function
-      }
-
-      function showAddUserDialog(householdId, householdName) {
-        const email = prompt(`Enter email address to add to "${householdName}":`);
-        if (!email || email.trim() === '') return; // User cancelled or empty
-
-        if (!validateEmail(email)) {
-          showNotification('Please enter a valid email address', true);
-          return;
-        }
-
-        // Optionally disable the specific 'Add User' button during the request?
-        // Or just rely on the general error handling/success refresh.
-
-        google.script.run
-          .withSuccessHandler(function(result) {
-            if (result.success) {
-              showNotification(result.message);
-              loadHouseholds(); // Refresh the list
-            } else {
-              showNotification('Error: ' + result.message, true);
-            }
-          })
-          .withFailureHandler(handleError)
-          .addUserToHousehold(householdId, email.trim()); // Calls WebApp.gs function
-      }
-
-      function removeUserFromHouseholdHandler(householdId, email) {
-        if (!confirm(`Are you sure you want to remove ${email} from this household?`)) {
-          return; // User cancelled
-        }
-
-        // Disable button during removal? Could be complex to target specific button.
-        // Rely on visual refresh for now.
-
-        google.script.run
-          .withSuccessHandler(function(result) {
-            if (result.success) {
-              showNotification(result.message);
-              // Refresh the entire list to ensure counts etc. are correct
-              loadHouseholds();
-            } else {
-              showNotification('Error: ' + result.message, true);
-            }
-          })
-          .withFailureHandler(handleError)
-          .removeUserFromHousehold(householdId, email); // Calls WebApp.gs function
-      }
-
-      function deleteHouseholdHandler(householdId, householdName) {
-        if (!confirm(`Are you sure you want to delete the household "${householdName}"?\n\nThis will remove ALL users from this household and cannot be undone.`)) {
-          return; // User cancelled
-        }
-
-        // Disable button?
-
-        google.script.run
-          .withSuccessHandler(function(result) {
-            if (result.success) {
-              showNotification(result.message);
-              loadHouseholds(); // Refresh the list
-            } else {
-              showNotification('Error: ' + result.message, true);
-            }
-          })
-          .withFailureHandler(handleError)
-          .deleteHousehold(householdId); // Calls WebApp.gs function
-      }
-
-      function filterHouseholds() {
-        const searchTerm = document.getElementById('search-households').value.toLowerCase();
-        const households = document.querySelectorAll('.household-card');
-
-        households.forEach(household => {
-          const nameElement = household.querySelector('.household-name');
-          const memberElements = household.querySelectorAll('.member-email');
-
-          const name = nameElement ? nameElement.textContent.toLowerCase() : '';
-          const members = memberElements ? Array.from(memberElements).map(el => el.textContent.toLowerCase()) : [];
-
-          const nameMatch = name.includes(searchTerm);
-          const memberMatch = members.some(member => member.includes(searchTerm));
-
-          household.style.display = (nameMatch || memberMatch) ? '' : 'none';
-        });
-      }
-
-      function validateEmail(email) {
-          // Simple regex for basic email format check
-          const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-          return re.test(String(email).toLowerCase());
-      }
-
-      // --- Category Management Functions ---
-
+      // --- Category Management ---
       function renderCategoriesTable() {
-        const tbody = document.getElementById('categories-body');
-        tbody.innerHTML = ''; // Clear loading/previous
-
-        if (!categoriesList || categoriesList.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="2">No categories found. Add your first category!</td></tr>';
-          return;
-        }
-
-        categoriesList.forEach((category, index) => {
-          const tr = document.createElement('tr');
-          tr.dataset.index = index;
-
-          // Category name cell
-          const nameCell = document.createElement('td');
-          const nameInput = document.createElement('input');
-          nameInput.type = 'text'; nameInput.value = category || '';
-          nameInput.dataset.field = 'category'; nameInput.addEventListener('change', updateCategory);
-          nameCell.appendChild(nameInput);
-
-          // Action cell
-          const actionCell = document.createElement('td');
-          const deleteBtn = document.createElement('button');
-          deleteBtn.className = 'btn btn-danger btn-sm'; deleteBtn.innerHTML = '×'; deleteBtn.title = 'Delete Category';
-          deleteBtn.addEventListener('click', deleteCategory);
-          actionCell.appendChild(deleteBtn);
-
-          tr.appendChild(nameCell); tr.appendChild(actionCell);
+        const tbody = document.getElementById('categories-body'); tbody.innerHTML = '';
+        if (!categoriesList.length) { tbody.innerHTML = '<tr><td colspan="2">No categories.</td></tr>'; return; }
+        categoriesList.forEach((cat, index) => {
+          const tr = document.createElement('tr'); tr.dataset.index = index;
+          tr.innerHTML = `<td><input type="text" value="${cat}" onchange="categoriesList[${index}]=this.value"></td><td><button class="btn btn-danger btn-sm" onclick="deleteCategory(${index})">×</button></td>`;
           tbody.appendChild(tr);
         });
       }
+      function addNewCategory() { categoriesList.push('New Category'); renderCategoriesTable(); }
+      function deleteCategory(index) { if(confirm("Delete category?")) { categoriesList.splice(index, 1); renderCategoriesTable(); } }
+      function resetCategories() { if(confirm("Reset?")) { categoriesList = JSON.parse(JSON.stringify(originalCategoriesList)); renderCategoriesTable(); } }
+      function saveCategories() { toggleSaveButtons(true, 'category'); google.script.run.withSuccessHandler(handleCategoriesSaved).withFailureHandler(err => handleError(err, 'category')).saveCategoriesData(categoriesList); }
+      function handleCategoriesSaved(res) { toggleSaveButtons(false, 'category'); if(res.success) { showNotification(res.message); originalCategoriesList = JSON.parse(JSON.stringify(categoriesList)); } else showNotification(res.message, true); }
+      function filterCategories() { const term = document.getElementById('search-categories').value.toLowerCase(); document.querySelectorAll('#categories-body tr').forEach(r => r.style.display = r.querySelector('input').value.toLowerCase().includes(term) ? '' : 'none'); }
 
-      function updateCategory(event) {
-        const inputElement = event.target;
-        const tr = inputElement.closest('tr'); const index = parseInt(tr.dataset.index); const field = inputElement.dataset.field;
-        let value = inputElement.value;
-        if (isNaN(index) || !field) { console.error("Could not find index or field for updated category."); return; }
-        if (categoriesList[index]) { categoriesList[index] = value; }
-        else { console.error("Category data not found for index:", index); }
+      // --- Goal Management ---
+      function refreshGoals() { google.script.run.withSuccessHandler(handleGoalsData).getGoalsData(); }
+      function addNewGoal() { document.getElementById('goal-form').reset(); document.getElementById('goal-modal').style.display='flex'; }
+      function closeGoalModal() { document.getElementById('goal-modal').style.display='none'; }
+      function handleGoalSubmit(e) { e.preventDefault();
+        const goal = { goalName: document.getElementById('goal-name').value, goalType: document.getElementById('goal-type').value, targetAmount: parseFloat(document.getElementById('goal-target').value), currentAmount: parseFloat(document.getElementById('goal-current').value), targetDate: document.getElementById('goal-target-date').value, goalId: 'new_'+Date.now(), status: 'active', isNew: true };
+        goalsData.push(goal); renderGoalsTable(); closeGoalModal();
       }
-
-      function addNewCategory() {
-        const newCategory = 'New Category';
-        categoriesList.push(newCategory); renderCategoriesTable();
-        const lastRow = document.querySelector('#categories-body tr:last-child');
-        if (lastRow) { const firstInput = lastRow.querySelector('input[type="text"]'); if (firstInput) { firstInput.focus(); firstInput.select(); } lastRow.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
-      }
-
-      function deleteCategory(event) {
-        const btn = event.target; const tr = btn.closest('tr'); const index = parseInt(tr.dataset.index);
-        if (isNaN(index)) { console.error("Could not find index for category deletion."); return; }
-        const categoryName = categoriesList[index] || 'this category';
-        if (confirm(`Are you sure you want to delete "${categoryName}"?`)) { categoriesList.splice(index, 1); renderCategoriesTable(); showNotification(`Deleted category: "${categoryName}"`); }
-      }
-
-      function resetCategories() {
-        if (confirm("Reset all category changes back to the last saved state?")) { categoriesList = JSON.parse(JSON.stringify(originalCategoriesList)); renderCategoriesTable(); showNotification('Categories reset to last saved values'); }
-      }
-
-      function saveCategories() {
-        const invalidCategories = categoriesList.filter(category => !category || category.trim() === '');
-        if (invalidCategories.length > 0) { showNotification('Error: All categories must have a name', true); return; }
-        toggleSaveButtons(true, 'category');
-        google.script.run.withSuccessHandler(handleCategoriesSaved).withFailureHandler((err) => handleError(err, 'category')).saveCategoriesData(categoriesList);
-      }
-
-      function handleCategoriesSaved(result) {
-        toggleSaveButtons(false, 'category');
-        if (result.success) { showNotification(result.message); originalCategoriesList = JSON.parse(JSON.stringify(categoriesList)); }
-        else { showNotification('Error: ' + result.message, true); }
-      }
-
-      function filterCategories() {
-        const searchTerm = document.getElementById('search-categories').value.toLowerCase();
-        const rows = document.querySelectorAll('#categories-body tr');
-        rows.forEach(row => { const nameInput = row.querySelector('input[type="text"]'); const noDataCell = row.querySelector('td[colspan="2"]'); if (noDataCell) { row.style.display = 'none'; return; } if (!nameInput) return; const categoryName = nameInput.value.toLowerCase(); row.style.display = categoryName.includes(searchTerm) ? '' : 'none'; });
-      }
-      // Activity Log State
-      let activityLogData = [];
-      let expandedRows = new Set(); // Track which date rows are expanded
-      
-      // Add event listeners for Activity Log
-      function initializeActivityLog() {
-        document.getElementById('load-log-btn').addEventListener('click', loadActivityLog);
-        document.getElementById('add-log-entry-btn').addEventListener('click', showAddEntryModal);
-        document.getElementById('entry-cancel-btn').addEventListener('click', hideEntryModal);
-        document.getElementById('entry-form').addEventListener('submit', handleSaveEntry);
-        
-        // Event delegation for dynamically added elements
-        document.getElementById('activity-log-body').addEventListener('click', function(e) {
-          if (e.target.classList.contains('delete-activity-btn')) {
-            handleDeleteActivity(e);
-          } else if (e.target.classList.contains('edit-activity-btn')) {
-            handleEditActivity(e);
-          }
-        });
-      }
-      
-      // Format date for display
-      function formatDisplayDate(dateString) {
-        const date = new Date(dateString + 'T00:00:00');
-        return date.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
-      }
-      
-      // Load the activity log data
-      function loadActivityLog() {
-        const logBody = document.getElementById('activity-log-body');
-        logBody.innerHTML = '<tr><td colspan="4">Loading activity log...</td></tr>';
-        
-        document.getElementById('load-log-btn').disabled = true;
-        
-        google.script.run
-          .withSuccessHandler(handleLogData)
-          .withFailureHandler(function(error) {
-            handleError(error);
-            logBody.innerHTML = `<tr><td colspan="4">Error loading log: ${error.message || 'Unknown error'}</td></tr>`;
-            document.getElementById('load-log-btn').disabled = false;
-          })
-          .getRecentActivityLog();
-      }
-      
-      // Handle log data returned from server
-      function handleLogData(result) {
-        document.getElementById('load-log-btn').disabled = false;
-        
-        if (result.success) {
-          activityLogData = result.log || [];
-          renderActivityLogTable();
-        } else {
-          showNotification('Error: ' + (result.message || 'Failed to load activity log'), true);
-          document.getElementById('activity-log-body').innerHTML = 
-            `<tr><td colspan="4">Error: ${result.message || 'Failed to load activity log'}</td></tr>`;
-        }
-      }
-      
-      // Render the activity log table grouped by date
-      function renderActivityLogTable() {
-        const logBody = document.getElementById('activity-log-body');
-        logBody.innerHTML = '';
-        
-        if (!activityLogData || activityLogData.length === 0) {
-          logBody.innerHTML = '<tr><td colspan="4">No recent activity found in the last 7 days</td></tr>';
-          return;
-        }
-        
-        // Group by date
-        const groupedByDate = {};
-        activityLogData.forEach(entry => {
-          if (!groupedByDate[entry.date]) {
-            groupedByDate[entry.date] = [];
-          }
-          groupedByDate[entry.date].push(entry);
-        });
-        
-        // Sort dates newest first
-        const sortedDates = Object.keys(groupedByDate).sort((a, b) => b.localeCompare(a));
-        
-        sortedDates.forEach(date => {
-          const entries = groupedByDate[date];
-          
-          // Create a row for each date
-          entries.forEach((entry) => {
-            // For each user/date row
-            const dateRow = document.createElement('tr');
-            dateRow.className = 'date-row';
-            dateRow.dataset.date = date;
-            dateRow.dataset.email = entry.email;
-            
-            // Get the individual activities
-            const activities = entry.activities || [];
-            
-            // Date cell
-            const dateCell = document.createElement('td');
-            dateCell.textContent = formatDisplayDate(date);
-            
-            // Email cell
-            const emailCell = document.createElement('td');
-            emailCell.textContent = entry.email;
-            
-            // Activities cell - create a list of individual activities
-            const activitiesCell = document.createElement('td');
-            
-            if (activities.length > 0) {
-              const activitiesList = document.createElement('ul');
-              activitiesList.style.paddingLeft = '20px';
-              activitiesList.style.margin = '0';
-              
-              activities.forEach(activity => {
-                const activityItem = document.createElement('li');
-                activityItem.style.margin = '5px 0';
-                activityItem.style.display = 'flex';
-                activityItem.style.justifyContent = 'space-between';
-                activityItem.style.alignItems = 'center';
-                
-                // Create activity text with symbol and points
-                const activityText = document.createElement('span');
-                activityText.innerHTML = `${activity.symbol} ${activity.name} (${activity.points >= 0 ? '+' : ''}${activity.points})`;
-                if (activity.streakInfo) {
-                  activityText.innerHTML += ` ${activity.streakInfo}`;
-                }
-                activityItem.appendChild(activityText);
-                
-                // Create activity actions
-                const activityActions = document.createElement('span');
-                activityActions.style.display = 'flex';
-                activityActions.style.gap = '5px';
-                
-                // Edit button for this activity
-                const editBtn = document.createElement('button');
-                editBtn.className = 'btn btn-secondary btn-sm edit-activity-btn';
-                editBtn.innerHTML = '✎';
-                editBtn.title = 'Edit Activity';
-                editBtn.dataset.rowIndex = entry.rowIndex;
-                editBtn.dataset.activityId = activity.id;
-                editBtn.dataset.date = date;
-                editBtn.dataset.email = entry.email;
-                editBtn.dataset.activityName = activity.name;
-                activityActions.appendChild(editBtn);
-                
-                // Delete button for this activity
-                const deleteBtn = document.createElement('button');
-                deleteBtn.className = 'btn btn-danger btn-sm delete-activity-btn';
-                deleteBtn.innerHTML = '×';
-                deleteBtn.title = 'Delete Activity';
-                deleteBtn.dataset.rowIndex = entry.rowIndex;
-                deleteBtn.dataset.activityId = activity.id;
-                deleteBtn.dataset.date = date;
-                deleteBtn.dataset.email = entry.email;
-                deleteBtn.dataset.activityName = activity.name;
-                activityActions.appendChild(deleteBtn);
-                
-                activityItem.appendChild(activityActions);
-                activitiesList.appendChild(activityItem);
-              });
-              
-              activitiesCell.appendChild(activitiesList);
-            } else {
-              activitiesCell.textContent = 'No activities found';
-            }
-            
-            // Actions cell for the whole row
-            const actionsCell = document.createElement('td');
-            
-            // Add Activity button for this date/email
-            const addBtn = document.createElement('button');
-            addBtn.className = 'btn btn-primary btn-sm';
-            addBtn.innerHTML = '+';
-            addBtn.title = 'Add Activity';
-            addBtn.dataset.date = date;
-            addBtn.dataset.email = entry.email;
-            addBtn.addEventListener('click', function() {
-              showAddEntryModal(date, entry.email);
-            });
-            actionsCell.appendChild(addBtn);
-            
-            // Assemble the row
-            dateRow.appendChild(dateCell);
-            dateRow.appendChild(emailCell);
-            dateRow.appendChild(activitiesCell);
-            dateRow.appendChild(actionsCell);
-            
-            // Add to table
-            logBody.appendChild(dateRow);
-          });
-        });
-      }
-      
-      // Show the add entry modal
-      function showAddEntryModal(date, email) {
-        document.getElementById('entry-modal-title').textContent = 'Add Manual Entry';
-        
-        // Set date and email if provided (for adding to existing date/user)
-        if (date) {
-          document.getElementById('entry-date').value = date;
-          document.getElementById('entry-date').disabled = true; // Lock the date
-        } else {
-          // Set today's date as default
-          const today = new Date();
-          const formattedDate = today.toISOString().split('T')[0]; // YYYY-MM-DD
-          document.getElementById('entry-date').value = formattedDate;
-          document.getElementById('entry-date').disabled = false;
-        }
-        
-        if (email) {
-          document.getElementById('entry-email').value = email;
-          document.getElementById('entry-email').disabled = true; // Lock the email
-        } else {
-          document.getElementById('entry-email').value = '';
-          document.getElementById('entry-email').disabled = false;
-        }
-        
-        // Populate activity dropdown
-        populateActivityDropdown();
-        document.getElementById('entry-activity').value = ''; // Clear selection
-        
-        // Show the modal
-        document.getElementById('add-entry-modal').style.display = 'block';
-      }
-      
-      // Handle editing an activity
-      function handleEditActivity(event) {
-        const button = event.target;
-        const activityId = button.dataset.activityId;
-        const rowIndex = parseInt(button.dataset.rowIndex);
-        const date = button.dataset.date;
-        const email = button.dataset.email;
-        const activityName = button.dataset.activityName;
-        
-        // Set modal title for edit
-        document.getElementById('entry-modal-title').textContent = 'Edit Activity';
-        
-        // Set form values
-        document.getElementById('entry-date').value = date;
-        document.getElementById('entry-date').disabled = true; // Lock the date
-        
-        document.getElementById('entry-email').value = email;
-        document.getElementById('entry-email').disabled = true; // Lock the email
-        
-        // Store edit data for submission
-        document.getElementById('entry-form').dataset.isEdit = 'true';
-        document.getElementById('entry-form').dataset.activityId = activityId;
-        document.getElementById('entry-form').dataset.rowIndex = rowIndex;
-        
-        // Populate activity dropdown and select current activity
-        populateActivityDropdown();
-        document.getElementById('entry-activity').value = activityName;
-        
-        // Show the modal
-        document.getElementById('add-entry-modal').style.display = 'block';
-      }
-      
-      // Handle deleting an activity
-      function handleDeleteActivity(event) {
-        const button = event.target;
-        const activityId = button.dataset.activityId;
-        const rowIndex = parseInt(button.dataset.rowIndex);
-        const date = button.dataset.date;
-        const email = button.dataset.email;
-        const activityName = button.dataset.activityName;
-        
-        if (confirm(`Are you sure you want to delete "${activityName}" for ${email} on ${formatDisplayDate(date)}?`)) {
-          // Disable button during deletion
-          button.disabled = true;
-          
-          google.script.run
-            .withSuccessHandler(function(result) {
-              if (result.success) {
-                showNotification(result.message);
-                loadActivityLog(); // Refresh the log
-              } else {
-                showNotification('Error: ' + (result.message || 'Failed to delete activity'), true);
-                button.disabled = false;
-              }
-            })
-            .withFailureHandler(function(error) {
-              handleError(error);
-              button.disabled = false;
-            })
-            .deleteIndividualActivityEntry(rowIndex, activityId, date, email);
-        }
-      }
-      
-      // Hide the entry modal
-      function hideEntryModal() {
-        document.getElementById('add-entry-modal').style.display = 'none';
-        // Reset the edit state
-        document.getElementById('entry-form').dataset.isEdit = 'false';
-        document.getElementById('entry-form').dataset.activityId = '';
-        document.getElementById('entry-form').dataset.rowIndex = '';
-        // Re-enable inputs that might have been disabled
-        document.getElementById('entry-date').disabled = false;
-        document.getElementById('entry-email').disabled = false;
-      }
-      
-      // Populate activity dropdown from activitiesData
-      function populateActivityDropdown() {
-        const select = document.getElementById('entry-activity');
-        select.innerHTML = '<option value="">Select an activity...</option>';
-        
-        if (!activitiesData || activitiesData.length === 0) {
-          select.innerHTML += '<option disabled>No activities found</option>';
-          return;
-        }
-        
-        // Sort activities by category and then by name
-        const sortedActivities = [...activitiesData].sort((a, b) => {
-          if (a.category === b.category) {
-            return a.activity.localeCompare(b.activity);
-          }
-          return a.category.localeCompare(b.category);
-        });
-        
-        let currentCategory = null;
-        let optgroup = null;
-        
-        sortedActivities.forEach(activity => {
-          // If we're on a new category, create an optgroup
-          if (activity.category !== currentCategory) {
-            currentCategory = activity.category;
-            optgroup = document.createElement('optgroup');
-            optgroup.label = currentCategory;
-            select.appendChild(optgroup);
-          }
-          
-          const option = document.createElement('option');
-          option.value = activity.activity;
-          const pointsSign = activity.points >= 0 ? '+' : '';
-          option.textContent = `${activity.activity} (${pointsSign}${activity.points})`;
-          optgroup.appendChild(option);
-        });
-      }
-      
-      // Handle form submission
-      function handleSaveEntry(event) {
-        event.preventDefault();
-        
-        const dateInput = document.getElementById('entry-date');
-        const emailInput = document.getElementById('entry-email');
-        const activityInput = document.getElementById('entry-activity');
-        
-        // Validate inputs
-        if (!dateInput.value || !emailInput.value || !activityInput.value) {
-          showNotification('Please fill in all fields', true);
-          return;
-        }
-        
-        // Disable buttons during save operation
-        document.getElementById('entry-save-btn').disabled = true;
-        document.getElementById('entry-cancel-btn').disabled = true;
-        
-        const isEdit = document.getElementById('entry-form').dataset.isEdit === 'true';
-        
-        if (isEdit) {
-          // Handle edit case - calls the server to edit the activity
-          const activityId = document.getElementById('entry-form').dataset.activityId;
-          const rowIndex = parseInt(document.getElementById('entry-form').dataset.rowIndex);
-          
-          google.script.run
-            .withSuccessHandler(function(result) {
-              document.getElementById('entry-save-btn').disabled = false;
-              document.getElementById('entry-cancel-btn').disabled = false;
-              
-              if (result.success) {
-                showNotification(result.message);
-                hideEntryModal();
-                loadActivityLog(); // Refresh the log
-              } else {
-                showNotification('Error: ' + (result.message || 'Failed to edit activity'), true);
-              }
-            })
-            .withFailureHandler(function(error) {
-              handleError(error);
-              document.getElementById('entry-save-btn').disabled = false;
-              document.getElementById('entry-cancel-btn').disabled = false;
-            })
-            .editActivityEntry(rowIndex, activityId, dateInput.value, emailInput.value, activityInput.value);
-        } else {
-          // Handle add case - calls the server to add a new activity
-          google.script.run
-            .withSuccessHandler(function(result) {
-              document.getElementById('entry-save-btn').disabled = false;
-              document.getElementById('entry-cancel-btn').disabled = false;
-              
-              if (result.success) {
-                showNotification(result.message);
-                hideEntryModal();
-                loadActivityLog(); // Refresh the log
-              } else {
-                showNotification('Error: ' + (result.message || 'Failed to add activity'), true);
-              }
-            })
-            .withFailureHandler(function(error) {
-              handleError(error);
-              document.getElementById('entry-save-btn').disabled = false;
-              document.getElementById('entry-cancel-btn').disabled = false;
-            })
-            .addActivityEntry(dateInput.value, emailInput.value, activityInput.value);
-        }
-      }
-      
-      // --- Goal Management Functions ---
-      
-      function refreshGoals() {
-        console.log('[ADMIN GOALS DEBUG] Manual refresh goals triggered');
-        
-        // Show loading state
-        const tbody = document.getElementById('goals-body');
-        tbody.innerHTML = `
-          <tr>
-            <td colspan="7" class="table-loading">
-              <div class="table-message-icon">🔄 Refreshing goals...</div>
-              <div class="table-message-text">Fetching latest goal data</div>
-            </td>
-          </tr>
-        `;
-        
-        // Reload goals data
-        google.script.run
-          .withSuccessHandler(function(goals) {
-            console.log('[ADMIN GOALS DEBUG] Manual refresh completed:', goals);
-            handleGoalsData(goals);
-            showNotification('Goals refreshed successfully');
-          })
-          .withFailureHandler(function(error) {
-            console.log('[ADMIN GOALS DEBUG] Manual refresh failed:', error);
-            tbody.innerHTML = `
-              <tr>
-                <td colspan="7" class="table-error">
-                  <div class="table-message-icon">⚠️ Refresh failed</div>
-                  <div class="table-error-text">
-                    ${error.message || 'Unknown error occurred'}
-                  </div>
-                  <div class="table-retry-wrapper">
-                    <button class="btn btn-primary btn-sm" onclick="refreshGoals()">Try Again</button>
-                  </div>
-                </td>
-              </tr>
-            `;
-            handleError(error);
-          })
-          .getGoalsData();
-      }
-      
-      function addNewGoal() {
-        document.getElementById('goal-modal-title').textContent = 'Add New Goal';
-        document.getElementById('goal-form').reset();
-        document.getElementById('goal-modal').style.display = 'block';
-      }
-      
-      function closeGoalModal() {
-        document.getElementById('goal-modal').style.display = 'none';
-      }
-      
-      function handleGoalSubmit(event) {
-        event.preventDefault();
-        const formData = new FormData(event.target);
-        const goalData = {
-          goalName: document.getElementById('goal-name').value,
-          goalType: document.getElementById('goal-type').value,
-          targetAmount: parseFloat(document.getElementById('goal-target').value),
-          currentAmount: parseFloat(document.getElementById('goal-current').value),
-          targetDate: document.getElementById('goal-target-date').value || null
-        };
-        
-        // Add to goals data array
-        goalsData.push({
-          ...goalData,
-          goalId: 'new_' + Date.now(),
-          status: 'active',
-          isNew: true
-        });
-        
-        renderGoalsTable();
-        closeGoalModal();
-        showNotification('Goal added successfully');
-      }
-      
       function renderGoalsTable() {
-        console.log('[ADMIN GOALS DEBUG] renderGoalsTable called');
-        console.log('[ADMIN GOALS DEBUG] goalsData length:', goalsData.length);
-        console.log('[ADMIN GOALS DEBUG] goalsData contents:', goalsData);
-        
         const tbody = document.getElementById('goals-body');
-        
-        if (goalsData.length === 0) {
-          console.log('[ADMIN GOALS DEBUG] No goals found, showing "No goals configured" message');
-          tbody.innerHTML = `
-            <tr>
-              <td colspan="7" class="table-empty">
-                <div class="table-message-icon">📋 No goals configured</div>
-                <div class="table-message-text">
-                  Click "Add New Goal" above to create your first goal
-                </div>
-              </td>
-            </tr>
-          `;
-          return;
-        }
-        
-        console.log('[ADMIN GOALS DEBUG] Rendering', goalsData.length, 'goals');
-        
-        tbody.innerHTML = goalsData.map(goal => {
-          const progress = calculateProgress(goal);
-          const progressBar = `
-            <div class="inline-progress-bar">
-              <div class="inline-progress-fill" style="background: ${getProgressColor(goal.goalType, progress)}; width: ${progress}%;"></div>
-            </div>
-            <small>${progress}%</small>
-          `;
-          
-          return `
-            <tr data-goal-id="${goal.goalId}">
-              <td><input type="text" value="${goal.goalName}" onchange="updateGoalField('${goal.goalId}', 'goalName', this.value)"></td>
-              <td>
-                <select onchange="updateGoalField('${goal.goalId}', 'goalType', this.value)">
-                  <option value="debt" ${goal.goalType === 'debt' ? 'selected' : ''}>Debt</option>
-                  <option value="savings" ${goal.goalType === 'savings' ? 'selected' : ''}>Savings</option>
-                  <option value="vacation_fund" ${goal.goalType === 'vacation_fund' ? 'selected' : ''}>Vacation Fund</option>
-                </select>
-              </td>
-              <td><input type="number" value="${goal.targetAmount}" step="0.01" onchange="updateGoalField('${goal.goalId}', 'targetAmount', parseFloat(this.value))"></td>
-              <td><input type="number" value="${goal.currentAmount}" step="0.01" onchange="updateGoalField('${goal.goalId}', 'currentAmount', parseFloat(this.value))"></td>
-              <td class="text-center">${progressBar}</td>
-              <td>
-                <select onchange="updateGoalField('${goal.goalId}', 'status', this.value)">
-                  <option value="active" ${goal.status === 'active' ? 'selected' : ''}>Active</option>
-                  <option value="completed" ${goal.status === 'completed' ? 'selected' : ''}>Completed</option>
-                  <option value="paused" ${goal.status === 'paused' ? 'selected' : ''}>Paused</option>
-                  <option value="cancelled" ${goal.status === 'cancelled' ? 'selected' : ''}>Cancelled</option>
-                </select>
-              </td>
-              <td>
-                <button class="btn btn-danger btn-sm" onclick="deleteGoal('${goal.goalId}')">Delete</button>
-              </td>
-            </tr>
-          `;
+        if(!goalsData.length) { tbody.innerHTML = '<tr><td colspan="7" class="table-empty">No goals.</td></tr>'; return; }
+        tbody.innerHTML = goalsData.map(g => {
+            const progress = g.targetAmount > 0 ? (g.goalType==='debt' ? (g.targetAmount-g.currentAmount)/g.targetAmount : g.currentAmount/g.targetAmount)*100 : 0;
+            const capped = Math.min(100, Math.max(0, Math.round(progress)));
+            return `<tr data-id="${g.goalId}">
+              <td><input type="text" value="${g.goalName}" onchange="updateGoal('${g.goalId}','goalName',this.value)"></td>
+              <td><select onchange="updateGoal('${g.goalId}','goalType',this.value)"><option value="debt" ${g.goalType==='debt'?'selected':''}>Debt</option><option value="savings" ${g.goalType==='savings'?'selected':''}>Savings</option><option value="vacation_fund" ${g.goalType==='vacation_fund'?'selected':''}>Vacation</option></select></td>
+              <td><input type="number" value="${g.targetAmount}" step="0.01" onchange="updateGoal('${g.goalId}','targetAmount',parseFloat(this.value))"></td>
+              <td><input type="number" value="${g.currentAmount}" step="0.01" onchange="updateGoal('${g.goalId}','currentAmount',parseFloat(this.value))"></td>
+              <td><div class="inline-progress-bar"><div class="inline-progress-fill" style="width:${capped}%; background:var(--grad-lume);"></div></div><small>${capped}%</small></td>
+              <td><select onchange="updateGoal('${g.goalId}','status',this.value)"><option value="active" ${g.status==='active'?'selected':''}>Active</option><option value="completed" ${g.status==='completed'?'selected':''}>Completed</option></select></td>
+              <td><button class="btn btn-danger btn-sm" onclick="deleteGoal('${g.goalId}')">×</button></td>
+            </tr>`;
         }).join('');
       }
-      
-      function updateGoalField(goalId, field, value) {
-        const goal = goalsData.find(g => g.goalId === goalId);
-        if (goal) {
-          goal[field] = value;
-          goal.isModified = true;
-          // Re-render to update progress if amounts changed
-          if (field === 'targetAmount' || field === 'currentAmount') {
-            renderGoalsTable();
-          }
-        }
-      }
-      
-      function deleteGoal(goalId) {
-        if (confirm('Are you sure you want to delete this goal?')) {
-          goalsData = goalsData.filter(g => g.goalId !== goalId);
-          renderGoalsTable();
-        }
-      }
-      
-      function calculateProgress(goal) {
-        if (!goal.targetAmount || goal.targetAmount <= 0) return 0;
-        
-        switch (goal.goalType) {
-          case 'debt':
-            const debtProgress = ((goal.targetAmount - goal.currentAmount) / goal.targetAmount) * 100;
-            return Math.max(0, Math.min(100, Math.round(debtProgress)));
-          case 'savings':
-          case 'vacation_fund':
-            const savingsProgress = (goal.currentAmount / goal.targetAmount) * 100;
-            return Math.max(0, Math.min(100, Math.round(savingsProgress)));
-          default:
-            return 0;
-        }
-      }
-      
-      function getProgressColor(goalType, progress) {
-        if (progress >= 100) return '#34A853'; // Green for completed
-        if (progress >= 75) return '#FBBC05'; // Yellow for near completion
-        if (goalType === 'debt') return '#EA4335'; // Red for debt
-        return '#4285F4'; // Blue for savings/vacation
-      }
-      
-      function filterGoals() {
-        const searchTerm = document.getElementById('search-goals').value.toLowerCase();
-        const rows = document.querySelectorAll('#goals-body tr');
-        
-        rows.forEach(row => {
-          const goalName = row.cells[0]?.textContent.toLowerCase() || '';
-          const goalType = row.cells[1]?.textContent.toLowerCase() || '';
-          const visible = goalName.includes(searchTerm) || goalType.includes(searchTerm);
-          row.style.display = visible ? '' : 'none';
-        });
-      }
-      
-      function resetGoals() {
-        goalsData = [...originalGoalsData];
-        renderGoalsTable();
-        showNotification('Goals reset to original values');
-      }
-      
+      function updateGoal(id, f, v) { const g = goalsData.find(x => x.goalId===id); if(g) { g[f]=v; g.isModified=true; if(f==='targetAmount'||f==='currentAmount') renderGoalsTable(); } }
+      function deleteGoal(id) { if(confirm("Delete?")) { goalsData = goalsData.filter(x => x.goalId!==id); renderGoalsTable(); } }
+      function resetGoals() { goalsData = JSON.parse(JSON.stringify(originalGoalsData)); renderGoalsTable(); }
       function saveGoals() {
-        const modifiedGoals = goalsData.filter(g => g.isModified || g.isNew);
-        const deletedGoals = originalGoalsData.filter(og => !goalsData.find(g => g.goalId === og.goalId));
-        
-        if (modifiedGoals.length === 0 && deletedGoals.length === 0) {
-          showNotification('No changes to save');
-          return;
-        }
-        
-        showNotification('Saving goals...');
-        
-        google.script.run
-          .withSuccessHandler(handleGoalsSaved)
-          .withFailureHandler(handleError)
-          .saveGoalsData(modifiedGoals, deletedGoals);
+        const modified = goalsData.filter(g => g.isModified || g.isNew);
+        const deleted = originalGoalsData.filter(og => !goalsData.find(g => g.goalId === og.goalId));
+        google.script.run.withSuccessHandler(() => { showNotification("Saved"); refreshGoals(); }).saveGoalsData(modified, deleted);
       }
-      
-      function handleGoalsSaved(result) {
-        if (result.success) {
-          showNotification('Goals saved successfully');
-          // Refresh goals data immediately after saving
-          console.log('[ADMIN GOALS DEBUG] Reloading goals after successful save...');
-          google.script.run
-            .withSuccessHandler(function(goals) {
-              console.log('[ADMIN GOALS DEBUG] Reloaded goals after save:', goals);
-              handleGoalsData(goals);
-            })
-            .withFailureHandler(function(error) {
-              console.log('[ADMIN GOALS DEBUG] Error reloading goals after save:', error);
-              handleError(error);
-            })
-            .getGoalsData();
-        } else {
-          showNotification('Error saving goals: ' + result.message);
-        }
-      }
-      
-      function handleGoalsData(goals) {
-        console.log('[ADMIN GOALS DEBUG] handleGoalsData called with:', goals);
-        console.log('[ADMIN GOALS DEBUG] Type of goals parameter:', typeof goals);
-        console.log('[ADMIN GOALS DEBUG] Is goals array?', Array.isArray(goals));
-        
-        if (goals) {
-          console.log('[ADMIN GOALS DEBUG] Goals length:', goals.length);
-          if (goals.length > 0) {
-            console.log('[ADMIN GOALS DEBUG] First goal structure:', goals[0]);
-          }
-        }
-        
-        // Convert date strings back to Date objects if needed and ensure proper data structure
-        let processedGoals = [];
-        if (Array.isArray(goals)) {
-          processedGoals = goals.map(goal => {
-            if (typeof goal === 'object' && goal !== null) {
-              const processedGoal = {...goal};
-              
-              // Convert ISO date strings back to Date objects for local processing if needed
-              if (processedGoal.startDate && typeof processedGoal.startDate === 'string') {
-                try {
-                  processedGoal.startDate = new Date(processedGoal.startDate);
-                } catch (e) {
-                  console.warn('[ADMIN GOALS DEBUG] Could not parse startDate:', processedGoal.startDate);
-                }
-              }
-              
-              if (processedGoal.targetDate && typeof processedGoal.targetDate === 'string') {
-                try {
-                  processedGoal.targetDate = new Date(processedGoal.targetDate);
-                } catch (e) {
-                  console.warn('[ADMIN GOALS DEBUG] Could not parse targetDate:', processedGoal.targetDate);
-                }
-              }
-              
-              if (processedGoal.lastUpdated && typeof processedGoal.lastUpdated === 'string') {
-                try {
-                  processedGoal.lastUpdated = new Date(processedGoal.lastUpdated);
-                } catch (e) {
-                  console.warn('[ADMIN GOALS DEBUG] Could not parse lastUpdated:', processedGoal.lastUpdated);
-                }
-              }
-              
-              return processedGoal;
-            }
-            return goal;
-          });
-        }
-        
-        goalsData = processedGoals;
-        console.log('[ADMIN GOALS DEBUG] Set goalsData to array of length:', goalsData.length);
-        
-        originalGoalsData = JSON.parse(JSON.stringify(goalsData));
-        renderGoalsTable();
-      }
+      function handleGoalsData(data) { goalsData = data || []; originalGoalsData = JSON.parse(JSON.stringify(goalsData)); renderGoalsTable(); }
+      function filterGoals() { const term = document.getElementById('search-goals').value.toLowerCase(); document.querySelectorAll('#goals-body tr').forEach(r => r.style.display = r.textContent.toLowerCase().includes(term) ? '' : 'none'); }
 
-      // --- BUDGET CATEGORY MANAGEMENT FUNCTIONS ---
-      
-      function handleBudgetCategoriesData(data) {
-        console.log('[ADMIN BUDGET DEBUG] handleBudgetCategoriesData called with:', data);
-        
-        if (data.success && data.budgetCategories) {
-          budgetCategoriesData = data.budgetCategories.categories || [];
-          console.log('[ADMIN BUDGET DEBUG] Loaded budget categories:', budgetCategoriesData.length);
-          originalBudgetCategoriesData = JSON.parse(JSON.stringify(budgetCategoriesData));
-          renderBudgetCategoriesTable();
-        } else {
-          console.log('[ADMIN BUDGET DEBUG] No budget categories data or error:', data.message);
-          const tbody = document.getElementById('budget-categories-body');
-          tbody.innerHTML = `
-            <tr>
-              <td colspan="7" class="table-empty">
-                <div class="table-message-icon">No budget categories found</div>
-                <div class="table-message-text">Click "Add New Category" to create your first budget category</div>
-              </td>
-            </tr>
-          `;
-        }
-      }
-
+      // --- Budget Categories ---
+      function handleBudgetCategoriesData(data) { if(data.success) { budgetCategoriesData = data.budgetCategories.categories || []; originalBudgetCategoriesData = JSON.parse(JSON.stringify(budgetCategoriesData)); renderBudgetCategoriesTable(); } }
       function renderBudgetCategoriesTable() {
-        const tbody = document.getElementById('budget-categories-body');
+         const tbody = document.getElementById('budget-categories-body');
+         if(!budgetCategoriesData.length) { tbody.innerHTML = '<tr><td colspan="7">No budget categories.</td></tr>'; return; }
+         tbody.innerHTML = budgetCategoriesData.map((c, i) => `<tr>
+           <td><input type="text" value="${c.name}" onchange="updateBudgetCat(${i},'name',this.value)"></td>
+           <td><input type="number" value="${c.monthlyBudget}" step="0.01" onchange="updateBudgetCat(${i},'monthlyBudget',parseFloat(this.value))"></td>
+           <td><input type="number" value="${c.payPeriodBudget}" step="0.01" onchange="updateBudgetCat(${i},'payPeriodBudget',parseFloat(this.value))"></td>
+           <td class="text-right">$${c.payPeriodSpent.toFixed(2)}</td>
+           <td class="text-right">$${c.remaining.toFixed(2)}</td>
+           <td><span class="status-badge">${c.percentUsed>90?'Over':(c.percentUsed>75?'Near':'OK')}</span></td>
+           <td><button class="btn btn-danger btn-sm" onclick="deleteBudgetCat(${i})">×</button></td>
+         </tr>`).join('');
+      }
+      function updateBudgetCat(i, f, v) { budgetCategoriesData[i][f] = v; if(f==='payPeriodBudget') { budgetCategoriesData[i].remaining = v - budgetCategoriesData[i].payPeriodSpent; renderBudgetCategoriesTable(); } }
+      function deleteBudgetCat(i) { if(confirm("Delete?")) { budgetCategoriesData.splice(i, 1); renderBudgetCategoriesTable(); } }
+      function addNewBudgetCategory() { document.getElementById('budget-category-form').reset(); document.getElementById('budget-category-modal').style.display='flex'; }
+      function closeBudgetCategoryModal() { document.getElementById('budget-category-modal').style.display='none'; }
+      function handleBudgetCategorySubmit(e) { e.preventDefault();
+        const c = { name: document.getElementById('budget-category-name').value, monthlyBudget: parseFloat(document.getElementById('budget-monthly-budget').value), payPeriodBudget: parseFloat(document.getElementById('budget-pay-period-budget').value), currentSpent: parseFloat(document.getElementById('budget-current-spent').value)||0, payPeriodSpent: parseFloat(document.getElementById('budget-current-spent').value)||0 };
+        c.remaining = c.payPeriodBudget - c.payPeriodSpent;
+        budgetCategoriesData.push(c); renderBudgetCategoriesTable(); closeBudgetCategoryModal();
+      }
+      function resetBudgetCategories() { budgetCategoriesData = JSON.parse(JSON.stringify(originalBudgetCategoriesData)); renderBudgetCategoriesTable(); }
+      function saveBudgetCategories() { google.script.run.withSuccessHandler(res => { if(res.success) { showNotification("Saved"); originalBudgetCategoriesData=JSON.parse(JSON.stringify(budgetCategoriesData)); } else showNotification(res.message, true); }).saveBudgetCategoriesData(budgetCategoriesData); }
+      function refreshBudgetCategories() { google.script.run.withSuccessHandler(handleBudgetCategoriesData).getExpenseTrackerData(); }
+      function filterBudgetCategories() { const term = document.getElementById('search-budget-categories').value.toLowerCase(); document.querySelectorAll('#budget-categories-body tr').forEach(r => r.style.display = r.querySelector('input').value.toLowerCase().includes(term) ? '' : 'none'); }
 
-        if (!budgetCategoriesData || budgetCategoriesData.length === 0) {
-          tbody.innerHTML = `
-            <tr>
-              <td colspan="7" class="table-empty">
-                <div class="table-message-icon">No budget categories found</div>
-                <div class="table-message-text">Click "Add New Category" to create your first budget category</div>
-              </td>
-            </tr>
-          `;
-          return;
-        }
-
-        const rows = budgetCategoriesData.map((category, index) => {
-          const percentUsed = category.payPeriodBudget > 0 ? (category.payPeriodSpent / category.payPeriodBudget) * 100 : 0;
-          let statusClass = 'ok';
-          let statusText = 'OK'; // Updated to match status class naming
-
-          if (percentUsed > 90) {
-            statusClass = 'over';
-            statusText = 'Over Budget';
-          } else if (percentUsed > 75) {
-            statusClass = 'warning';
-            statusText = 'Near Limit';
-          }
-
-          const remainingClass = category.remaining >= 0 ? 'text-success' : 'text-danger';
-
-          return `
-            <tr data-index="${index}">
-              <td>
-                <input type="text" value="${category.name}" data-field="name" class="table-input">
-              </td>
-              <td>
-                <input type="number" value="${category.monthlyBudget}" data-field="monthlyBudget"
-                       step="0.01" min="0" class="table-input">
-              </td>
-              <td>
-                <input type="number" value="${category.payPeriodBudget}" data-field="payPeriodBudget"
-                       step="0.01" min="0" class="table-input">
-              </td>
-              <td class="text-right text-danger">
-                $${category.payPeriodSpent.toFixed(2)}
-              </td>
-              <td class="text-right ${remainingClass}">
-                $${category.remaining.toFixed(2)}
-              </td>
-              <td>
-                <span class="status-badge status-${statusClass}">${statusText}</span>
-              </td>
-              <td>
-                <button class="btn btn-danger btn-sm" onclick="removeBudgetCategory(${index})"
-                        title="Delete Category">🗑️</button>
-              </td>
-            </tr>
-          `;
-        }).join('');
-
-        tbody.innerHTML = rows;
-        addBudgetCategoryInputListeners();
+      // --- Activity Log ---
+      function initializeActivityLog() {
+        document.getElementById('load-log-btn').addEventListener('click', loadLog);
+        document.getElementById('add-log-entry-btn').addEventListener('click', () => { document.getElementById('entry-form').reset(); document.getElementById('add-entry-modal').style.display='flex'; populateActivityDropdown(); });
+        document.getElementById('entry-cancel-btn').addEventListener('click', () => document.getElementById('add-entry-modal').style.display='none');
+        document.getElementById('entry-form').addEventListener('submit', handleLogSubmit);
+      }
+      function loadLog() {
+        const tbody = document.getElementById('activity-log-body'); tbody.innerHTML = '<tr><td colspan="4">Loading...</td></tr>';
+        google.script.run.withSuccessHandler(res => {
+          if(!res.success) { tbody.innerHTML=`<tr><td colspan="4">Error: ${res.message}</td></tr>`; return; }
+          const log = res.log || [];
+          if(!log.length) { tbody.innerHTML='<tr><td colspan="4">No recent activity.</td></tr>'; return; }
+          // Group by date/email or just list
+          // Simplified for Admin view list:
+          tbody.innerHTML = log.map(item => `<tr>
+            <td>${new Date(item.date).toLocaleDateString()}</td>
+            <td>${item.email}</td>
+            <td><ul>${item.activities.map(a => `<li>${a.name} (${a.points})</li>`).join('')}</ul></td>
+            <td><button class="btn btn-secondary btn-sm" onclick="alert('Not implemented in simplified view')">Edit</button></td>
+          </tr>`).join('');
+        }).getRecentActivityLog();
+      }
+      function populateActivityDropdown() {
+        const sel = document.getElementById('entry-activity'); sel.innerHTML = '<option value="">Select...</option>';
+        activitiesData.forEach(a => { const opt = document.createElement('option'); opt.value = a.activity; opt.textContent = a.activity; sel.appendChild(opt); });
+      }
+      function handleLogSubmit(e) { e.preventDefault();
+        const date = document.getElementById('entry-date').value; const email = document.getElementById('entry-email').value; const act = document.getElementById('entry-activity').value;
+        google.script.run.withSuccessHandler(res => { if(res.success) { showNotification("Added"); loadLog(); document.getElementById('add-entry-modal').style.display='none'; } else showNotification(res.message, true); }).addActivityEntry(date, email, act);
       }
 
-      function addBudgetCategoryInputListeners() {
-        const inputs = document.querySelectorAll('#budget-categories-table input');
-        inputs.forEach(input => {
-          input.addEventListener('input', (e) => {
-            const row = e.target.closest('tr');
-            const index = parseInt(row.dataset.index);
-            const field = e.target.dataset.field;
-            const value = e.target.type === 'number' ? parseFloat(e.target.value) || 0 : e.target.value;
-            
-            if (budgetCategoriesData[index]) {
-              budgetCategoriesData[index][field] = value;
-              
-              // Recalculate remaining amount if budget changed
-              if (field === 'payPeriodBudget') {
-                budgetCategoriesData[index].remaining = value - budgetCategoriesData[index].payPeriodSpent;
-                budgetCategoriesData[index].percentUsed = value > 0 ? (budgetCategoriesData[index].payPeriodSpent / value) * 100 : 0;
-              }
-            }
-          });
-        });
+      // Utils
+      function showNotification(msg, err=false) { const n = document.getElementById('notification'); n.textContent = msg; n.className = 'notification' + (err ? ' error' : ''); n.classList.remove('hidden'); setTimeout(() => n.classList.add('hidden'), 3000); }
+      function handleError(err, type) { console.error(err); showNotification(err.message, true); toggleSaveButtons(false, type); }
+      function toggleSaveButtons(disable, type) {
+          if(type==='activities'||!type) { document.getElementById('save-activities-btn').disabled=disable; }
+          if(type==='streak'||!type) { document.getElementById('save-streak-btn').disabled=disable; }
+          if(type==='category'||!type) { document.getElementById('save-category-order-btn').disabled=disable; document.getElementById('save-categories-btn').disabled=disable; }
       }
-
-      function addNewBudgetCategory() {
-        document.getElementById('budget-category-modal-title').textContent = 'Add New Budget Category';
-        document.getElementById('budget-category-form').reset();
-        document.getElementById('budget-category-modal').style.display = 'block';
-      }
-
-      function closeBudgetCategoryModal() {
-        document.getElementById('budget-category-modal').style.display = 'none';
-      }
-
-      function handleBudgetCategorySubmit(e) {
-        e.preventDefault();
-        
-        const name = document.getElementById('budget-category-name').value;
-        const monthlyBudget = parseFloat(document.getElementById('budget-monthly-budget').value) || 0;
-        const payPeriodBudget = parseFloat(document.getElementById('budget-pay-period-budget').value) || 0;
-        const currentSpent = parseFloat(document.getElementById('budget-current-spent').value) || 0;
-
-        const newCategory = {
-          name: name,
-          monthlyBudget: monthlyBudget,
-          currentSpent: currentSpent,
-          payPeriodBudget: payPeriodBudget,
-          payPeriodSpent: currentSpent,
-          lastReset: new Date(),
-          householdId: null,
-          remaining: payPeriodBudget - currentSpent,
-          percentUsed: payPeriodBudget > 0 ? (currentSpent / payPeriodBudget) * 100 : 0,
-          isActive: true
-        };
-
-        budgetCategoriesData.push(newCategory);
-        renderBudgetCategoriesTable();
-        closeBudgetCategoryModal();
-        showNotification('Budget category added successfully');
-      }
-
-      function removeBudgetCategory(index) {
-        const category = budgetCategoriesData[index];
-        if (confirm(`Are you sure you want to delete the "${category.name}" budget category?`)) {
-          budgetCategoriesData.splice(index, 1);
-          renderBudgetCategoriesTable();
-          showNotification('Budget category deleted');
-        }
-      }
-
-      function refreshBudgetCategories() {
-        console.log('[ADMIN BUDGET DEBUG] Refreshing budget categories...');
-        google.script.run
-          .withSuccessHandler(handleBudgetCategoriesData)
-          .withFailureHandler(handleError)
-          .getExpenseTrackerData();
-      }
-
-      function resetBudgetCategories() {
-        budgetCategoriesData = JSON.parse(JSON.stringify(originalBudgetCategoriesData));
-        renderBudgetCategoriesTable();
-        showNotification('Budget categories reset to original values');
-      }
-
-      function saveBudgetCategories() {
-        console.log('[ADMIN BUDGET DEBUG] Saving budget categories:', budgetCategoriesData);
-        
-        // Disable save button and show loading
-        const saveBtn = document.getElementById('save-budget-categories-btn');
-        saveBtn.disabled = true;
-        saveBtn.textContent = 'Saving...';
-        
-        google.script.run
-          .withSuccessHandler(function(result) {
-            saveBtn.disabled = false;
-            saveBtn.textContent = 'Save Budget Categories';
-            
-            if (result.success) {
-              showNotification(result.message, 'success');
-              // Update original data to match current
-              originalBudgetCategoriesData = JSON.parse(JSON.stringify(budgetCategoriesData));
-            } else {
-              showNotification('Error saving budget categories: ' + result.message, 'error');
-            }
-          })
-          .withFailureHandler(function(error) {
-            console.error('[ADMIN BUDGET DEBUG] Error saving budget categories:', error);
-            saveBtn.disabled = false;
-            saveBtn.textContent = 'Save Budget Categories';
-            showNotification('Error saving budget categories: ' + error.message, 'error');
-          })
-          .saveBudgetCategoriesData(budgetCategoriesData);
-      }
-
-      function filterBudgetCategories() {
-        const searchTerm = document.getElementById('search-budget-categories').value.toLowerCase();
-        const rows = document.querySelectorAll('#budget-categories-table tbody tr');
-        
-        rows.forEach(row => {
-          const categoryName = row.querySelector('input[data-field="name"]')?.value.toLowerCase() || '';
-          const isVisible = categoryName.includes(searchTerm);
-          row.style.display = isVisible ? '' : 'none';
-        });
-      }
-
-      // --- END BUDGET CATEGORY MANAGEMENT FUNCTIONS ---
-
-      // Add initialization to document ready function (or at the end of existing script)
-      document.addEventListener('DOMContentLoaded', function() {
-        // This line likely already exists
-        initializeAdmin();
-        
-        // Add this line to initialize activity log features
-        initializeActivityLog();
-      });
     </script>
+    <div class="filepath" style="display:none;">Admin.html</div>
   </body>
 </html>

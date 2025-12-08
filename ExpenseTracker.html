@@ -5,401 +5,70 @@
     <base target="_top">
     <?!= include('Stylesheet'); ?>
     <style>
-      /* Expense Tracker Specific Styles */
-      .expense-header {
-        background: linear-gradient(135deg, #4285F4 0%, #34A853 100%);
-        color: white;
-        text-align: center;
-        padding: 2rem 1rem;
-        margin: -1rem -1rem 2rem -1rem;
-        border-radius: 0 0 20px 20px;
-      }
+      /* Additional specific tweaks for Expense Tracker if needed,
+         but relying mostly on global Stylesheet.html now */
 
-      .expense-header h1 {
-        margin: 0 0 0.5rem 0;
-        font-size: 2rem;
-        font-weight: 300;
-      }
-
-      .expense-header .pay-period {
-        opacity: 0.9;
-        font-size: 0.9rem;
-      }
-
-      .budget-overview {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 1rem;
-        margin-bottom: 2rem;
-      }
-
-      .budget-summary-card {
-        background: white;
-        border-radius: 12px;
-        padding: 1.5rem;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        text-align: center;
-      }
-
-      .budget-amount {
-        font-size: 2rem;
-        font-weight: bold;
-        margin: 0.5rem 0;
-      }
-
-      .budget-amount.total { color: #4285F4; }
-      .budget-amount.remaining { color: #34A853; }
-      .budget-amount.spent { color: #EA4335; }
-
-      .budget-meters {
-        display: grid;
-        gap: 1rem;
-        margin-bottom: 2rem;
-      }
-
-      .budget-meter {
-        background: white;
-        border-radius: 12px;
-        padding: 1rem;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-      }
-
-      .meter-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 0.5rem;
-      }
-
-      .meter-category {
-        font-weight: 600;
-        font-size: 1rem;
-      }
-
-      .meter-amounts {
-        font-size: 0.85rem;
-        color: #666;
-      }
-
-      .meter-bar {
-        height: 8px;
-        background: #f0f0f0;
-        border-radius: 4px;
-        overflow: hidden;
-        margin-bottom: 0.5rem;
-      }
-
-      .meter-fill {
-        height: 100%;
-        border-radius: 4px;
-        transition: width 0.3s ease, background-color 0.3s ease;
-      }
-
-      .meter-fill.good { background: #34A853; }
-      .meter-fill.warning { background: #FBBC05; }
-      .meter-fill.danger { background: #EA4335; }
-
-      .meter-status {
-        font-size: 0.8rem;
-        font-weight: 500;
-        text-align: right;
-      }
-
-      .expense-entry {
-        background: white;
-        border-radius: 12px;
-        padding: 2rem;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        margin-bottom: 2rem;
-      }
-
+      /* Grid tweaks for chips */
       .store-chips {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-        gap: 0.75rem;
-        margin-bottom: 2rem;
-      }
-
-      .store-chip {
-        background: #f8f9fa;
-        border: 2px solid #e9ecef;
-        border-radius: 25px;
-        padding: 0.75rem 1rem;
-        text-align: center;
-        cursor: pointer;
-        transition: all 0.2s ease;
-        font-size: 0.9rem;
-        font-weight: 500;
-        min-height: 44px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
-
-      .store-chip:hover {
-        border-color: #4285F4;
-        background: #f0f4ff;
-      }
-
-      .store-chip.selected {
-        background: #4285F4;
-        color: white;
-        border-color: #4285F4;
-      }
-
-      .store-chip.add-other {
-        border-style: dashed;
-        color: #666;
-      }
-
-      .store-chip.recent-location {
-        border-color: #34A853;
-        background: #f0f9f0;
-      }
-
-      .store-chip.recent-location:hover {
-        border-color: #34A853;
-        background: #e8f5e8;
-      }
-
-      .amount-input-section {
-        display: grid;
-        grid-template-columns: 1fr auto;
-        gap: 1rem;
-        align-items: end;
-        margin-bottom: 1.5rem;
-      }
-
-      .input-group {
-        display: flex;
-        flex-direction: column;
-      }
-
-      .input-group label {
-        margin-bottom: 0.5rem;
-        font-weight: 600;
-        color: #333;
-      }
-
-      .amount-input {
-        padding: 1rem;
-        border: 2px solid #e9ecef;
-        border-radius: 8px;
-        font-size: 1.25rem;
-        font-weight: 600;
-        text-align: center;
-        transition: border-color 0.2s ease;
-      }
-
-      .amount-input:focus {
-        outline: none;
-        border-color: #4285F4;
-      }
-
-      .submit-expense-btn {
-        background: #34A853;
-        color: white;
-        border: none;
-        border-radius: 8px;
-        padding: 1rem 2rem;
-        font-size: 1rem;
-        font-weight: 600;
-        cursor: pointer;
-        transition: background-color 0.2s ease;
-        min-height: 56px;
-        min-width: 120px;
-      }
-
-      .submit-expense-btn:hover:not(:disabled) {
-        background: #2d8f43;
-      }
-
-      .submit-expense-btn:disabled {
-        background: #ccc;
-        cursor: not-allowed;
-      }
-
-      .category-section {
-        margin-bottom: 1.5rem;
+        gap: var(--space-sm);
+        margin-bottom: var(--space-lg);
       }
 
       .category-chips {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
-        gap: 0.5rem;
+        gap: var(--space-sm);
       }
 
-      .category-chip {
-        background: #f8f9fa;
-        border: 2px solid #e9ecef;
-        border-radius: 20px;
-        padding: 0.5rem 1rem;
-        text-align: center;
-        cursor: pointer;
-        transition: all 0.2s ease;
-        font-size: 0.85rem;
-        font-weight: 500;
-        min-height: 36px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
+      /* Budget Meters */
+      .budget-meter {
+        background: var(--bg-surface);
+        border-radius: var(--radius-md);
+        padding: var(--space-md);
+        margin-bottom: var(--space-sm);
+        border: 1px solid var(--border-color);
       }
 
-      .category-chip:hover {
-        border-color: #4285F4;
-        background: #f0f4ff;
+      .meter-header {
+        display: flex; justify-content: space-between; align-items: center;
+        margin-bottom: 5px;
+        font-size: 0.9rem;
       }
 
-      .category-chip.selected {
-        background: #4285F4;
-        color: white;
-        border-color: #4285F4;
+      .meter-bar {
+        height: 8px;
+        background: rgba(255,255,255,0.1);
+        border-radius: 4px;
+        overflow: hidden;
       }
 
-      .expense-actions {
-        display: flex;
-        gap: 1rem;
-        justify-content: center;
-        margin: 2rem 0;
-      }
+      .meter-fill { height: 100%; transition: width 0.5s ease; }
+      .meter-fill.good { background: var(--accent-kinetic); }
+      .meter-fill.warning { background: var(--accent-solar); }
+      .meter-fill.danger { background: var(--accent-danger); }
 
-      .btn-reset {
-        background: #EA4335;
-        color: white;
-        border: none;
-        border-radius: 8px;
-        padding: 0.75rem 1.5rem;
-        font-weight: 600;
-        cursor: pointer;
-        transition: background-color 0.2s ease;
+      /* Amount Input Big */
+      .amount-input-section {
+        display: grid; grid-template-columns: 1fr auto; gap: var(--space-md); align-items: end; margin-bottom: var(--space-lg);
       }
+      .amount-input { font-size: 1.5rem; text-align: center; font-family: var(--font-head); }
 
-      .btn-reset:hover {
-        background: #d33b2c;
-      }
-
-      .btn-edit {
-        background: #FBBC05;
-        color: white;
-        border: none;
-        border-radius: 8px;
-        padding: 0.75rem 1.5rem;
-        font-weight: 600;
-        cursor: pointer;
-        transition: background-color 0.2s ease;
-      }
-
-      .btn-edit:hover {
-        background: #f9ab00;
-      }
-
-      .recent-expenses {
-        background: white;
-        border-radius: 12px;
-        padding: 1.5rem;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        margin-top: 2rem;
-      }
-
-      .recent-expenses h3 {
-        margin: 0 0 1rem 0;
-        color: #333;
-      }
-
+      /* Recent List */
       .expense-item {
-        display: grid;
-        grid-template-columns: 1fr auto auto;
-        gap: 1rem;
+        display: grid; grid-template-columns: 1fr auto auto; gap: var(--space-md);
+        padding: var(--space-md) 0; border-bottom: 1px solid var(--border-subtle);
         align-items: center;
-        padding: 0.75rem 0;
-        border-bottom: 1px solid #f0f0f0;
       }
+      .expense-item:last-child { border-bottom: none; }
+      .expense-amount { font-weight: 700; color: var(--text-primary); }
+      .expense-date { font-size: 0.75rem; color: var(--text-muted); }
 
-      .expense-item:last-child {
-        border-bottom: none;
-      }
-
-      .expense-details {
-        display: flex;
-        flex-direction: column;
-        gap: 0.25rem;
-      }
-
-      .expense-location {
-        font-weight: 600;
-        color: #333;
-      }
-
-      .expense-category {
-        font-size: 0.85rem;
-        color: #666;
-      }
-
-      .expense-amount {
-        font-weight: 600;
-        color: #EA4335;
-      }
-
-      .expense-date {
-        font-size: 0.8rem;
-        color: #999;
-      }
-
-      /* Responsive Design */
-      @media (max-width: 768px) {
-        .budget-overview {
-          grid-template-columns: 1fr;
-        }
-
-        .store-chips {
-          grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
-        }
-
-        .amount-input-section {
-          grid-template-columns: 1fr;
-          gap: 1rem;
-        }
-
-        .expense-actions {
-          flex-direction: column;
-        }
-
-        .expense-item {
-          grid-template-columns: 1fr auto;
-          gap: 0.5rem;
-        }
-
-        .expense-details {
-          grid-column: 1 / -1;
-        }
-      }
-
-      /* Loading and notification styles */
-      .loading-spinner {
-        display: inline-block;
-        width: 20px;
-        height: 20px;
-        border: 2px solid #f3f3f3;
-        border-top: 2px solid #4285F4;
-        border-radius: 50%;
-        animation: spin 1s linear infinite;
-      }
-
-      @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-      }
-
-      .auto-save-indicator {
-        color: #34A853;
-        font-size: 0.8rem;
-        margin-top: 0.5rem;
-        opacity: 0;
-        transition: opacity 0.3s ease;
-      }
-
-      .auto-save-indicator.show {
-        opacity: 1;
+      @media (max-width: 600px) {
+        .amount-input-section { grid-template-columns: 1fr; }
+        .expense-actions { flex-direction: column; }
+        .budget-overview { grid-template-columns: 1fr; }
       }
     </style>
   </head>
@@ -451,14 +120,13 @@
       </div>
 
       <!-- Expense Entry Form -->
-      <div class="expense-entry">
-        <h3 style="margin-top: 0;">Add New Expense</h3>
+      <div class="expense-entry card">
+        <h3>Add New Expense</h3>
         
         <!-- Store Selection -->
         <div class="store-section">
           <label>Where did you shop?</label>
           <div class="store-chips" id="store-chips">
-            <div class="skeleton skeleton-chip"></div>
             <div class="skeleton skeleton-chip"></div>
             <div class="skeleton skeleton-chip"></div>
             <div class="skeleton skeleton-chip"></div>
@@ -471,7 +139,6 @@
           <div class="category-chips" id="category-chips">
             <div class="skeleton skeleton-chip"></div>
             <div class="skeleton skeleton-chip"></div>
-            <div class="skeleton skeleton-chip"></div>
           </div>
         </div>
 
@@ -480,9 +147,8 @@
           <div class="input-group">
             <label for="amount-input">Amount Spent</label>
             <input type="number" id="amount-input" class="amount-input" placeholder="0.00" step="0.01" min="0">
-            <div class="auto-save-indicator" id="auto-save-indicator">Auto-saved ✓</div>
           </div>
-          <button id="submit-expense" class="submit-expense-btn" disabled>
+          <button id="submit-expense" class="submit-btn btn-lg" disabled>
             Add Expense
           </button>
         </div>
@@ -490,43 +156,50 @@
         <!-- Optional Description -->
         <div class="input-group">
           <label for="description-input">Description (optional)</label>
-          <input type="text" id="description-input" placeholder="What did you buy?" style="padding: 0.75rem; border: 2px solid #e9ecef; border-radius: 8px;">
+          <input type="text" id="description-input" placeholder="What did you buy?">
         </div>
       </div>
 
       <!-- Budget Overview -->
-      <div class="budget-overview">
-        <div class="budget-summary-card">
+      <div class="budget-overview" style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-md);">
+        <div class="budget-summary-card card">
           <h3>Total Budget</h3>
           <div class="budget-amount total" id="total-budget">$0</div>
         </div>
-        <div class="budget-summary-card">
+        <div class="budget-summary-card card">
           <h3>Remaining</h3>
           <div class="budget-amount remaining" id="remaining-budget">$0</div>
         </div>
       </div>
 
       <!-- Budget Meters -->
-      <div class="budget-meters" id="budget-meters">
-        <div class="skeleton skeleton-meter"></div>
-        <div class="skeleton skeleton-meter"></div>
-        <div class="skeleton skeleton-meter"></div>
+      <div class="card">
+        <h3>Category Breakdown</h3>
+        <div id="budget-meters">
+          <div class="skeleton skeleton-meter"></div>
+          <div class="skeleton skeleton-meter"></div>
+        </div>
       </div>
 
       <!-- Action Buttons -->
-      <div class="expense-actions">
-        <button id="edit-categories" class="btn-edit">Edit Categories</button>
-        <button id="reset-period" class="btn-reset">Finalize Period</button>
+      <div class="expense-actions" style="display: flex; gap: var(--space-md); justify-content: center; margin-bottom: var(--space-lg);">
+        <button id="edit-categories" class="btn btn-secondary">Edit Categories</button>
+        <button id="reset-period" class="btn btn-danger">Finalize Period</button>
       </div>
 
       <!-- Recent Expenses -->
-      <div class="recent-expenses" id="recent-expenses">
+      <div class="recent-expenses card" id="recent-expenses">
         <h3>Recent Expenses</h3>
         <div id="recent-expenses-list">
           <div class="skeleton skeleton-list-item"></div>
           <div class="skeleton skeleton-list-item"></div>
-          <div class="skeleton skeleton-list-item"></div>
         </div>
+      </div>
+
+      <!-- Mobile actions at the bottom -->
+      <div class="mobile-actions">
+        <button id="mobile-email-button" class="btn btn-primary">Send Daily Digest</button>
+        <a href="<?= getScriptUrl() ?>?view=admin" class="btn btn-outline">Admin</a>
       </div>
 
     </div>
@@ -540,6 +213,9 @@
     <?!= include('ErrorHandler'); ?>
 
     <script>
+      // Defined polling interval
+      const POLLING_INTERVAL_MS = 30000; // 30 seconds
+
       // Global state
       let expenseData = null;
       let budgetCategories = [];
@@ -547,10 +223,7 @@
       let selectedStore = null;
       let selectedCategory = null;
       let householdInfo = null;
-      let lastKnownRemainingBudget = null; // For polling
-
-      // Initialization flags
-      let isDataLoaded = false;
+      let lastKnownRemainingBudget = null;
 
       // --- Utility Functions ---
       function formatCurrency(amount) {
@@ -563,19 +236,13 @@
       function showNotification(message, type = 'info') {
         const notification = document.getElementById('notification');
         notification.textContent = message;
-        notification.className = `notification ${type}`;
+        // Map type to global CSS class logic if needed, or rely on .notification class
+        notification.className = `notification ${type === 'error' ? 'error' : ''}`;
         notification.style.display = 'block';
+        notification.classList.remove('hidden');
         setTimeout(() => {
-          notification.style.display = 'none';
+          notification.classList.add('hidden');
         }, 5000);
-      }
-
-      function showAutoSaveIndicator() {
-        const indicator = document.getElementById('auto-save-indicator');
-        indicator.classList.add('show');
-        setTimeout(() => {
-          indicator.classList.remove('show');
-        }, 2000);
       }
 
       // --- Data Loading Functions ---
@@ -599,7 +266,6 @@
             members: data.members
           };
           
-          // Update the global state for polling check
           if (data.budgetCategories) {
             lastKnownRemainingBudget = data.budgetCategories.totalRemaining;
           }
@@ -611,7 +277,6 @@
           updateCategoryChips();
           updateHouseholdInfo();
           
-          isDataLoaded = true;
           loadRecentExpenses();
         } else {
           showNotification(data.message || 'Failed to load expense data', 'error');
@@ -625,7 +290,8 @@
 
       // --- UI Update Functions ---
       function updatePayPeriodInfo(payPeriod) {
-        document.getElementById('pay-period-info').textContent = `Pay Period: ${payPeriod}`;
+        const el = document.getElementById('pay-period-info');
+        if(el) el.textContent = `Pay Period: ${payPeriod}`;
       }
 
       function updateBudgetOverview() {
@@ -640,7 +306,7 @@
         const metersContainer = document.getElementById('budget-meters');
         
         if (budgetCategories.length === 0) {
-          metersContainer.innerHTML = '<div class="loading">No budget categories found. Please set up budget categories first.</div>';
+          metersContainer.innerHTML = '<div class="info-message">No budget categories found. Please set up budget categories first.</div>';
           return;
         }
 
@@ -653,13 +319,13 @@
           return `
             <div class="budget-meter">
               <div class="meter-header">
-                <div class="meter-category">${category.name}</div>
-                <div class="meter-amounts">${formatCurrency(category.payPeriodSpent)} / ${formatCurrency(category.payPeriodBudget)}</div>
+                <span class="meter-category" style="font-weight:600">${category.name}</span>
+                <span class="meter-amounts" style="color:var(--text-muted)">${formatCurrency(category.payPeriodSpent)} / ${formatCurrency(category.payPeriodBudget)}</span>
               </div>
               <div class="meter-bar">
                 <div class="meter-fill ${fillClass}" style="width: ${percentUsed}%"></div>
               </div>
-              <div class="meter-status">${formatCurrency(category.remaining)} remaining</div>
+              <div class="meter-status" style="text-align:right; font-size:0.75rem; margin-top:4px;">${formatCurrency(category.remaining)} remaining</div>
             </div>
           `;
         }).join('');
@@ -670,13 +336,10 @@
       function updateStoreChips() {
         const storeChipsContainer = document.getElementById('store-chips');
         
-        // Get top locations - prioritize recently used and frequently used locations
         const topLocations = locationMappings
           .sort((a, b) => {
-            // Recent locations first (if available)
             if (a.isRecent && !b.isRecent) return -1;
             if (!a.isRecent && b.isRecent) return 1;
-            // Then by usage count
             return b.usageCount - a.usageCount;
           })
           .slice(0, 8);
@@ -686,14 +349,13 @@
             ${location.name}${location.isRecent ? ' 🆕' : ''}
           </div>
         `).join('') + `
-          <div class="store-chip add-other" id="add-other-store">
+          <div class="store-chip add-other" id="add-other-store" style="border-style: dashed;">
             + Add Other
           </div>
         `;
 
         storeChipsContainer.innerHTML = storeChipsHtml;
 
-        // Add event listeners
         document.querySelectorAll('.store-chip:not(.add-other)').forEach(chip => {
           chip.addEventListener('click', () => selectStore(chip));
         });
@@ -712,7 +374,6 @@
 
         categoryChipsContainer.innerHTML = categoryChipsHtml;
 
-        // Add event listeners
         document.querySelectorAll('.category-chip').forEach(chip => {
           chip.addEventListener('click', () => selectCategory(chip));
         });
@@ -722,39 +383,31 @@
         const placeholder = document.getElementById('household-info-placeholder');
         if (householdInfo && householdInfo.name) {
           placeholder.innerHTML = `
-            <div class="household-info">
+            <div class="info-message" style="margin-bottom: var(--space-lg);">
               <strong>${householdInfo.name}</strong> - ${householdInfo.members.length} member(s)
             </div>
           `;
+          placeholder.style.display = 'block';
         }
       }
 
       // --- User Interaction Functions ---
       function selectStore(chipElement) {
-        // Clear previous selections
         document.querySelectorAll('.store-chip').forEach(chip => chip.classList.remove('selected'));
-        
-        // Select new store
         chipElement.classList.add('selected');
         selectedStore = chipElement.dataset.store;
         
-        // Auto-suggest category
         const suggestedCategory = chipElement.dataset.category;
         if (suggestedCategory) {
           autoSelectCategory(suggestedCategory);
         }
-        
         updateSubmitButton();
       }
 
       function selectCategory(chipElement) {
-        // Clear previous selections
         document.querySelectorAll('.category-chip').forEach(chip => chip.classList.remove('selected'));
-        
-        // Select new category
         chipElement.classList.add('selected');
         selectedCategory = chipElement.dataset.category;
-        
         updateSubmitButton();
       }
 
@@ -768,24 +421,20 @@
       function addOtherStore() {
         const storeName = prompt('Enter store name:');
         if (storeName && storeName.trim()) {
-          // Create temporary chip
           const tempChip = document.createElement('div');
           tempChip.className = 'store-chip selected';
           tempChip.textContent = storeName.trim();
           tempChip.dataset.store = storeName.trim();
           
-          // Insert before "Add Other" button
           const addOtherBtn = document.getElementById('add-other-store');
           addOtherBtn.parentNode.insertBefore(tempChip, addOtherBtn);
           
-          // Clear other selections and select this one
           document.querySelectorAll('.store-chip:not(.add-other)').forEach(chip => 
             chip.classList.remove('selected'));
           
           selectedStore = storeName.trim();
           updateSubmitButton();
           
-          // Add click listener
           tempChip.addEventListener('click', () => selectStore(tempChip));
         }
       }
@@ -812,10 +461,9 @@
           return;
         }
 
-        // Disable submit button and show loading
         const submitBtn = document.getElementById('submit-expense');
         submitBtn.disabled = true;
-        submitBtn.innerHTML = '<span class="loading-spinner"></span> Adding...';
+        submitBtn.textContent = 'Adding...';
 
         google.script.run
           .withSuccessHandler(handleExpenseSubmitted)
@@ -825,13 +473,11 @@
 
       function handleExpenseSubmitted(result) {
         const submitBtn = document.getElementById('submit-expense');
-        submitBtn.innerHTML = 'Add Expense';
+        submitBtn.textContent = 'Add Expense';
         
         if (result.success) {
-          showNotification(result.message, 'success');
-          showAutoSaveIndicator();
+          showNotification(result.message);
           
-          // Update budget data
           if (result.budgetCategories) {
             expenseData.budgetCategories = result.budgetCategories;
             budgetCategories = result.budgetCategories.categories || [];
@@ -839,10 +485,7 @@
             updateBudgetMeters();
           }
           
-          // Reset form
           resetForm();
-          
-          // Reload recent expenses
           loadRecentExpenses();
         } else {
           showNotification(result.message, 'error');
@@ -853,24 +496,18 @@
       function handleExpenseSubmitError(error) {
         console.error('Expense submission error:', error);
         showNotification('Failed to submit expense. Please try again.', 'error');
-        
         const submitBtn = document.getElementById('submit-expense');
-        submitBtn.innerHTML = 'Add Expense';
+        submitBtn.textContent = 'Add Expense';
         submitBtn.disabled = false;
       }
 
       function resetForm() {
-        // Reset form inputs
         document.getElementById('amount-input').value = '';
         document.getElementById('description-input').value = '';
-        
-        // Clear selections
         document.querySelectorAll('.store-chip, .category-chip').forEach(chip => 
           chip.classList.remove('selected'));
-        
         selectedStore = null;
         selectedCategory = null;
-        
         updateSubmitButton();
       }
 
@@ -891,24 +528,28 @@
           const expensesHtml = result.expenses.map(expense => `
             <div class="expense-item">
               <div class="expense-details">
-                <div class="expense-location">${expense.location}</div>
-                <div class="expense-category">${expense.category}</div>
+                <div style="font-weight:600; color:var(--text-primary)">${expense.location}</div>
+                <div style="font-size:0.8rem; color:var(--text-muted)">${expense.category}</div>
               </div>
-              <div class="expense-amount">${formatCurrency(expense.amount)}</div>
+              <div class="expense-amount" style="color:var(--accent-danger)">${formatCurrency(expense.amount)}</div>
               <div class="expense-date">${new Date(expense.date).toLocaleDateString()}</div>
             </div>
           `).join('');
           
           container.innerHTML = expensesHtml;
         } else {
-          container.innerHTML = '<div style="text-align: center; color: #666; padding: 1rem;">No recent expenses found.</div>';
+          container.innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 1rem;">No recent expenses found.</div>';
         }
       }
 
       // --- Action Buttons ---
       function editCategories() {
         if (confirm('This will open the Admin panel to manage budget categories. Continue?')) {
-          window.open(`${window.location.origin}${window.location.pathname}?view=admin`, '_blank');
+          window.open(`${getScriptUrl()}?view=admin`, '_blank'); // Helper getScriptUrl from server needs to be exposed or just link to ?view=admin if relative works
+          // Since getScriptUrl is server side, better to just use relative path if possible
+          // But Apps Script often needs full URL.
+          // Let's assume ?view=admin on current base works or window.location
+          window.location.href = window.location.href.split('?')[0] + '?view=admin';
         }
       }
 
@@ -931,9 +572,7 @@
         resetBtn.textContent = 'Finalize Period';
         
         if (result.success) {
-          showNotification(result.message, 'success');
-          
-          // Refresh all data
+          showNotification(result.message);
           loadExpenseData();
         } else {
           showNotification(result.message, 'error');
@@ -943,73 +582,56 @@
       function handlePayPeriodResetError(error) {
         console.error('Pay period reset error:', error);
         showNotification('Failed to reset pay period. Please try again.', 'error');
-        
         const resetBtn = document.getElementById('reset-period');
         resetBtn.disabled = false;
         resetBtn.textContent = 'Finalize Period';
       }
 
-      // --- Event Listeners ---
+      // --- Polling ---
+      function handlePollingUpdate(data) {
+        if (data && data.success && data.budgetCategories) {
+          const newRemainingBudget = data.budgetCategories.totalRemaining;
+          if (lastKnownRemainingBudget !== null && newRemainingBudget !== lastKnownRemainingBudget) {
+            console.log('Change detected, reloading UI.');
+            handleExpenseDataLoaded(data);
+            showNotification('Budget updated automatically!', 'info');
+          }
+        }
+      }
+
+      // --- Initialization ---
       document.addEventListener('DOMContentLoaded', function() {
-        // Initialize
         loadExpenseData();
         
-        // Amount input listener
         document.getElementById('amount-input').addEventListener('input', updateSubmitButton);
-        
-        // Submit button listener  
         document.getElementById('submit-expense').addEventListener('click', submitExpense);
-        
-        // Action buttons
         document.getElementById('edit-categories').addEventListener('click', editCategories);
         document.getElementById('reset-period').addEventListener('click', resetPayPeriod);
         
-        // Email button (reuse from existing pattern)
-        document.getElementById('email-button').addEventListener('click', function() {
-          this.disabled = true;
-          this.textContent = 'Sending...';
-          google.script.run
-            .withSuccessHandler(() => {
-              showNotification('Daily digest sent successfully!', 'success');
-              this.disabled = false;
-              this.textContent = 'Send Daily Digest';
-            })
-            .withFailureHandler(() => {
-              showNotification('Failed to send digest', 'error');
-              this.disabled = false;
-              this.textContent = 'Send Daily Digest';
-            })
-            .forceSendDailyDigest();
-        });
+        // Setup Email Button (reuse logic)
+        const emailBtn = document.getElementById('email-button');
+        const mobileEmailBtn = document.getElementById('mobile-email-button');
+        const sendDigest = function() {
+           this.disabled = true; this.textContent = 'Sending...';
+           google.script.run.withSuccessHandler(()=>{
+               showNotification('Daily digest sent successfully!');
+               this.disabled = false; this.textContent = 'Send Daily Digest';
+           }).withFailureHandler(()=>{
+               showNotification('Failed to send digest', 'error');
+               this.disabled = false; this.textContent = 'Send Daily Digest';
+           }).forceSendDailyDigest();
+        };
+        if(emailBtn) emailBtn.addEventListener('click', sendDigest);
+        if(mobileEmailBtn) mobileEmailBtn.addEventListener('click', sendDigest);
 
-        // Enter key support for amount input
         document.getElementById('amount-input').addEventListener('keypress', function(e) {
           if (e.key === 'Enter' && !document.getElementById('submit-expense').disabled) {
             submitExpense();
           }
         });
 
-        // --- Client-Side Polling for Bi-Directional Sync ---
-
-        // Function to handle polled data
-        function handlePollingUpdate(data) {
-          if (data && data.success && data.budgetCategories) {
-            const newRemainingBudget = data.budgetCategories.totalRemaining;
-
-            // If the budget has changed, reload the UI.
-            // lastKnownRemainingBudget is updated by handleExpenseDataLoaded.
-            if (lastKnownRemainingBudget !== null && newRemainingBudget !== lastKnownRemainingBudget) {
-              console.log('Change detected, reloading UI.', { old: lastKnownRemainingBudget, new: newRemainingBudget });
-              // Re-use the main data loading function to update the entire UI
-              handleExpenseDataLoaded(data);
-              showNotification('Budget updated automatically!', 'info');
-            }
-          }
-        }
-
-        // Add a polling interval to check for changes
+        // Start polling
         setInterval(() => {
-          // Silently poll for data in the background
           google.script.run
             .withSuccessHandler(handlePollingUpdate)
             .withFailureHandler((err) => console.error("Polling failed: ", err))
