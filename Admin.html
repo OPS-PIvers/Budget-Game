@@ -1873,7 +1873,7 @@
         const rows = budgetCategoriesData.map((category, index) => {
           const percentUsed = category.payPeriodBudget > 0 ? (category.payPeriodSpent / category.payPeriodBudget) * 100 : 0;
           let statusClass = 'ok';
-          let statusText = 'Good';
+          let statusText = 'OK'; // Updated to match status class naming
 
           if (percentUsed > 90) {
             statusClass = 'over';
