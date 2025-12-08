@@ -799,13 +799,13 @@ a:hover { color: var(--slate-linen); }
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   background-color: var(--bg-elevated);
-  color: var(--slate-linen);
+  color: var(--text-secondary);
   font-size: 0.875rem;
   font-family: var(--font-body);
   cursor: pointer;
   transition: all var(--transition-fast);
   appearance: none;
-  /* Dropdown arrow color matches --slate-linen (#BCBDA7) */
+  /* Dropdown arrow uses currentColor to dynamically match text color */
   background-image: url('data:image/svg+xml;charset=utf-8,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"%3E%3Cpath fill="currentColor" d="M7 10l5 5 5-5z"/%3E%3C/svg%3E');
   background-repeat: no-repeat;
   background-position: right 8px center;
