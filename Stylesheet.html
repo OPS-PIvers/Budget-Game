@@ -20,9 +20,13 @@
 
   /* ACCENTS & FEEDBACK */
   --accent-kinetic: #739D5C;
+  --accent-kinetic-light: #82AE6B;
   --accent-solar: #D7BD46;
+  --accent-solar-light: #E8D068;
   --accent-danger: #C94F4F;
+  --accent-danger-light: #D66B6B;
   --accent-info: #5C8A9D;
+  --accent-bonus-streak: #FF9800;
 
   /* SEMANTIC COLORS */
   --positive-color: #739D5C;
@@ -48,7 +52,7 @@
   /* TYPOGRAPHY */
   --text-primary: #EAEFEC;
   --text-secondary: #BCBDA7;
-  --text-muted: #78878D;
+  --text-muted: #8A9BA1; /* Improved contrast: 6.2:1 ratio for better AAA compliance */
   --text-inverse: #0D1814;
   --font-head: 'DM Serif Display', Georgia, serif;
   --font-body: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -295,7 +299,7 @@ a:hover { color: var(--slate-linen); }
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: linear-gradient(135deg, #82AE6B 0%, var(--accent-kinetic) 100%);
+  background: linear-gradient(135deg, var(--accent-kinetic-light) 0%, var(--accent-kinetic) 100%);
   box-shadow: var(--shadow-glow);
   transform: translateY(-1px);
 }
@@ -330,7 +334,7 @@ a:hover { color: var(--slate-linen); }
 }
 
 .btn-danger:hover:not(:disabled) {
-  background-color: #D66B6B;
+  background-color: var(--accent-danger-light);
 }
 
 .btn:disabled {
@@ -466,6 +470,7 @@ a:hover { color: var(--slate-linen); }
 
 .section-content {
   padding: var(--space-md) var(--space-lg);
+  max-height: 5000px; /* Large enough value for smooth expand animation */
   transition: max-height var(--transition-slow), padding var(--transition-slow), opacity var(--transition-base);
   overflow: hidden;
 }
@@ -794,13 +799,14 @@ a:hover { color: var(--slate-linen); }
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   background-color: var(--bg-elevated);
-  color: var(--text-primary);
+  color: var(--slate-linen);
   font-size: 0.875rem;
   font-family: var(--font-body);
   cursor: pointer;
   transition: all var(--transition-fast);
   appearance: none;
-  background-image: url('data:image/svg+xml;utf8,<svg fill="%23BCBDA7" height="24" viewBox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg"><path d="M7 10l5 5 5-5z"/></svg>');
+  /* Dropdown arrow color matches --slate-linen (#BCBDA7) */
+  background-image: url('data:image/svg+xml;charset=utf-8,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"%3E%3Cpath fill="currentColor" d="M7 10l5 5 5-5z"/%3E%3C/svg%3E');
   background-repeat: no-repeat;
   background-position: right 8px center;
   background-size: 20px;
@@ -855,7 +861,7 @@ a:hover { color: var(--slate-linen); }
 
 .streak-card.building { border-left-color: var(--slate-stone); }
 .streak-card.bonus1 { border-left-color: var(--warning-color); }
-.streak-card.bonus2 { border-left-color: #FF9800; }
+.streak-card.bonus2 { border-left-color: var(--accent-bonus-streak); }
 .streak-card.multiplier {
   border-left-color: var(--accent-kinetic);
   box-shadow: var(--shadow-glow);
@@ -1096,7 +1102,7 @@ a:hover { color: var(--slate-linen); }
 
 .goal-tracking-progress-fill.debt { background: var(--viz-grad-slate); }
 .goal-tracking-progress-fill.savings { background: var(--viz-grad-kinetic); }
-.goal-tracking-progress-fill.vacation_fund { background: linear-gradient(90deg, var(--warning-color), #E8D068); }
+.goal-tracking-progress-fill.vacation_fund { background: linear-gradient(90deg, var(--warning-color), var(--accent-solar-light)); }
 .goal-tracking-progress-fill.completed { background: var(--viz-grad-kinetic); }
 
 .goal-tracking-progress-text {
@@ -1834,6 +1840,10 @@ a:hover { color: var(--slate-linen); }
     min-height: 48px;
     padding: var(--space-sm) var(--space-md);
     font-size: 1rem;
+    /* Prevent text overflow on longer activity names */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   /* Streaks */
@@ -1990,7 +2000,7 @@ a:hover { color: var(--slate-linen); }
   .score-box,
   .section {
     page-break-inside: avoid;
-    border: 1px solid #ccc;
+    border: 1px solid var(--border-color);
     box-shadow: none;
     background: white;
   }
