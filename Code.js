@@ -31,7 +31,6 @@ function onOpen() {
       .addSeparator()
       .addItem('Cleanup Legacy Cache', 'cleanupLegacyCacheMenu') // Wrapper
       // .addItem('Update Form From Points Reference', 'updateFormMenu') // Obsolete - Removed
-      .addItem('Rebuild Dashboard From Form Responses', 'rebuildDashboardMenu') // Wrapper - CAUTION: Check if this logic is still valid/needed without a Form Responses sheet being the primary input
       .addItem('Setup/Update All Triggers', 'setupAllTriggersMenu') // Wrapper
       .addItem('Debug: Calculate Streaks', 'debugStreakCalculationMenu') // Wrapper
       )

@@ -109,5 +109,4 @@ Use Admin interface to add/edit/delete categories - automatically updates valida
 
 ### Troubleshooting
 - Check Apps Script logs (View > Logs) for errors
-- Use "Rebuild Dashboard From Form Responses" if data gets corrupted
 - Clear cache by editing Points Reference sheet or calling `resetActivityDataCache()`
